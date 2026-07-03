@@ -72,7 +72,9 @@ public class VinhaController {
         for (Parcela p : vinha.getParcelas()) {
             p.setVinha(vinha);
         }
-        if (result.hasErrors()) {
+        String duplicada = validarParcelasDuplicadas(vinha);
+        if (result.hasErrors() || duplicada != null) {
+            if (duplicada != null) model.addAttribute("erroParcela", duplicada);
             preencherOpcoes(model);
             return "fichas/vinhas/form";
         }
@@ -98,12 +100,27 @@ public class VinhaController {
             Parcela p = it.next();
             boolean semId = p.getIdentificacao() == null || p.getIdentificacao().isBlank();
             boolean semCasta = p.getCasta() == null || p.getCasta().getId() == null;
-            boolean semArea = p.getAreaHa() == null;
-            boolean semAno = p.getAnoPlantacao() == null;
-            if (semId && semCasta && semArea && semAno) {
+            if (semId && semCasta) {
                 it.remove();
             }
         }
+    }
+
+    /**
+     * Nao pode existir a mesma identificacao com a mesma casta (mas pode a mesma
+     * identificacao com castas diferentes). Devolve a mensagem de erro ou null.
+     */
+    private String validarParcelasDuplicadas(Vinha vinha) {
+        java.util.Set<String> vistas = new java.util.HashSet<>();
+        for (Parcela p : vinha.getParcelas()) {
+            if (p.getIdentificacao() == null || p.getIdentificacao().isBlank() || p.getCasta() == null) continue;
+            String chave = p.getIdentificacao().trim().toLowerCase() + "|" + p.getCasta().getId();
+            if (!vistas.add(chave)) {
+                return "A parcela \"" + p.getIdentificacao() + "\" com a casta \""
+                        + p.getCasta().getNome() + "\" já foi lançada.";
+            }
+        }
+        return null;
     }
 
     /** Substitui as castas "leves" (so com id) pelas entidades geridas. */

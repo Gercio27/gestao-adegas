@@ -32,15 +32,28 @@
             <div class="card shadow-sm"><div class="card-header bg-white fw-bold">Parcelas</div>
                 <div class="table-responsive">
                     <table class="table mb-0">
-                        <thead><tr><th>Identificação</th><th>Casta</th><th class="text-end">Área (ha)</th><th class="text-end">Ano plantação</th></tr></thead>
+                        <thead><tr>
+                            <th>Ident. / SIVV</th><th>Nome</th><th>Casta</th><th>Concelho</th><th>Freguesia</th><th>Região</th>
+                            <th>Tipo cultura</th><th class="text-end">Ano</th><th class="text-end">Área (ha)</th>
+                            <th class="text-end">Área enq.</th><th>Tipo</th><th>Últ. atual.</th><th>Observação</th>
+                        </tr></thead>
                         <tbody>
                         <tr th:each="p : ${vinha.parcelas}">
                             <td th:text="${p.identificacao}"></td>
+                            <td th:text="${p.nome ?: '—'}"></td>
                             <td th:text="${p.casta != null ? p.casta.nome : '—'}"></td>
-                            <td class="text-end" th:text="${p.areaHa}"></td>
+                            <td th:text="${p.concelho ?: '—'}"></td>
+                            <td th:text="${p.freguesia ?: '—'}"></td>
+                            <td th:text="${p.regiao ?: '—'}"></td>
+                            <td th:text="${p.tipoCultura ?: '—'}"></td>
                             <td class="text-end" th:text="${p.anoPlantacao ?: '—'}"></td>
+                            <td class="text-end" th:text="${p.areaHa}"></td>
+                            <td class="text-end" th:text="${p.areaEnqLegal ?: '—'}"></td>
+                            <td th:text="${p.tipo ?: '—'}"></td>
+                            <td th:text="${p.dataUltimaAtualizacao != null ? #temporals.format(p.dataUltimaAtualizacao,'dd-MM-yyyy') : '—'}"></td>
+                            <td class="small" th:text="${p.observacao ?: '—'}"></td>
                         </tr>
-                        <tr th:if="${vinha.parcelas.isEmpty()}"><td colspan="4" class="text-muted text-center py-3">Sem parcelas.</td></tr>
+                        <tr th:if="${vinha.parcelas.isEmpty()}"><td colspan="13" class="text-muted text-center py-3">Sem parcelas.</td></tr>
                         </tbody>
                     </table>
                 </div>
