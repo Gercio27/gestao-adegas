@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="pt">
+<head th:replace="~{fragments/layout :: head('Rotulagem')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0">
+            <i class="bi bi-tags"></i>
+            <span class="codigo" th:text="${rotulagem.codigo}"></span>
+            <span th:if="${rotulagem.aberto}" class="badge bg-warning text-dark align-middle">Aberto</span>
+            <span th:unless="${rotulagem.aberto}" class="badge bg-success align-middle">Fechado</span>
+        </h3>
+        <div>
+            <a th:if="${rotulagem.aberto}" th:href="@{/processos/rotulagem/{id}/editar(id=${rotulagem.id})}"
+               class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</a>
+            <form th:if="${rotulagem.aberto}" th:action="@{/processos/rotulagem/{id}/fechar(id=${rotulagem.id})}"
+                  method="post" class="d-inline"
+                  onsubmit="return confirm('Fechar? Dá baixa de rótulos/cápsulas/caixas e marca o vinho como rotulado.');">
+                <button class="btn btn-success"><i class="bi bi-lock"></i> Fechar (rotular)</button>
+            </form>
+            <form sec:authorize="hasRole('ADMIN')" th:unless="${rotulagem.aberto}"
+                  th:action="@{/processos/rotulagem/{id}/reabrir(id=${rotulagem.id})}" method="post" class="d-inline"
+                  onsubmit="return confirm('Reabrir? Repõe os stocks e o vinho deixa de estar rotulado.');">
+                <button class="btn btn-outline-warning"><i class="bi bi-unlock"></i> Reabrir</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Vinho engarrafado</dt>
+            <dd class="col-sm-9" th:text="${rotulagem.engarrafado != null ? (rotulagem.engarrafado.codigo + ' · ' + rotulagem.engarrafado.nome) : '—'}"></dd>
+            <dt class="col-sm-3">Garrafas rotuladas</dt><dd class="col-sm-9" th:text="${rotulagem.numeroGarrafas}"></dd>
+            <dt class="col-sm-3">Rótulos</dt><dd class="col-sm-9">
+                <span th:text="${rotulagem.numeroRotulos}"></span> ×
+                <span th:text="${rotulagem.rotulo != null ? rotulagem.rotulo.descricao : '—'}"></span></dd>
+            <dt class="col-sm-3">Cápsulas</dt><dd class="col-sm-9">
+                <span th:text="${rotulagem.numeroCapsulas}"></span> ×
+                <span th:text="${rotulagem.capsula != null ? rotulagem.capsula.descricao : '—'}"></span></dd>
+            <dt class="col-sm-3">Caixas</dt><dd class="col-sm-9">
+                <span th:text="${rotulagem.numeroCaixas}"></span> ×
+                <span th:text="${rotulagem.caixa != null ? rotulagem.caixa.descricao : '—'}"></span></dd>
+            <dt class="col-sm-3">Responsável</dt><dd class="col-sm-9" th:text="${rotulagem.responsavel != null ? rotulagem.responsavel.nome : '—'}"></dd>
+            <dt class="col-sm-3">Início</dt><dd class="col-sm-9" th:text="${rotulagem.dataHoraInicio != null ? #temporals.format(rotulagem.dataHoraInicio,'dd-MM-yyyy HH:mm') : '—'}"></dd>
+            <dt class="col-sm-3">Meios</dt><dd class="col-sm-9" th:text="${rotulagem.meios ?: '—'}"></dd>
+            <dt class="col-sm-3">Métodos</dt><dd class="col-sm-9" th:text="${rotulagem.metodos ?: '—'}"></dd>
+            <dt class="col-sm-3">Observações</dt><dd class="col-sm-9" th:text="${rotulagem.observacoes ?: '—'}"></dd>
+        </dl>
+    </div></div>
+
+    <div class="mt-3">
+        <a th:href="@{/processos/rotulagem}" class="btn btn-link">&larr; Voltar</a>
+        <a th:href="@{/produtos/engarrafados}" class="btn btn-link">Ver produtos acabados &rarr;</a>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

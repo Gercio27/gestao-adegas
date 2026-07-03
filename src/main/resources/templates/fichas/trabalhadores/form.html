@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Trabalhador')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-3" th:text="${trabalhador.id == null} ? 'Novo trabalhador' : 'Editar trabalhador'">Trabalhador</h3>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/fichas/trabalhadores}" th:object="${trabalhador}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="col-md-3" th:if="${trabalhador.codigo != null}">
+                <label class="form-label">Código</label>
+                <input class="form-control" th:value="*{codigo}" disabled>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Nome *</label>
+                <input type="text" class="form-control" th:field="*{nome}" required>
+                <div class="text-danger small" th:if="${#fields.hasErrors('nome')}" th:errors="*{nome}"></div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Função</label>
+                <input type="text" class="form-control" th:field="*{funcao}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Contacto</label>
+                <input type="text" class="form-control" th:field="*{contacto}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">NIF</label>
+                <input type="text" class="form-control" th:field="*{nif}">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" th:field="*{ativo}" id="ativo">
+                    <label class="form-check-label" for="ativo">Ativo</label>
+                </div>
+            </div>
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/fichas/trabalhadores}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="'Etiqueta ' + ${codigo}">Etiqueta</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; margin: 0; padding: 20px; background:#f0f0f0; }
+        .barra { max-width: 420px; margin: 0 auto 12px; text-align: right; }
+        .btn { background:#6b1f2a; color:#fff; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; font-size:14px; text-decoration:none; }
+        .btn.sec { background:#666; }
+        .etiqueta {
+            width: 420px; margin: 0 auto; background:#fff; border:2px solid #6b1f2a; border-radius:8px;
+            padding: 18px 20px;
+        }
+        .cab { display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #6b1f2a; padding-bottom:8px; margin-bottom:10px; }
+        .cab .empresa { font-size:11px; color:#6b1f2a; font-weight:bold; }
+        .cab .tipo { font-size:13px; background:#6b1f2a; color:#fff; padding:2px 10px; border-radius:12px; }
+        .codigo { font-family: monospace; font-size:28px; font-weight:bold; color:#6b1f2a; letter-spacing:1px; }
+        .ident { font-size:18px; margin:2px 0 10px; }
+        table { width:100%; border-collapse:collapse; }
+        td { padding:4px 2px; font-size:14px; border-bottom:1px dotted #ddd; }
+        td.l { color:#666; width:45%; }
+        td.v { font-weight:600; text-align:right; }
+        .conteudo { margin-top:10px; font-size:13px; }
+        .conteudo .item { background:#f7f4f2; border-radius:4px; padding:4px 8px; margin-top:4px; }
+        @media print { .barra { display:none; } body { background:#fff; padding:0; } .etiqueta { border-width:2px; } }
+    </style>
+</head>
+<body>
+<div class="barra">
+    <button class="btn" onclick="window.print()">Imprimir / Guardar PDF</button>
+    <a class="btn sec" href="javascript:history.back()">Voltar</a>
+</div>
+
+<div class="etiqueta">
+    <div class="cab">
+        <span class="empresa">ACV · Vinhos de Talha</span>
+        <span class="tipo" th:text="${tipo}">Talha</span>
+    </div>
+    <div class="codigo" th:text="${codigo}">TLH-000001</div>
+    <div class="ident" th:text="${identificacao}">Identificação</div>
+
+    <table>
+        <tr><td class="l">Adega</td><td class="v" th:text="${adega ?: '—'}">—</td></tr>
+        <tr><td class="l">Capacidade</td><td class="v"><span th:text="${capacidade ?: '—'}"></span> L</td></tr>
+        <tr><td class="l">Volume atual</td><td class="v"><span th:text="${volume}"></span> L</td></tr>
+        <tr><td class="l">Propriedade</td><td class="v" th:text="${propriedade}">Próprio</td></tr>
+    </table>
+
+    <div class="conteudo" th:if="${!conteudos.isEmpty()}">
+        <strong>Conteúdo:</strong>
+        <div class="item" th:each="m : ${conteudos}">
+            <span class="codigo" style="font-size:14px;" th:text="${m.codigo}"></span>
+            · <span th:text="${m.estado.descricao}"></span>
+            · <span th:text="${m.litros}"></span> L
+            <span th:if="${m.casta != null}" th:text="'· ' + ${m.casta.nome}"></span>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

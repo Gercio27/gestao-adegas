@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Trabalhadores')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0"><i class="bi bi-people"></i> Trabalhadores</h3>
+        <a th:href="@{/fichas/trabalhadores/novo}" class="btn text-white" style="background-color:#6b1f2a;">
+            <i class="bi bi-plus-lg"></i> Novo trabalhador
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Código</th><th>Nome</th><th>Função</th><th>Contacto</th><th>Ativo</th><th class="text-end">Ações</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="t : ${trabalhadores}">
+                    <td><span class="codigo" th:text="${t.codigo}"></span></td>
+                    <td th:text="${t.nome}"></td>
+                    <td th:text="${t.funcao}"></td>
+                    <td th:text="${t.contacto}"></td>
+                    <td>
+                        <span th:if="${t.ativo}" class="badge bg-success">Sim</span>
+                        <span th:unless="${t.ativo}" class="badge bg-secondary">Não</span>
+                    </td>
+                    <td class="text-end">
+                        <a th:href="@{/fichas/trabalhadores/{id}/editar(id=${t.id})}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form th:action="@{/fichas/trabalhadores/{id}/eliminar(id=${t.id})}" method="post" class="d-inline"
+                              onsubmit="return confirm('Eliminar este trabalhador?');">
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${trabalhadores.isEmpty()}"><td colspan="6" class="text-center text-muted py-4">Sem trabalhadores registados.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

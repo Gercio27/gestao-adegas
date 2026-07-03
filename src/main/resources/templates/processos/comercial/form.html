@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Comercial')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-1" th:text="${comercial.id == null} ? 'Nova entrega ao comercial' : 'Editar entrega'">Comercial</h3>
+    <p class="text-muted">Fase 8. Ao <strong>fechar</strong>, dá baixa das garrafas disponíveis e emite a Nota de Entrega.</p>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/processos/comercial}" th:object="${comercial}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="col-md-3" th:if="${comercial.codigo != null}">
+                <label class="form-label">Código</label>
+                <input class="form-control" th:value="*{codigo}" disabled>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Vinho engarrafado (rotulado) *</label>
+                <select class="form-select" th:field="*{engarrafado}" required>
+                    <option th:value="${null}">—</option>
+                    <option th:each="v : ${engarrafados}" th:value="${v.id}"
+                            th:text="${v.codigo} + ' · ' + ${v.nome} + ' · disponíveis: ' + ${v.disponiveis}"></option>
+                </select>
+                <div class="form-text" th:if="${engarrafados.isEmpty()}">Não há vinhos rotulados. Faça a rotulagem (Fase 7).</div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Garrafas a entregar *</label>
+                <input type="number" min="1" class="form-control" th:field="*{quantidadeGarrafas}" required>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Destinatário (cliente)</label>
+                <input type="text" class="form-control" th:field="*{destinatario}">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Morada de destino</label>
+                <input type="text" class="form-control" th:field="*{moradaDestino}">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Responsável</label>
+                <select class="form-select" th:field="*{responsavel}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"></option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Início</label>
+                <input type="datetime-local" class="form-control" th:field="*{dataHoraInicio}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Meios / métodos</label>
+                <input type="text" class="form-control" th:field="*{meios}">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Observações</label>
+                <textarea class="form-control" th:field="*{observacoes}" rows="2"></textarea>
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/processos/comercial}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

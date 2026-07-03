@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Remontagem')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-1" th:text="${remontagem.id == null} ? 'Nova remontagem' : 'Editar remontagem'">Remontagem</h3>
+    <p class="text-muted">Fase 4 — Remontagem. Pode indicar <strong>várias talhas/cubas de uma vez</strong>.</p>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/processos/remontagem}" th:object="${remontagem}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="col-md-3" th:if="${remontagem.codigo != null}">
+                <label class="form-label">Código</label>
+                <input class="form-control" th:value="*{codigo}" disabled>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Responsável</label>
+                <select class="form-select" th:field="*{responsavel}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"></option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Início</label>
+                <input type="datetime-local" class="form-control" th:field="*{dataHoraInicio}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Fim</label>
+                <input type="datetime-local" class="form-control" th:field="*{dataHoraFim}">
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Talhas/cubas intervencionadas</label>
+                <select class="form-select" th:field="*{recipienteRefs}" multiple size="8">
+                    <option th:each="r : ${recipientes}" th:value="${r.ref}" th:text="${r.label}"></option>
+                </select>
+                <div class="form-text">Segure Ctrl (⌘ no Mac) para selecionar várias.</div>
+                <div class="mt-1" th:if="${remontagem.recipientes != null}">
+                    <span class="text-muted small">Atual: </span><span class="small" th:text="${remontagem.recipientes}"></span>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="row g-3">
+                    <div class="col-12">
+                        <label class="form-label">Meios utilizados</label>
+                        <input type="text" class="form-control" th:field="*{meios}">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Métodos utilizados</label>
+                        <input type="text" class="form-control" th:field="*{metodos}">
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Observações</label>
+                        <textarea class="form-control" th:field="*{observacoes}" rows="2"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/processos/remontagem}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

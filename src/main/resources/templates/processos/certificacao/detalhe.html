@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="pt">
+<head th:replace="~{fragments/layout :: head('Certificação')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0">
+            <i class="bi bi-patch-check"></i>
+            <span class="codigo" th:text="${cert.codigo}"></span>
+            <span th:if="${cert.aberto}" class="badge bg-warning text-dark align-middle">Aberto</span>
+            <span th:unless="${cert.aberto}" class="badge bg-success align-middle">Fechado</span>
+        </h3>
+        <div>
+            <a th:if="${cert.aberto}" th:href="@{/processos/certificacao/{id}/editar(id=${cert.id})}"
+               class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</a>
+            <form th:if="${cert.aberto}" th:action="@{/processos/certificacao/{id}/fechar(id=${cert.id})}"
+                  method="post" class="d-inline"
+                  onsubmit="return confirm('Fechar? O resultado será registado no produto.');">
+                <button class="btn btn-success"><i class="bi bi-lock"></i> Fechar</button>
+            </form>
+            <form sec:authorize="hasRole('ADMIN')" th:unless="${cert.aberto}"
+                  th:action="@{/processos/certificacao/{id}/reabrir(id=${cert.id})}" method="post" class="d-inline">
+                <button class="btn btn-outline-warning"><i class="bi bi-unlock"></i> Reabrir</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Alvo</dt><dd class="col-sm-9" th:text="${cert.alvo.descricao}"></dd>
+            <dt class="col-sm-3">Produto</dt><dd class="col-sm-9" th:text="${cert.alvoDescricao}"></dd>
+            <dt class="col-sm-3">Entidade</dt><dd class="col-sm-9" th:text="${cert.entidade ?: '—'}"></dd>
+            <dt class="col-sm-3">Data do pedido</dt><dd class="col-sm-9" th:text="${cert.dataPedido != null ? #temporals.format(cert.dataPedido,'dd-MM-yyyy') : '—'}"></dd>
+            <dt class="col-sm-3">Nº certificado</dt><dd class="col-sm-9" th:text="${cert.numeroCertificado ?: '—'}"></dd>
+            <dt class="col-sm-3">Resultado</dt>
+            <dd class="col-sm-9">
+                <span class="badge"
+                      th:classappend="${cert.resultado.name() == 'APROVADO'} ? 'bg-success' : (${cert.resultado.name() == 'REPROVADO'} ? 'bg-danger' : 'bg-secondary')"
+                      th:text="${cert.resultado.descricao}"></span>
+            </dd>
+            <dt class="col-sm-3">Data do resultado</dt><dd class="col-sm-9" th:text="${cert.dataResultado != null ? #temporals.format(cert.dataResultado,'dd-MM-yyyy') : '—'}"></dd>
+            <dt class="col-sm-3">Validade</dt><dd class="col-sm-9" th:text="${cert.validade != null ? #temporals.format(cert.validade,'dd-MM-yyyy') : '—'}"></dd>
+            <dt class="col-sm-3">Responsável</dt><dd class="col-sm-9" th:text="${cert.responsavel != null ? cert.responsavel.nome : '—'}"></dd>
+            <dt class="col-sm-3">Observações</dt><dd class="col-sm-9" th:text="${cert.observacoes ?: '—'}"></dd>
+        </dl>
+    </div></div>
+
+    <a th:href="@{/processos/certificacao}" class="btn btn-link mt-3">&larr; Voltar</a>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

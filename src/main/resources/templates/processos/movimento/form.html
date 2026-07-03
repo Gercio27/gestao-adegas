@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Movimento de mosto')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-1" th:text="${mov.id == null} ? 'Novo movimento de mosto' : 'Editar movimento'">Movimento</h3>
+    <p class="text-muted">Fase 4.7 (entrada) / 4.8 (saída). Ao <strong>fechar</strong>, aplica o movimento e emite o DA.</p>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/processos/movimento-mosto}" th:object="${mov}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="col-md-3" th:if="${mov.codigo != null}">
+                <label class="form-label">Código</label>
+                <input class="form-control" th:value="*{codigo}" disabled>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Tipo *</label>
+                <select class="form-select" th:field="*{tipo}" onchange="toggleTipo(this.value)">
+                    <option th:each="t : ${tipos}" th:value="${t}" th:text="${t.descricao}"></option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Litros *</label>
+                <input type="number" step="0.01" min="0" class="form-control" th:field="*{litros}" required>
+            </div>
+
+            <!-- ENTRADA -->
+            <div class="col-md-6" id="grpDestino">
+                <label class="form-label">Recipiente de destino</label>
+                <select class="form-select" th:field="*{destinoRef}">
+                    <option value="">—</option>
+                    <option th:each="r : ${recipientes}" th:value="${r.ref}" th:text="${r.label}"></option>
+                </select>
+            </div>
+            <div class="col-md-6" id="grpCasta">
+                <label class="form-label">Casta</label>
+                <select class="form-select" th:field="*{casta}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
+                </select>
+            </div>
+
+            <!-- SAIDA -->
+            <div class="col-md-12" id="grpMostoOrigem">
+                <label class="form-label">Mosto a dar saída</label>
+                <select class="form-select" th:field="*{mostoOrigem}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="m : ${mostos}" th:value="${m.id}"
+                            th:text="${m.codigo} + ' · ' + ${m.localizacao} + ' · ' + ${m.litros} + ' L'"></option>
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label"><span id="lblContraparte">Fornecedor / Cliente</span></label>
+                <input type="text" class="form-control" th:field="*{contraparte}">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Transporte</label>
+                <input type="text" class="form-control" th:field="*{transporte}">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Responsável</label>
+                <select class="form-select" th:field="*{responsavel}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"></option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Início</label>
+                <input type="datetime-local" class="form-control" th:field="*{dataHoraInicio}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Observações</label>
+                <input type="text" class="form-control" th:field="*{observacoes}">
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/processos/movimento-mosto}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script>
+    function toggleTipo(v) {
+        var entrada = (v === 'ENTRADA');
+        document.getElementById('grpDestino').style.display = entrada ? '' : 'none';
+        document.getElementById('grpCasta').style.display = entrada ? '' : 'none';
+        document.getElementById('grpMostoOrigem').style.display = entrada ? 'none' : '';
+        document.getElementById('lblContraparte').textContent = entrada ? 'Fornecedor' : 'Cliente';
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        toggleTipo(document.querySelector('[name=tipo]').value);
+    });
+</script>
+</body>
+</html>

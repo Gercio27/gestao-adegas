@@ -1,0 +1,9 @@
+target/
+java/
+.claude/
+*.class
+.idea/
+*.iml
+.vscode/
+.DS_Store
+*.log

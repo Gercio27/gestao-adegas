@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="pt">
+<head th:replace="~{fragments/layout :: head('Vindima')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0">
+            <i class="bi bi-basket"></i>
+            <span class="codigo" th:text="${vindima.codigo}"></span>
+            <span th:if="${vindima.aberto}" class="badge bg-warning text-dark align-middle">Aberto</span>
+            <span th:unless="${vindima.aberto}" class="badge bg-success align-middle">Fechado</span>
+        </h3>
+        <div>
+            <a th:if="${vindima.aberto}" th:href="@{/processos/vindima/{id}/editar(id=${vindima.id})}"
+               class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</a>
+
+            <form th:if="${vindima.aberto}" th:action="@{/processos/vindima/{id}/fechar(id=${vindima.id})}"
+                  method="post" class="d-inline" onsubmit="return confirm('Fechar este processo? Depois de fechado não é editável.');">
+                <button class="btn btn-success"><i class="bi bi-lock"></i> Fechar processo</button>
+            </form>
+
+            <form sec:authorize="hasRole('ADMIN')" th:unless="${vindima.aberto}"
+                  th:action="@{/processos/vindima/{id}/reabrir(id=${vindima.id})}" method="post" class="d-inline">
+                <button class="btn btn-outline-warning"><i class="bi bi-unlock"></i> Reabrir</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-7">
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-white fw-bold">Colheita e origem</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Origem da uva</dt><dd class="col-sm-8" th:text="${vindima.origem.descricao}"></dd>
+                        <dt class="col-sm-4">Vinha</dt>
+                        <dd class="col-sm-8">
+                            <span th:text="${vindima.vinha != null ? vindima.vinha.nome : '—'}"></span>
+                            <span th:if="${vindima.vinha != null}" class="text-muted small"
+                                  th:text="'(' + ${vindima.vinha.propriedade.descricao} + ')'"></span>
+                        </dd>
+                        <dt class="col-sm-4">Terceiro</dt><dd class="col-sm-8" th:text="${vindima.terceiro ?: '—'}"></dd>
+                        <dt class="col-sm-4">Casta principal</dt><dd class="col-sm-8" th:text="${vindima.castaPrincipal != null ? vindima.castaPrincipal.nome : '—'}"></dd>
+                        <dt class="col-sm-4">Quantidade</dt><dd class="col-sm-8"><span th:text="${vindima.quantidadeKg}"></span> kg</dd>
+                        <dt class="col-sm-4">Adega de entrega</dt><dd class="col-sm-8" th:text="${vindima.adegaDestino != null ? vindima.adegaDestino.nome : '—'}"></dd>
+                        <dt class="col-sm-4">Vasilame</dt><dd class="col-sm-8" th:text="${vindima.vasilame ?: '—'}"></dd>
+                        <dt class="col-sm-4">Transporte</dt><dd class="col-sm-8" th:text="${vindima.transporte ?: '—'}"></dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="card shadow-sm">
+                <div class="card-header bg-white fw-bold">Execução (quem / quando / como)</div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-4">Responsável</dt><dd class="col-sm-8" th:text="${vindima.responsavel != null ? vindima.responsavel.nome : '—'}"></dd>
+                        <dt class="col-sm-4">Início</dt><dd class="col-sm-8" th:text="${vindima.dataHoraInicio != null ? #temporals.format(vindima.dataHoraInicio,'dd-MM-yyyy HH:mm') : '—'}"></dd>
+                        <dt class="col-sm-4">Fim</dt><dd class="col-sm-8" th:text="${vindima.dataHoraFim != null ? #temporals.format(vindima.dataHoraFim,'dd-MM-yyyy HH:mm') : '—'}"></dd>
+                        <dt class="col-sm-4">Meios</dt><dd class="col-sm-8" th:text="${vindima.meios ?: '—'}"></dd>
+                        <dt class="col-sm-4">Métodos</dt><dd class="col-sm-8" th:text="${vindima.metodos ?: '—'}"></dd>
+                        <dt class="col-sm-4">Observações</dt><dd class="col-sm-8" th:text="${vindima.observacoes ?: '—'}"></dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white fw-bold">Histórico do processo</div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item">
+                        <div class="fw-semibold">Abertura</div>
+                        <div class="small text-muted">
+                            por <span th:text="${vindima.criadoPor}"></span> ·
+                            <span th:text="${#temporals.format(vindima.dataCriacao,'dd-MM-yyyy HH:mm')}"></span>
+                        </div>
+                    </li>
+                    <li class="list-group-item" th:if="${vindima.dataAtualizacao != null}">
+                        <div class="fw-semibold">Última atualização</div>
+                        <div class="small text-muted" th:text="${#temporals.format(vindima.dataAtualizacao,'dd-MM-yyyy HH:mm')}"></div>
+                    </li>
+                    <li class="list-group-item" th:if="${vindima.dataFecho != null}">
+                        <div class="fw-semibold text-success">Fecho</div>
+                        <div class="small text-muted" th:text="${#temporals.format(vindima.dataFecho,'dd-MM-yyyy HH:mm')}"></div>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <a th:href="@{/processos/vindima}" class="btn btn-link mt-3">&larr; Voltar às vindimas</a>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

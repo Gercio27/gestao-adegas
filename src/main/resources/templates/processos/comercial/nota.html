@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="'Nota de Entrega ' + ${comercial.numeroNota}">Nota de Entrega</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; color: #222; margin: 0; padding: 24px; }
+        .folha { max-width: 800px; margin: 0 auto; }
+        .topo { display: flex; justify-content: space-between; border-bottom: 3px solid #6b1f2a; padding-bottom: 12px; }
+        .empresa h1 { color: #6b1f2a; font-size: 20px; margin: 0 0 4px; }
+        .empresa p { margin: 1px 0; font-size: 12px; color: #444; }
+        .doc { text-align: right; }
+        .doc .titulo { font-size: 18px; font-weight: bold; color: #6b1f2a; }
+        .doc .num { font-size: 16px; font-family: monospace; }
+        .doc .data { font-size: 12px; color: #444; }
+        .bloco { margin-top: 22px; }
+        .bloco h3 { font-size: 13px; text-transform: uppercase; color: #6b1f2a; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        th, td { border: 1px solid #ccc; padding: 8px 10px; font-size: 13px; text-align: left; }
+        th { background: #efe7e3; }
+        .assinaturas { display: flex; justify-content: space-between; margin-top: 60px; }
+        .assinaturas div { width: 45%; border-top: 1px solid #333; padding-top: 6px; font-size: 12px; text-align: center; }
+        .rodape { margin-top: 30px; font-size: 11px; color: #666; text-align: center; }
+        .barra-acoes { max-width: 800px; margin: 0 auto 16px; text-align: right; }
+        .btn { background: #6b1f2a; color: #fff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        .btn.sec { background: #666; }
+        @media print { .no-print { display: none !important; } body { padding: 0; } }
+    </style>
+</head>
+<body>
+
+<div class="barra-acoes no-print">
+    <button class="btn" onclick="window.print()">Imprimir / Guardar PDF</button>
+    <a class="btn sec" style="text-decoration:none;" th:href="@{/processos/comercial/{id}(id=${comercial.id})}">Voltar</a>
+</div>
+
+<div class="folha">
+    <div class="topo">
+        <div class="empresa">
+            <h1>ACV – Produção e Comércio de Vinhos de Talha, Lda</h1>
+            <p>Sede: Rua Frei Amador Arrais, nº 9, loja 4, 7800-491 Beja</p>
+            <p>Adega: Praça 25 de Abril, 12, 7960-421 Vila de Frades</p>
+            <p>Contribuinte: 513 442 340</p>
+        </div>
+        <div class="doc">
+            <div class="titulo">NOTA DE ENTREGA</div>
+            <div class="num" th:text="${comercial.numeroNota}">NE-000001</div>
+            <div class="data" th:text="'Data: ' + ${#temporals.format(comercial.dataFecho != null ? comercial.dataFecho : comercial.dataCriacao,'dd-MM-yyyy HH:mm')}">Data</div>
+        </div>
+    </div>
+
+    <div class="bloco">
+        <h3>Destinatário</h3>
+        <p style="font-size:14px; margin:6px 0;">
+            <strong th:text="${comercial.destinatario ?: '—'}">Cliente</strong><br>
+            <span th:text="${comercial.moradaDestino ?: ''}">Morada</span>
+        </p>
+    </div>
+
+    <div class="bloco">
+        <h3>Produto entregue</h3>
+        <table>
+            <thead><tr><th>Código</th><th>Designação</th><th>Lote</th><th style="text-align:right">Garrafas</th><th style="text-align:right">Capac. (ml)</th></tr></thead>
+            <tbody>
+            <tr>
+                <td th:text="${comercial.engarrafado != null ? comercial.engarrafado.codigo : '—'}">VEG-000001</td>
+                <td th:text="${comercial.engarrafado != null ? comercial.engarrafado.nome : '—'}">Vinho</td>
+                <td th:text="${comercial.engarrafado != null ? (comercial.engarrafado.lote ?: '—') : '—'}">Lote</td>
+                <td style="text-align:right" th:text="${comercial.quantidadeGarrafas}">0</td>
+                <td style="text-align:right" th:text="${comercial.engarrafado != null ? comercial.engarrafado.capacidadeMl : ''}"></td>
+            </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div th:if="${comercial.observacoes != null}" class="bloco">
+        <h3>Observações</h3>
+        <p style="font-size:13px;" th:text="${comercial.observacoes}"></p>
+    </div>
+
+    <div class="assinaturas">
+        <div>O Expedidor</div>
+        <div>O Destinatário</div>
+    </div>
+
+    <div class="rodape">
+        Documento gerado pelo sistema de gestão da adega · Processo <span th:text="${comercial.codigo}"></span>
+    </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Certificação')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-1" th:text="${cert.id == null} ? 'Novo pedido de certificação' : 'Editar certificação'">Certificação</h3>
+    <p class="text-muted">Fase 5.5 (a granel) / 6.4 (engarrafado). Ao <strong>fechar</strong> com resultado <em>Aprovado</em>, o produto fica marcado como certificado.</p>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/processos/certificacao}" th:object="${cert}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="col-md-3" th:if="${cert.codigo != null}">
+                <label class="form-label">Código</label>
+                <input class="form-control" th:value="*{codigo}" disabled>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Alvo *</label>
+                <select class="form-select" th:field="*{alvo}" onchange="toggleAlvo(this.value)">
+                    <option th:each="a : ${alvos}" th:value="${a}" th:text="${a.descricao}"></option>
+                </select>
+            </div>
+            <div class="col-md-6" id="grpGranel">
+                <label class="form-label">Vinho a granel</label>
+                <select class="form-select" th:field="*{vinhoGranel}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="m : ${vinhosGranel}" th:value="${m.id}"
+                            th:text="${m.codigo} + ' · ' + ${m.localizacao} + ' · ' + ${m.litros} + ' L'"></option>
+                </select>
+            </div>
+            <div class="col-md-6" id="grpEngarrafado">
+                <label class="form-label">Vinho engarrafado</label>
+                <select class="form-select" th:field="*{engarrafado}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="v : ${engarrafados}" th:value="${v.id}" th:text="${v.codigo} + ' · ' + ${v.nome}"></option>
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Entidade (IVV / CVR)</label>
+                <input type="text" class="form-control" th:field="*{entidade}" placeholder="Ex.: CVRA">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Data do pedido</label>
+                <input type="date" class="form-control" th:field="*{dataPedido}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Nº de certificado</label>
+                <input type="text" class="form-control" th:field="*{numeroCertificado}">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Resultado</label>
+                <select class="form-select" th:field="*{resultado}">
+                    <option th:each="r : ${resultados}" th:value="${r}" th:text="${r.descricao}"></option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Data do resultado</label>
+                <input type="date" class="form-control" th:field="*{dataResultado}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Validade da certificação</label>
+                <input type="date" class="form-control" th:field="*{validade}">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Responsável</label>
+                <select class="form-select" th:field="*{responsavel}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"></option>
+                </select>
+            </div>
+            <div class="col-md-8">
+                <label class="form-label">Observações</label>
+                <input type="text" class="form-control" th:field="*{observacoes}">
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/processos/certificacao}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script>
+    function toggleAlvo(v) {
+        document.getElementById('grpGranel').style.display = (v === 'GRANEL') ? '' : 'none';
+        document.getElementById('grpEngarrafado').style.display = (v === 'ENGARRAFADO') ? '' : 'none';
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        toggleAlvo(document.querySelector('[name=alvo]').value);
+    });
+</script>
+</body>
+</html>

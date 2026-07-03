@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Vinhas')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0"><i class="bi bi-geo-alt"></i> Vinhas</h3>
+        <a th:href="@{/fichas/vinhas/nova}" class="btn text-white" style="background-color:#6b1f2a;">
+            <i class="bi bi-plus-lg"></i> Nova vinha
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Código</th><th>Nome</th><th>Localização</th><th>Propriedade</th>
+                    <th class="text-end">Parcelas</th><th class="text-end">Área total (ha)</th><th class="text-end">Ações</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="v : ${vinhas}">
+                    <td><span class="codigo" th:text="${v.codigo}"></span></td>
+                    <td><a th:href="@{/fichas/vinhas/{id}(id=${v.id})}" th:text="${v.nome}"></a></td>
+                    <td th:text="${v.localizacao}"></td>
+                    <td>
+                        <span th:text="${v.propriedade.descricao}"></span>
+                        <span th:if="${v.propriedade.name() == 'TERCEIRO'}" class="text-muted small" th:text="'(' + ${v.terceiro} + ')'"></span>
+                    </td>
+                    <td class="text-end" th:text="${v.parcelas.size()}"></td>
+                    <td class="text-end" th:text="${v.areaTotal}"></td>
+                    <td class="text-end">
+                        <a th:href="@{/fichas/vinhas/{id}(id=${v.id})}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+                        <a th:href="@{/fichas/vinhas/{id}/editar(id=${v.id})}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                        <form th:action="@{/fichas/vinhas/{id}/eliminar(id=${v.id})}" method="post" class="d-inline"
+                              onsubmit="return confirm('Eliminar esta vinha?');">
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${vinhas.isEmpty()}"><td colspan="7" class="text-center text-muted py-4">Sem vinhas registadas.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

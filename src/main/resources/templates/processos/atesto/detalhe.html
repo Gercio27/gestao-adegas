@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="pt">
+<head th:replace="~{fragments/layout :: head('Atesto')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0">
+            <i class="bi bi-arrow-left-right"></i>
+            <span class="codigo" th:text="${atesto.codigo}"></span>
+            <span th:if="${atesto.aberto}" class="badge bg-warning text-dark align-middle">Aberto</span>
+            <span th:unless="${atesto.aberto}" class="badge bg-success align-middle">Fechado</span>
+        </h3>
+        <div>
+            <a th:if="${atesto.aberto}" th:href="@{/processos/atesto/{id}/editar(id=${atesto.id})}"
+               class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</a>
+            <form th:if="${atesto.aberto}" th:action="@{/processos/atesto/{id}/fechar(id=${atesto.id})}"
+                  method="post" class="d-inline"
+                  onsubmit="return confirm('Fechar o atesto? Os litros serão transferidos entre os recipientes.');">
+                <button class="btn btn-success"><i class="bi bi-lock"></i> Fechar e transferir</button>
+            </form>
+            <form sec:authorize="hasRole('ADMIN')" th:unless="${atesto.aberto}"
+                  th:action="@{/processos/atesto/{id}/reabrir(id=${atesto.id})}" method="post" class="d-inline"
+                  onsubmit="return confirm('Reabrir? Os volumes serão repostos.');">
+                <button class="btn btn-outline-warning"><i class="bi bi-unlock"></i> Reabrir</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mb-3"><div class="card-body">
+        <div class="row text-center align-items-center">
+            <div class="col-5">
+                <div class="text-muted small">Origem</div>
+                <div class="fs-5 fw-semibold" th:text="${atesto.origemDescricao}"></div>
+            </div>
+            <div class="col-2">
+                <i class="bi bi-arrow-right fs-2 text-muted"></i>
+                <div class="fw-bold"><span th:text="${atesto.litros}"></span> L</div>
+            </div>
+            <div class="col-5">
+                <div class="text-muted small">Destino</div>
+                <div class="fs-5 fw-semibold" th:text="${atesto.destinoDescricao}"></div>
+            </div>
+        </div>
+    </div></div>
+
+    <div class="card shadow-sm"><div class="card-header bg-white fw-bold">Execução</div><div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Responsável</dt><dd class="col-sm-9" th:text="${atesto.responsavel != null ? atesto.responsavel.nome : '—'}"></dd>
+            <dt class="col-sm-3">Início</dt><dd class="col-sm-9" th:text="${atesto.dataHoraInicio != null ? #temporals.format(atesto.dataHoraInicio,'dd-MM-yyyy HH:mm') : '—'}"></dd>
+            <dt class="col-sm-3">Fim</dt><dd class="col-sm-9" th:text="${atesto.dataHoraFim != null ? #temporals.format(atesto.dataHoraFim,'dd-MM-yyyy HH:mm') : '—'}"></dd>
+            <dt class="col-sm-3">Meios</dt><dd class="col-sm-9" th:text="${atesto.meios ?: '—'}"></dd>
+            <dt class="col-sm-3">Métodos</dt><dd class="col-sm-9" th:text="${atesto.metodos ?: '—'}"></dd>
+            <dt class="col-sm-3">Observações</dt><dd class="col-sm-9" th:text="${atesto.observacoes ?: '—'}"></dd>
+            <dt class="col-sm-3">Aberto por</dt><dd class="col-sm-9"><span th:text="${atesto.criadoPor}"></span> · <span th:text="${#temporals.format(atesto.dataCriacao,'dd-MM-yyyy HH:mm')}"></span></dd>
+            <dt class="col-sm-3" th:if="${atesto.dataFecho != null}">Fechado</dt>
+            <dd class="col-sm-9" th:if="${atesto.dataFecho != null}" th:text="${#temporals.format(atesto.dataFecho,'dd-MM-yyyy HH:mm')}"></dd>
+        </dl>
+    </div></div>
+
+    <a th:href="@{/processos/atesto}" class="btn btn-link mt-3">&larr; Voltar aos atestos</a>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

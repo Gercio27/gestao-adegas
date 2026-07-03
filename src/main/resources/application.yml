@@ -1,0 +1,68 @@
+# =====================================================================
+# Configuracao base. Perfil por omissao = "dev" (base de dados H2 em
+# memoria) para poder arrancar a aplicacao SEM instalar MySQL.
+# Para usar MySQL: arrancar com --spring.profiles.active=mysql
+# =====================================================================
+spring:
+  application:
+    name: gestao-adegas
+  profiles:
+    # MySQL e agora a base por omissao. Para arrancar em modo demonstracao
+    # (H2, sem instalar nada) use: --spring.profiles.active=dev
+    active: mysql
+  thymeleaf:
+    cache: false
+
+server:
+  # Em alojamento na internet, a plataforma define a porta na variavel PORT.
+  port: ${PORT:8080}
+
+app:
+  # Utilizador administrador criado no primeiro arranque.
+  # Em producao defina APP_ADMIN_PASSWORD numa variavel de ambiente.
+  admin:
+    username: ${APP_ADMIN_USER:admin}
+    password: ${APP_ADMIN_PASSWORD:admin123}
+    nome: Administrador
+
+---
+# ---------- PERFIL DEV (H2 em memoria) ----------
+spring:
+  config:
+    activate:
+      on-profile: dev
+  datasource:
+    url: jdbc:h2:mem:adega;DB_CLOSE_DELAY=-1;MODE=MySQL
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: true
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+---
+# ---------- PERFIL MYSQL ----------
+spring:
+  config:
+    activate:
+      on-profile: mysql
+  datasource:
+    # LOCAL (XAMPP): usa os valores por omissao (root sem palavra-passe).
+    # ALOJAMENTO: defina as variaveis DB_URL, DB_USER e DB_PASSWORD.
+    url: ${DB_URL:jdbc:mysql://localhost:3306/gestao_adegas?createDatabaseIfNotExist=true&useUnicode=true&characterEncoding=UTF-8&serverTimezone=Europe/Lisbon&allowPublicKeyRetrieval=true&useSSL=false}
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    # O dialeto e detetado automaticamente pelo Hibernate (MySQL 8+).
+    open-in-view: true

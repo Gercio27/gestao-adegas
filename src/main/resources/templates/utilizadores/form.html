@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Utilizador')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-3" th:text="${novo} ? 'Novo utilizador' : 'Editar utilizador'">Utilizador</h3>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/utilizadores}" th:object="${form}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+
+            <div class="col-md-6">
+                <label class="form-label">Utilizador (login) *</label>
+                <input type="text" class="form-control" th:field="*{username}" th:readonly="${!novo}" required>
+                <div class="text-danger small" th:if="${#fields.hasErrors('username')}" th:errors="*{username}"></div>
+                <div class="form-text" th:unless="${novo}">O nome de login não pode ser alterado.</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Nome *</label>
+                <input type="text" class="form-control" th:field="*{nome}" required>
+                <div class="text-danger small" th:if="${#fields.hasErrors('nome')}" th:errors="*{nome}"></div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Perfil</label>
+                <select class="form-select" th:field="*{perfil}">
+                    <option th:each="p : ${perfis}" th:value="${p}" th:text="${p.descricao}"></option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label" th:text="${novo} ? 'Palavra-passe *' : 'Nova palavra-passe'">Palavra-passe</label>
+                <input type="password" class="form-control" th:field="*{password}"
+                       th:required="${novo}" autocomplete="new-password">
+                <div class="text-danger small" th:if="${#fields.hasErrors('password')}" th:errors="*{password}"></div>
+                <div class="form-text" th:unless="${novo}">Deixe em branco para manter a atual.</div>
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" th:field="*{ativo}" id="ativo">
+                    <label class="form-check-label" for="ativo">Conta ativa</label>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/utilizadores}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

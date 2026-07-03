@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="pt">
+<head th:fragment="head(titulo)">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="'ACV Adegas · ' + ${titulo}">ACV Adegas</title>
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%B7%3C/text%3E%3C/svg%3E">
+    <link rel="stylesheet" th:href="@{/webjars/bootstrap/5.3.3/css/bootstrap.min.css}">
+    <link rel="stylesheet" th:href="@{/webjars/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css}">
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+
+<nav th:fragment="navbar" class="navbar navbar-expand-lg navbar-dark mb-4" style="background-color:#6b1f2a;">
+    <div class="container-fluid">
+        <a class="navbar-brand fw-bold" th:href="@{/}">
+            <i class="bi bi-droplet-half"></i> ACV · Vinhos de Talha
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#nav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="nav">
+            <ul class="navbar-nav me-auto">
+                <li class="nav-item"><a class="nav-link" th:href="@{/}">Início</a></li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Fichas</a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" th:href="@{/fichas/castas}">Castas</a></li>
+                        <li><a class="dropdown-item" th:href="@{/fichas/vinhas}">Vinhas</a></li>
+                        <li><a class="dropdown-item" th:href="@{/fichas/trabalhadores}">Trabalhadores</a></li>
+                        <li><a class="dropdown-item" th:href="@{/fichas/adegas}">Adegas</a></li>
+                        <li><a class="dropdown-item" th:href="@{/fichas/talhas}">Talhas</a></li>
+                        <li><a class="dropdown-item" th:href="@{/fichas/depositos}">Depósitos / Cubas</a></li>
+                        <li><a class="dropdown-item" th:href="@{/fichas/consumiveis}">Consumíveis (garrafas, rolhas…)</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><h6 class="dropdown-header">Produtos</h6></li>
+                        <li><a class="dropdown-item" th:href="@{/produtos/mostos}">Mostos</a></li>
+                        <li><a class="dropdown-item" th:href="@{/produtos/mostos/vinhos-granel}">Vinhos a granel</a></li>
+                        <li><a class="dropdown-item" th:href="@{/produtos/engarrafados}">Vinhos engarrafados</a></li>
+                        <li><a class="dropdown-item" th:href="@{/produtos/lotes}">Lotes</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">Processos</a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" th:href="@{/processos/maturacao}">Fase 1 — Análise à maturação</a></li>
+                        <li><a class="dropdown-item" th:href="@{/planeamento}">Fase 1 — Planeamento dos vinhos</a></li>
+                        <li><a class="dropdown-item" th:href="@{/processos/vindima}">Fase 2 — Vindima</a></li>
+                        <li><a class="dropdown-item" th:href="@{/processos/moagem}">Fase 3 — Moagem</a></li>
+                        <li><h6 class="dropdown-header">Fase 4 — Fermentação</h6></li>
+                        <li><a class="dropdown-item" th:href="@{/processos/remontagem}">Remontagens</a></li>
+                        <li><a class="dropdown-item" th:href="@{/processos/atesto}">Atestos</a></li>
+                        <li><a class="dropdown-item" th:href="@{/processos/movimento-mosto}">Entradas/Saídas de mosto (DA)</a></li>
+                        <li><a class="dropdown-item" th:href="@{/processos/passagem-vinho}">O vinho está pronto (a granel)</a></li>
+                        <li><a class="dropdown-item" th:href="@{/processos/certificacao}">Fase 5 — Certificação</a></li>
+                        <li><a class="dropdown-item" th:href="@{/processos/engarrafamento}">Fase 6 — Engarrafamento</a></li>
+                        <li><a class="dropdown-item" th:href="@{/processos/rotulagem}">Fase 7 — Rotulagem/embalamento</a></li>
+                        <li><a class="dropdown-item" th:href="@{/processos/comercial}">Fase 8 — Comercial / Nota de entrega</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item"><a class="nav-link" th:href="@{/listagens}">Listagens</a></li>
+                <li class="nav-item" sec:authorize="hasRole('ADMIN')">
+                    <a class="nav-link" th:href="@{/utilizadores}"><i class="bi bi-person-gear"></i> Utilizadores</a>
+                </li>
+            </ul>
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" th:href="@{/guia}" title="Guia de utilizador"><i class="bi bi-question-circle"></i> Ajuda</a>
+                </li>
+                <li class="nav-item">
+                    <span class="navbar-text text-white me-3">
+                        <i class="bi bi-person-circle"></i>
+                        <span sec:authentication="name">utilizador</span>
+                    </span>
+                </li>
+                <li class="nav-item">
+                    <form th:action="@{/logout}" method="post" class="d-inline">
+                        <button class="btn btn-sm btn-outline-light" type="submit">Sair</button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+
+<!-- Mensagens flash -->
+<div th:fragment="mensagens" class="container">
+    <div th:if="${sucesso}" class="alert alert-success alert-dismissible fade show" role="alert">
+        <span th:text="${sucesso}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <div th:if="${erro}" class="alert alert-danger alert-dismissible fade show" role="alert">
+        <span th:text="${erro}"></span>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+</div>
+
+<div th:fragment="scripts">
+    <footer class="mt-5 py-4" style="background:#3a2c29; color:#e8ddd8;">
+        <div class="container small">
+            <div class="row">
+                <div class="col-md-7">
+                    <div class="fw-bold" style="color:#fff;">ACV – Produção e Comércio de Vinhos de Talha, Lda</div>
+                    <div>Sede: Rua Frei Amador Arrais, nº 9, loja 4, 7800-491 Beja</div>
+                    <div>Adega: Praça 25 de Abril, 12, 7960-421 Vila de Frades · Contribuinte: 513 442 340</div>
+                </div>
+                <div class="col-md-5 text-md-end mt-2 mt-md-0" style="color:#b9a49c;">
+                    Software de gestão de pequenas adegas · Da vinha ao produto acabado
+                </div>
+            </div>
+        </div>
+    </footer>
+    <script th:src="@{/webjars/bootstrap/5.3.3/js/bootstrap.bundle.min.js}"></script>
+</div>
+
+</body>
+</html>

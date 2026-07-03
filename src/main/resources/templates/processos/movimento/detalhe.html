@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="pt">
+<head th:replace="~{fragments/layout :: head('Movimento de mosto')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0">
+            <i class="bi bi-box-arrow-in-down"></i>
+            <span class="codigo" th:text="${mov.codigo}"></span>
+            <span th:if="${mov.aberto}" class="badge bg-warning text-dark align-middle">Aberto</span>
+            <span th:unless="${mov.aberto}" class="badge bg-success align-middle">Fechado</span>
+        </h3>
+        <div>
+            <a th:if="${mov.numeroDA != null}" th:href="@{/processos/movimento-mosto/{id}/da(id=${mov.id})}" target="_blank"
+               class="btn btn-dark"><i class="bi bi-printer"></i> DA</a>
+            <a th:if="${mov.aberto}" th:href="@{/processos/movimento-mosto/{id}/editar(id=${mov.id})}"
+               class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</a>
+            <form th:if="${mov.aberto}" th:action="@{/processos/movimento-mosto/{id}/fechar(id=${mov.id})}"
+                  method="post" class="d-inline"
+                  onsubmit="return confirm('Fechar? Aplica o movimento e emite o DA.');">
+                <button class="btn btn-success"><i class="bi bi-lock"></i> Fechar e emitir DA</button>
+            </form>
+            <form sec:authorize="hasRole('ADMIN')" th:unless="${mov.aberto}"
+                  th:action="@{/processos/movimento-mosto/{id}/reabrir(id=${mov.id})}" method="post" class="d-inline"
+                  onsubmit="return confirm('Reabrir? Os efeitos serão revertidos.');">
+                <button class="btn btn-outline-warning"><i class="bi bi-unlock"></i> Reabrir</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">DA</dt><dd class="col-sm-9"><span class="codigo" th:text="${mov.numeroDA ?: '(emitido ao fechar)'}"></span></dd>
+            <dt class="col-sm-3">Tipo</dt><dd class="col-sm-9" th:text="${mov.tipo.descricao}"></dd>
+            <dt class="col-sm-3">Litros</dt><dd class="col-sm-9"><span th:text="${mov.litros}"></span> L</dd>
+            <dt class="col-sm-3" th:if="${mov.tipo.name() == 'ENTRADA'}">Destino</dt>
+            <dd class="col-sm-9" th:if="${mov.tipo.name() == 'ENTRADA'}" th:text="${mov.destinoDescricao}"></dd>
+            <dt class="col-sm-3" th:if="${mov.tipo.name() == 'ENTRADA'}">Casta</dt>
+            <dd class="col-sm-9" th:if="${mov.tipo.name() == 'ENTRADA'}" th:text="${mov.casta != null ? mov.casta.nome : '—'}"></dd>
+            <dt class="col-sm-3" th:if="${mov.tipo.name() == 'SAIDA'}">Mosto de origem</dt>
+            <dd class="col-sm-9" th:if="${mov.tipo.name() == 'SAIDA'}" th:text="${mov.mostoOrigem != null ? mov.mostoOrigem.codigo : '—'}"></dd>
+            <dt class="col-sm-3">Contraparte</dt><dd class="col-sm-9" th:text="${mov.contraparte ?: '—'}"></dd>
+            <dt class="col-sm-3">Transporte</dt><dd class="col-sm-9" th:text="${mov.transporte ?: '—'}"></dd>
+            <dt class="col-sm-3">Responsável</dt><dd class="col-sm-9" th:text="${mov.responsavel != null ? mov.responsavel.nome : '—'}"></dd>
+            <dt class="col-sm-3">Observações</dt><dd class="col-sm-9" th:text="${mov.observacoes ?: '—'}"></dd>
+        </dl>
+    </div></div>
+
+    <a th:href="@{/processos/movimento-mosto}" class="btn btn-link mt-3">&larr; Voltar</a>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

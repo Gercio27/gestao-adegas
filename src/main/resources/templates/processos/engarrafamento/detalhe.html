@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="pt">
+<head th:replace="~{fragments/layout :: head('Engarrafamento')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0">
+            <i class="bi bi-droplet-half"></i>
+            <span class="codigo" th:text="${engarrafamento.codigo}"></span>
+            <span th:if="${engarrafamento.aberto}" class="badge bg-warning text-dark align-middle">Aberto</span>
+            <span th:unless="${engarrafamento.aberto}" class="badge bg-success align-middle">Fechado</span>
+        </h3>
+        <div>
+            <a th:if="${engarrafamento.aberto}" th:href="@{/processos/engarrafamento/{id}/editar(id=${engarrafamento.id})}"
+               class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</a>
+            <form th:if="${engarrafamento.aberto}" th:action="@{/processos/engarrafamento/{id}/fechar(id=${engarrafamento.id})}"
+                  method="post" class="d-inline"
+                  onsubmit="return confirm('Fechar? Vai dar baixa do vinho a granel, garrafas e rolhas, e criar o vinho engarrafado.');">
+                <button class="btn btn-success"><i class="bi bi-lock"></i> Fechar e engarrafar</button>
+            </form>
+            <form sec:authorize="hasRole('ADMIN')" th:unless="${engarrafamento.aberto}"
+                  th:action="@{/processos/engarrafamento/{id}/reabrir(id=${engarrafamento.id})}" method="post" class="d-inline"
+                  onsubmit="return confirm('Reabrir? Repõe vinho, garrafas e rolhas e anula o engarrafado.');">
+                <button class="btn btn-outline-warning"><i class="bi bi-unlock"></i> Reabrir</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="row g-3">
+        <div class="col-md-7">
+            <div class="card shadow-sm"><div class="card-header bg-white fw-bold">Engarrafamento</div><div class="card-body">
+                <dl class="row mb-0">
+                    <dt class="col-sm-4">Nome do vinho</dt><dd class="col-sm-8" th:text="${engarrafamento.nomeVinho ?: '—'}"></dd>
+                    <dt class="col-sm-4">Vinho a granel</dt><dd class="col-sm-8" th:text="${engarrafamento.vinhoGranel != null ? engarrafamento.vinhoGranel.codigo : '—'}"></dd>
+                    <dt class="col-sm-4">Litros utilizados</dt><dd class="col-sm-8"><span th:text="${engarrafamento.litrosUtilizados}"></span> L</dd>
+                    <dt class="col-sm-4">Garrafas</dt><dd class="col-sm-8">
+                        <span th:text="${engarrafamento.numeroGarrafas}"></span> ×
+                        <span th:text="${engarrafamento.garrafa != null ? engarrafamento.garrafa.descricao : '—'}"></span></dd>
+                    <dt class="col-sm-4">Rolhas</dt><dd class="col-sm-8">
+                        <span th:text="${engarrafamento.numeroRolhas}"></span> ×
+                        <span th:text="${engarrafamento.rolha != null ? engarrafamento.rolha.descricao : '—'}"></span></dd>
+                    <dt class="col-sm-4">Lote</dt><dd class="col-sm-8" th:text="${engarrafamento.lote ?: '—'}"></dd>
+                    <dt class="col-sm-4">Responsável</dt><dd class="col-sm-8" th:text="${engarrafamento.responsavel != null ? engarrafamento.responsavel.nome : '—'}"></dd>
+                    <dt class="col-sm-4">Início</dt><dd class="col-sm-8" th:text="${engarrafamento.dataHoraInicio != null ? #temporals.format(engarrafamento.dataHoraInicio,'dd-MM-yyyy HH:mm') : '—'}"></dd>
+                    <dt class="col-sm-4">Meios</dt><dd class="col-sm-8" th:text="${engarrafamento.meios ?: '—'}"></dd>
+                    <dt class="col-sm-4">Métodos</dt><dd class="col-sm-8" th:text="${engarrafamento.metodos ?: '—'}"></dd>
+                    <dt class="col-sm-4">Observações</dt><dd class="col-sm-8" th:text="${engarrafamento.observacoes ?: '—'}"></dd>
+                </dl>
+            </div></div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card shadow-sm" th:if="${!engarrafados.isEmpty()}">
+                <div class="card-header bg-white fw-bold text-success"><i class="bi bi-bookmark-star-fill"></i> Vinho engarrafado gerado</div>
+                <div class="table-responsive">
+                    <table class="table mb-0">
+                        <thead><tr><th>Código</th><th>Nome</th><th class="text-end">Garrafas</th><th>Lote</th></tr></thead>
+                        <tbody>
+                        <tr th:each="v : ${engarrafados}">
+                            <td><span class="codigo" th:text="${v.codigo}"></span></td>
+                            <td th:text="${v.nome}"></td>
+                            <td class="text-end" th:text="${v.numeroGarrafas}"></td>
+                            <td th:text="${v.lote ?: '—'}"></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="alert alert-secondary" th:if="${engarrafados.isEmpty()}">
+                Ainda não há vinho engarrafado. Feche o processo para o gerar.
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-3">
+        <a th:href="@{/processos/engarrafamento}" class="btn btn-link">&larr; Voltar</a>
+        <a th:href="@{/produtos/engarrafados}" class="btn btn-link">Ver produtos acabados &rarr;</a>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

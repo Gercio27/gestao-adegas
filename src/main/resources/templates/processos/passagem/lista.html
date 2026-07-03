@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('O vinho está pronto')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h3 class="mb-0"><i class="bi bi-patch-check"></i> O vinho está pronto <span class="badge bg-secondary">Fase 4.5</span></h3>
+        <a th:href="@{/processos/passagem-vinho/nova}" class="btn text-white" style="background-color:#6b1f2a;">
+            <i class="bi bi-plus-lg"></i> Novo registo
+        </a>
+    </div>
+    <p class="text-muted" th:text="${admin} ? 'Como administrador, vê todos os registos.' : 'Vê os registos que abriu.'"></p>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Código</th><th>Mostos convertidos</th><th>Responsável</th><th>Início</th><th>Estado</th><th class="text-end">Ações</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="p : ${processos}">
+                    <td><a th:href="@{/processos/passagem-vinho/{id}(id=${p.id})}"><span class="codigo" th:text="${p.codigo}"></span></a></td>
+                    <td class="small" th:text="${p.mostosDescricao ?: '—'}"></td>
+                    <td th:text="${p.responsavel != null ? p.responsavel.nome : '—'}"></td>
+                    <td th:text="${p.dataHoraInicio != null ? #temporals.format(p.dataHoraInicio,'dd-MM-yyyy HH:mm') : ''}"></td>
+                    <td>
+                        <span th:if="${p.aberto}" class="badge bg-warning text-dark">Aberto</span>
+                        <span th:unless="${p.aberto}" class="badge bg-success">Fechado</span>
+                    </td>
+                    <td class="text-end">
+                        <a th:href="@{/processos/passagem-vinho/{id}(id=${p.id})}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+                    </td>
+                </tr>
+                <tr th:if="${processos.isEmpty()}"><td colspan="6" class="text-center text-muted py-4">Sem registos.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

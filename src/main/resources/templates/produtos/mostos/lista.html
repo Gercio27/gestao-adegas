@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Mostos')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <h3 class="mb-1"><i class="bi bi-droplet"></i> Mostos (existências)</h3>
+    <p class="text-muted">Fichas geradas automaticamente pelos processos. Consulta apenas.</p>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Código</th><th>Localização</th><th class="text-end">Litros</th><th>Casta</th>
+                    <th>Estado</th><th>Origem</th><th>Produção</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="m : ${mostos}">
+                    <td><span class="codigo" th:text="${m.codigo}"></span></td>
+                    <td th:text="${m.localizacao}"></td>
+                    <td class="text-end" th:text="${m.litros}"></td>
+                    <td th:text="${m.casta != null ? m.casta.nome : '—'}"></td>
+                    <td><span class="badge bg-info text-dark" th:text="${m.estado.descricao}"></span></td>
+                    <td class="small" th:text="${m.origemDescricao}"></td>
+                    <td th:text="${m.dataProducao != null ? #temporals.format(m.dataProducao,'dd-MM-yyyy HH:mm') : ''}"></td>
+                </tr>
+                <tr th:if="${mostos.isEmpty()}"><td colspan="7" class="text-center text-muted py-4">
+                    Sem mostos. Feche uma moagem para gerar as fichas de mosto.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

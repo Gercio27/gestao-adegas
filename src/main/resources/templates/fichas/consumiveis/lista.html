@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Consumíveis')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0"><i class="bi bi-box-seam"></i> Consumíveis</h3>
+        <a th:href="@{/fichas/consumiveis/novo}" class="btn text-white" style="background-color:#6b1f2a;">
+            <i class="bi bi-plus-lg"></i> Novo consumível
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Código</th><th>Tipo</th><th>Descrição</th><th class="text-end">Capac. (ml)</th>
+                    <th class="text-end">Stock</th><th class="text-end">Mínimo</th><th>Propriedade</th><th class="text-end">Ações</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="c : ${consumiveis}" th:classappend="${c.abaixoMinimo} ? 'table-warning' : ''">
+                    <td><span class="codigo" th:text="${c.codigo}"></span></td>
+                    <td th:text="${c.tipo.descricao}"></td>
+                    <td>
+                        <span th:text="${c.descricao}"></span>
+                        <span th:if="${c.abaixoMinimo}" class="badge bg-danger ms-1" title="Stock abaixo do mínimo">
+                            <i class="bi bi-exclamation-triangle"></i> baixo
+                        </span>
+                    </td>
+                    <td class="text-end" th:text="${c.capacidadeMl}"></td>
+                    <td class="text-end fw-semibold" th:text="${c.stock}"></td>
+                    <td class="text-end" th:text="${c.stockMinimo}"></td>
+                    <td>
+                        <span th:text="${c.propriedade.descricao}"></span>
+                        <span th:if="${c.propriedade.name() == 'TERCEIRO'}" class="text-muted small" th:text="'(' + ${c.terceiro} + ')'"></span>
+                    </td>
+                    <td class="text-end">
+                        <a th:href="@{/fichas/consumiveis/{id}/editar(id=${c.id})}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                        <form th:action="@{/fichas/consumiveis/{id}/eliminar(id=${c.id})}" method="post" class="d-inline"
+                              onsubmit="return confirm('Eliminar este consumível?');">
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${consumiveis.isEmpty()}"><td colspan="8" class="text-center text-muted py-4">Sem consumíveis registados.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <p class="text-muted small mt-2">As linhas a amarelo indicam stock igual ou abaixo do mínimo definido.</p>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

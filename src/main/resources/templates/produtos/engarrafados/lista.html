@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Vinhos engarrafados')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <h3 class="mb-0"><i class="bi bi-bookmark-star"></i> Vinhos engarrafados</h3>
+        <span class="badge fs-6 text-white" style="background-color:#6b1f2a;">
+            Total: <span th:text="${totalGarrafas}"></span> garrafas
+        </span>
+    </div>
+    <p class="text-muted">Produtos acabados. Atualizado automaticamente pelo processo de Engarrafamento.</p>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Código</th><th>Nome</th><th class="text-end">Garrafas</th><th class="text-end">Capac. (ml)</th>
+                    <th>Lote</th><th>Casta</th><th>Rotulado</th><th>Origem</th><th class="text-end">Etiqueta</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="v : ${engarrafados}">
+                    <td><span class="codigo" th:text="${v.codigo}"></span></td>
+                    <td th:text="${v.nome}"></td>
+                    <td class="text-end fw-semibold" th:text="${v.numeroGarrafas}"></td>
+                    <td class="text-end" th:text="${v.capacidadeMl}"></td>
+                    <td th:text="${v.lote ?: '—'}"></td>
+                    <td th:text="${v.casta != null ? v.casta.nome : '—'}"></td>
+                    <td>
+                        <span th:if="${v.rotulado}" class="badge bg-success">Rotulado</span>
+                        <span th:unless="${v.rotulado}" class="badge bg-secondary">Por rotular</span>
+                    </td>
+                    <td class="small" th:text="${v.origemDescricao}"></td>
+                    <td class="text-end">
+                        <a th:href="@{/produtos/engarrafados/{id}/etiqueta(id=${v.id})}" target="_blank" class="btn btn-sm btn-outline-dark" title="Etiqueta">
+                            <i class="bi bi-printer"></i>
+                        </a>
+                    </td>
+                </tr>
+                <tr th:if="${engarrafados.isEmpty()}"><td colspan="9" class="text-center text-muted py-4">
+                    Sem vinhos engarrafados. Feche um engarrafamento para os criar.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

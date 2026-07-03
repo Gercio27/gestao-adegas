@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="pt">
+<head th:replace="~{fragments/layout :: head('Remontagem')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0">
+            <i class="bi bi-arrow-repeat"></i>
+            <span class="codigo" th:text="${remontagem.codigo}"></span>
+            <span th:if="${remontagem.aberto}" class="badge bg-warning text-dark align-middle">Aberto</span>
+            <span th:unless="${remontagem.aberto}" class="badge bg-success align-middle">Fechado</span>
+        </h3>
+        <div>
+            <a th:if="${remontagem.aberto}" th:href="@{/processos/remontagem/{id}/editar(id=${remontagem.id})}"
+               class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</a>
+            <form th:if="${remontagem.aberto}" th:action="@{/processos/remontagem/{id}/fechar(id=${remontagem.id})}"
+                  method="post" class="d-inline">
+                <button class="btn btn-success"><i class="bi bi-lock"></i> Fechar</button>
+            </form>
+            <form sec:authorize="hasRole('ADMIN')" th:unless="${remontagem.aberto}"
+                  th:action="@{/processos/remontagem/{id}/reabrir(id=${remontagem.id})}" method="post" class="d-inline">
+                <button class="btn btn-outline-warning"><i class="bi bi-unlock"></i> Reabrir</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Recipientes</dt><dd class="col-sm-9" th:text="${remontagem.recipientes ?: '—'}"></dd>
+            <dt class="col-sm-3">Responsável</dt><dd class="col-sm-9" th:text="${remontagem.responsavel != null ? remontagem.responsavel.nome : '—'}"></dd>
+            <dt class="col-sm-3">Início</dt><dd class="col-sm-9" th:text="${remontagem.dataHoraInicio != null ? #temporals.format(remontagem.dataHoraInicio,'dd-MM-yyyy HH:mm') : '—'}"></dd>
+            <dt class="col-sm-3">Fim</dt><dd class="col-sm-9" th:text="${remontagem.dataHoraFim != null ? #temporals.format(remontagem.dataHoraFim,'dd-MM-yyyy HH:mm') : '—'}"></dd>
+            <dt class="col-sm-3">Meios</dt><dd class="col-sm-9" th:text="${remontagem.meios ?: '—'}"></dd>
+            <dt class="col-sm-3">Métodos</dt><dd class="col-sm-9" th:text="${remontagem.metodos ?: '—'}"></dd>
+            <dt class="col-sm-3">Observações</dt><dd class="col-sm-9" th:text="${remontagem.observacoes ?: '—'}"></dd>
+            <dt class="col-sm-3">Aberto por</dt><dd class="col-sm-9"><span th:text="${remontagem.criadoPor}"></span> · <span th:text="${#temporals.format(remontagem.dataCriacao,'dd-MM-yyyy HH:mm')}"></span></dd>
+        </dl>
+    </div></div>
+
+    <a th:href="@{/processos/remontagem}" class="btn btn-link mt-3">&larr; Voltar às remontagens</a>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Depósito')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-3" th:text="${deposito.id == null} ? 'Novo depósito' : 'Editar depósito'">Depósito</h3>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/fichas/depositos}" th:object="${deposito}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="col-md-3" th:if="${deposito.codigo != null}">
+                <label class="form-label">Código</label>
+                <input class="form-control" th:value="*{codigo}" disabled>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Identificação *</label>
+                <input type="text" class="form-control" th:field="*{identificacao}" required>
+                <div class="text-danger small" th:if="${#fields.hasErrors('identificacao')}" th:errors="*{identificacao}"></div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Tipo</label>
+                <input type="text" class="form-control" th:field="*{tipo}" placeholder="Cuba inox, Depósito...">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Adega</label>
+                <select class="form-select" th:field="*{adega}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Capacidade (L)</label>
+                <input type="number" step="0.01" min="0" class="form-control" th:field="*{capacidadeLitros}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Volume atual (L)</label>
+                <input type="number" step="0.01" min="0" class="form-control" th:field="*{volumeAtualLitros}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Propriedade</label>
+                <select class="form-select" th:field="*{propriedade}" onchange="toggleTerceiro(this)">
+                    <option th:each="p : ${propriedades}" th:value="${p}" th:text="${p.descricao}"></option>
+                </select>
+            </div>
+            <div class="col-md-4" id="grpTerceiro">
+                <label class="form-label">Terceiro (se aplicável)</label>
+                <input type="text" class="form-control" th:field="*{terceiro}">
+            </div>
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/fichas/depositos}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script>
+    function toggleTerceiro(sel) {
+        document.getElementById('grpTerceiro').style.display = (sel.value === 'TERCEIRO') ? '' : 'none';
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        toggleTerceiro(document.querySelector('[name=propriedade]'));
+    });
+</script>
+</body>
+</html>

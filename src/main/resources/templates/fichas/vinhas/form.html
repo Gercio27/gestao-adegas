@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Vinha')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-3" th:text="${vinha.id == null} ? 'Nova vinha' : 'Editar vinha'">Vinha</h3>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/fichas/vinhas}" th:object="${vinha}" method="post">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="row g-3">
+                <div class="col-md-3" th:if="${vinha.codigo != null}">
+                    <label class="form-label">Código</label>
+                    <input class="form-control" th:value="*{codigo}" disabled>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label">Nome *</label>
+                    <input type="text" class="form-control" th:field="*{nome}" required>
+                    <div class="text-danger small" th:if="${#fields.hasErrors('nome')}" th:errors="*{nome}"></div>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Localização</label>
+                    <input type="text" class="form-control" th:field="*{localizacao}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Propriedade</label>
+                    <select class="form-select" th:field="*{propriedade}" onchange="toggleTerceiro(this)">
+                        <option th:each="p : ${propriedades}" th:value="${p}" th:text="${p.descricao}"></option>
+                    </select>
+                </div>
+                <div class="col-md-4" id="grpTerceiro">
+                    <label class="form-label">Terceiro (se aplicável)</label>
+                    <input type="text" class="form-control" th:field="*{terceiro}">
+                </div>
+            </div>
+
+            <hr class="my-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0">Parcelas</h5>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addParcela()">
+                    <i class="bi bi-plus-lg"></i> Adicionar parcela
+                </button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table align-middle">
+                    <thead><tr><th style="width:35%">Identificação</th><th style="width:35%">Casta</th>
+                        <th style="width:20%">Área (ha)</th><th></th></tr></thead>
+                    <tbody id="parcelasBody">
+                    <tr th:each="p, stat : *{parcelas}">
+                        <td><input class="form-control" th:field="*{parcelas[__${stat.index}__].identificacao}"></td>
+                        <td>
+                            <select class="form-select" th:field="*{parcelas[__${stat.index}__].casta}">
+                                <option th:value="${null}">—</option>
+                                <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
+                            </select>
+                        </td>
+                        <td><input type="number" step="0.0001" min="0" class="form-control"
+                                   th:field="*{parcelas[__${stat.index}__].areaHa}"></td>
+                        <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removerLinha(this)">
+                            <i class="bi bi-x-lg"></i></button></td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="mt-3">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/fichas/vinhas}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<!-- Modelo de linha (cascas de casta renderizadas no servidor) -->
+<template id="parcelaTemplate">
+    <tr>
+        <td><input class="form-control" name="parcelas[__IDX__].identificacao"></td>
+        <td>
+            <select class="form-select" name="parcelas[__IDX__].casta">
+                <option value="">—</option>
+                <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
+            </select>
+        </td>
+        <td><input type="number" step="0.0001" min="0" class="form-control" name="parcelas[__IDX__].areaHa"></td>
+        <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removerLinha(this)">
+            <i class="bi bi-x-lg"></i></button></td>
+    </tr>
+</template>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:inline="javascript">
+    let contador = /*[[${vinha.parcelas.size()}]]*/ 0;
+
+    function addParcela() {
+        const tpl = document.getElementById('parcelaTemplate').innerHTML.replaceAll('__IDX__', contador);
+        document.getElementById('parcelasBody').insertAdjacentHTML('beforeend', tpl);
+        contador++;
+    }
+    function removerLinha(btn) {
+        btn.closest('tr').remove();
+    }
+    function toggleTerceiro(sel) {
+        document.getElementById('grpTerceiro').style.display = (sel.value === 'TERCEIRO') ? '' : 'none';
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        toggleTerceiro(document.querySelector('[name=propriedade]'));
+    });
+</script>
+</body>
+</html>

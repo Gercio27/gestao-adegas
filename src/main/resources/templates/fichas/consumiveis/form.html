@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Consumível')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-3" th:text="${consumivel.id == null} ? 'Novo consumível' : 'Editar consumível'">Consumível</h3>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/fichas/consumiveis}" th:object="${consumivel}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="col-md-3" th:if="${consumivel.codigo != null}">
+                <label class="form-label">Código</label>
+                <input class="form-control" th:value="*{codigo}" disabled>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Tipo *</label>
+                <select class="form-select" th:field="*{tipo}">
+                    <option th:each="t : ${tipos}" th:value="${t}" th:text="${t.descricao}"></option>
+                </select>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Descrição *</label>
+                <input type="text" class="form-control" th:field="*{descricao}" required placeholder="Ex.: Garrafa Bordalesa 750ml">
+                <div class="text-danger small" th:if="${#fields.hasErrors('descricao')}" th:errors="*{descricao}"></div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Capacidade (ml)</label>
+                <input type="number" min="0" class="form-control" th:field="*{capacidadeMl}" placeholder="750">
+                <div class="form-text">Para garrafas.</div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Stock</label>
+                <input type="number" min="0" class="form-control" th:field="*{stock}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Stock mínimo</label>
+                <input type="number" min="0" class="form-control" th:field="*{stockMinimo}">
+                <div class="form-text">Alerta abaixo deste valor.</div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Unidade</label>
+                <input type="text" class="form-control" th:field="*{unidade}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Propriedade</label>
+                <select class="form-select" th:field="*{propriedade}" onchange="toggleTerceiro(this)">
+                    <option th:each="p : ${propriedades}" th:value="${p}" th:text="${p.descricao}"></option>
+                </select>
+            </div>
+            <div class="col-md-4" id="grpTerceiro">
+                <label class="form-label">Terceiro (se aplicável)</label>
+                <input type="text" class="form-control" th:field="*{terceiro}">
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/fichas/consumiveis}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script>
+    function toggleTerceiro(sel) {
+        document.getElementById('grpTerceiro').style.display = (sel.value === 'TERCEIRO') ? '' : 'none';
+    }
+    document.addEventListener('DOMContentLoaded', function () {
+        toggleTerceiro(document.querySelector('[name=propriedade]'));
+    });
+</script>
+</body>
+</html>

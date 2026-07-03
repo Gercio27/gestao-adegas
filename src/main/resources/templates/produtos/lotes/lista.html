@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Lotes')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0"><i class="bi bi-collection"></i> Lotes <span class="badge bg-secondary">Fase 4.6</span></h3>
+        <a th:href="@{/produtos/lotes/nova}" class="btn text-white" style="background-color:#6b1f2a;">
+            <i class="bi bi-plus-lg"></i> Novo lote
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Código</th><th>Nome</th><th>Descrição</th><th>Constituição</th><th class="text-end">Ações</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="l : ${lotes}">
+                    <td><a th:href="@{/produtos/lotes/{id}(id=${l.id})}"><span class="codigo" th:text="${l.codigo}"></span></a></td>
+                    <td th:text="${l.nome}"></td>
+                    <td class="small" th:text="${l.descricao}"></td>
+                    <td th:text="${l.dataConstituicao != null ? #temporals.format(l.dataConstituicao,'dd-MM-yyyy') : '—'}"></td>
+                    <td class="text-end">
+                        <a th:href="@{/produtos/lotes/{id}(id=${l.id})}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+                        <a th:href="@{/produtos/lotes/{id}/editar(id=${l.id})}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                        <form th:action="@{/produtos/lotes/{id}/eliminar(id=${l.id})}" method="post" class="d-inline"
+                              onsubmit="return confirm('Eliminar este lote?');">
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${lotes.isEmpty()}"><td colspan="5" class="text-center text-muted py-4">Sem lotes registados.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

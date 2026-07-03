@@ -1,0 +1,106 @@
+:root {
+    --vinho: #6b1f2a;
+    --vinho-claro: #8a3a46;
+    --areia: #f7f4f2;
+}
+
+body {
+    background-color: var(--areia);
+}
+
+/* Navbar */
+.navbar-brand { letter-spacing: .3px; }
+
+/* KPIs grandes */
+.card-kpi {
+    border: none;
+    border-left: 4px solid var(--vinho);
+    transition: transform .1s ease, box-shadow .1s ease;
+}
+.card-kpi:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 .5rem 1rem rgba(107,31,42,.12) !important;
+}
+.card-kpi .num {
+    font-size: 1.9rem;
+    font-weight: 700;
+    color: var(--vinho);
+    line-height: 1.1;
+}
+
+/* Mini KPIs (fichas) */
+.mini-kpi {
+    display: block;
+    text-decoration: none;
+    color: #333;
+    background: var(--areia);
+    border: 1px solid #eadfda;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: .9rem;
+    transition: background .1s ease;
+}
+.mini-kpi:hover { background: #efe7e3; color: var(--vinho); }
+.mini-kpi span {
+    display: block;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--vinho);
+}
+
+/* Código monospace */
+.codigo {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    color: var(--vinho);
+    font-weight: 600;
+}
+
+/* Fluxo de fases */
+.fluxo {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+.fluxo .fase {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    background: #fff;
+    border: 1px solid #eadfda;
+    color: #444;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: .9rem;
+    white-space: nowrap;
+    transition: all .1s ease;
+}
+.fluxo .fase:hover { background: var(--vinho); color: #fff; border-color: var(--vinho); }
+.fluxo .fase .n {
+    background: var(--vinho);
+    color: #fff;
+    border-radius: 50%;
+    width: 22px; height: 22px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: .72rem; font-weight: 700;
+}
+.fluxo .fase:hover .n { background: #fff; color: var(--vinho); }
+.fluxo .seta { color: #bbb; }
+
+/* Tabelas */
+.table thead { background-color: #efe7e3; }
+.table thead th { border-bottom: 2px solid #e0d3cd; font-size: .85rem; text-transform: uppercase; letter-spacing: .3px; color: #6b5b57; }
+
+/* Botões cor vinho (utilitário) */
+.btn-vinho { background-color: var(--vinho); color: #fff; }
+.btn-vinho:hover { background-color: var(--vinho-claro); color: #fff; }
+
+/* Login */
+.login-wrap {
+    max-width: 380px;
+    margin: 8vh auto;
+}
+
+/* Cabeçalhos de página */
+h3 { color: #3a2c29; font-weight: 600; }

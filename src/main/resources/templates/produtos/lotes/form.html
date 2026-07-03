@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Lote')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-3" th:text="${lote.id == null} ? 'Novo lote' : 'Editar lote'">Lote</h3>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/produtos/lotes}" th:object="${lote}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="col-md-3" th:if="${lote.codigo != null}">
+                <label class="form-label">Código</label>
+                <input class="form-control" th:value="*{codigo}" disabled>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Nome *</label>
+                <input type="text" class="form-control" th:field="*{nome}" required>
+                <div class="text-danger small" th:if="${#fields.hasErrors('nome')}" th:errors="*{nome}"></div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Data de constituição</label>
+                <input type="date" class="form-control" th:field="*{dataConstituicao}">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Descrição</label>
+                <input type="text" class="form-control" th:field="*{descricao}">
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Vinhos a granel neste lote</label>
+                <select class="form-select" th:field="*{mostoIds}" multiple size="8">
+                    <option th:each="m : ${mostos}" th:value="${m.id}"
+                            th:text="${m.codigo} + ' · ' + ${m.localizacao} + ' · ' + ${m.litros} + ' L'"></option>
+                </select>
+                <div class="form-text">Segure Ctrl (⌘ no Mac) para selecionar vários. Só aparecem vinhos prontos a granel.</div>
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/produtos/lotes}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

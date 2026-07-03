@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Movimentos de mosto')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h3 class="mb-0"><i class="bi bi-box-arrow-in-down"></i> Entradas / Saídas de mosto <span class="badge bg-secondary">Fase 4.7 / 4.8</span></h3>
+        <a th:href="@{/processos/movimento-mosto/novo}" class="btn text-white" style="background-color:#6b1f2a;">
+            <i class="bi bi-plus-lg"></i> Novo movimento
+        </a>
+    </div>
+    <p class="text-muted" th:text="${admin} ? 'Como administrador, vê todos.' : 'Vê os que abriu.'"></p>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Código</th><th>DA</th><th>Tipo</th><th class="text-end">Litros</th><th>Contraparte</th><th>Estado</th><th class="text-end">Ações</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="p : ${processos}">
+                    <td><a th:href="@{/processos/movimento-mosto/{id}(id=${p.id})}"><span class="codigo" th:text="${p.codigo}"></span></a></td>
+                    <td><span class="codigo" th:text="${p.numeroDA ?: '—'}"></span></td>
+                    <td>
+                        <span class="badge" th:classappend="${p.tipo.name() == 'ENTRADA'} ? 'bg-info text-dark' : 'bg-warning text-dark'"
+                              th:text="${p.tipo.descricao}"></span>
+                    </td>
+                    <td class="text-end" th:text="${p.litros}"></td>
+                    <td th:text="${p.contraparte ?: '—'}"></td>
+                    <td>
+                        <span th:if="${p.aberto}" class="badge bg-warning text-dark">Aberto</span>
+                        <span th:unless="${p.aberto}" class="badge bg-success">Fechado</span>
+                    </td>
+                    <td class="text-end">
+                        <a th:if="${p.numeroDA != null}" th:href="@{/processos/movimento-mosto/{id}/da(id=${p.id})}" target="_blank"
+                           class="btn btn-sm btn-outline-dark" title="Documento de acompanhamento"><i class="bi bi-printer"></i></a>
+                        <a th:href="@{/processos/movimento-mosto/{id}(id=${p.id})}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+                    </td>
+                </tr>
+                <tr th:if="${processos.isEmpty()}"><td colspan="7" class="text-center text-muted py-4">Sem movimentos registados.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

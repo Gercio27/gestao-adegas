@@ -1,0 +1,7 @@
+target/
+java/
+*.log
+.git/
+.idea/
+*.iml
+INICIAR*.bat

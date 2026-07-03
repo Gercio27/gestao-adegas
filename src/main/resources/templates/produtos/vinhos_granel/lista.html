@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Vinhos a granel')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <h3 class="mb-0"><i class="bi bi-cup-straw"></i> Vinhos prontos a granel</h3>
+        <span class="badge fs-6 text-white" style="background-color:#6b1f2a;">
+            Total: <span th:text="${totalLitros}"></span> L
+        </span>
+    </div>
+    <p class="text-muted">Mapa de existências. Atualizado automaticamente pelo processo "O vinho está pronto".</p>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Código</th><th>Localização</th><th class="text-end">Litros</th><th>Casta</th><th>Origem</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="v : ${vinhos}">
+                    <td><span class="codigo" th:text="${v.codigo}"></span></td>
+                    <td th:text="${v.localizacao}"></td>
+                    <td class="text-end" th:text="${v.litros}"></td>
+                    <td th:text="${v.casta != null ? v.casta.nome : '—'}"></td>
+                    <td class="small" th:text="${v.origemDescricao}"></td>
+                </tr>
+                <tr th:if="${vinhos.isEmpty()}"><td colspan="5" class="text-center text-muted py-4">
+                    Sem vinhos a granel. Passe mostos a vinho pronto no processo da Fase 4.5.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

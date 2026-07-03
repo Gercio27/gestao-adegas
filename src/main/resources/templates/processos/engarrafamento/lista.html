@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Engarrafamento')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h3 class="mb-0"><i class="bi bi-droplet-half"></i> Engarrafamento <span class="badge bg-secondary">Fase 6</span></h3>
+        <a th:href="@{/processos/engarrafamento/novo}" class="btn text-white" style="background-color:#6b1f2a;">
+            <i class="bi bi-plus-lg"></i> Novo engarrafamento
+        </a>
+    </div>
+    <p class="text-muted" th:text="${admin} ? 'Como administrador, vê todos.' : 'Vê os que abriu.'"></p>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Código</th><th>Vinho</th><th>A granel</th><th class="text-end">Litros</th>
+                    <th class="text-end">Garrafas</th><th>Lote</th><th>Estado</th><th class="text-end">Ações</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="p : ${processos}">
+                    <td><a th:href="@{/processos/engarrafamento/{id}(id=${p.id})}"><span class="codigo" th:text="${p.codigo}"></span></a></td>
+                    <td th:text="${p.nomeVinho ?: '—'}"></td>
+                    <td th:text="${p.vinhoGranel != null ? p.vinhoGranel.codigo : '—'}"></td>
+                    <td class="text-end" th:text="${p.litrosUtilizados}"></td>
+                    <td class="text-end" th:text="${p.numeroGarrafas}"></td>
+                    <td th:text="${p.lote ?: '—'}"></td>
+                    <td>
+                        <span th:if="${p.aberto}" class="badge bg-warning text-dark">Aberto</span>
+                        <span th:unless="${p.aberto}" class="badge bg-success">Fechado</span>
+                    </td>
+                    <td class="text-end">
+                        <a th:href="@{/processos/engarrafamento/{id}(id=${p.id})}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
+                    </td>
+                </tr>
+                <tr th:if="${processos.isEmpty()}"><td colspan="8" class="text-center text-muted py-4">Sem engarrafamentos registados.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

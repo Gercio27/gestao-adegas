@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Atesto')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-1" th:text="${atesto.id == null} ? 'Novo atesto' : 'Editar atesto'">Atesto</h3>
+    <p class="text-muted">Fase 4 — Atesto. Ao <strong>fechar</strong>, transfere os litros da origem para o destino, com controlo de capacidade nos dois lados.</p>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/processos/atesto}" th:object="${atesto}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="col-md-3" th:if="${atesto.codigo != null}">
+                <label class="form-label">Código</label>
+                <input class="form-control" th:value="*{codigo}" disabled>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Responsável</label>
+                <select class="form-select" th:field="*{responsavel}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"></option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Início</label>
+                <input type="datetime-local" class="form-control" th:field="*{dataHoraInicio}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Fim</label>
+                <input type="datetime-local" class="form-control" th:field="*{dataHoraFim}">
+            </div>
+
+            <div class="col-md-5">
+                <label class="form-label">Origem (de onde sai) *</label>
+                <select class="form-select" th:field="*{origemRef}" required>
+                    <option value="">—</option>
+                    <option th:each="r : ${recipientes}" th:value="${r.ref}" th:text="${r.label}"></option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end justify-content-center">
+                <i class="bi bi-arrow-right fs-3 text-muted"></i>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Destino (recipiente atestado) *</label>
+                <select class="form-select" th:field="*{destinoRef}" required>
+                    <option value="">—</option>
+                    <option th:each="r : ${recipientes}" th:value="${r.ref}" th:text="${r.label}"></option>
+                </select>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Litros a atestar *</label>
+                <input type="number" step="0.01" min="0" class="form-control" th:field="*{litros}" required>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Meios utilizados</label>
+                <input type="text" class="form-control" th:field="*{meios}">
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Métodos utilizados</label>
+                <input type="text" class="form-control" th:field="*{metodos}">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Observações</label>
+                <textarea class="form-control" th:field="*{observacoes}" rows="2"></textarea>
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/processos/atesto}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+    <p class="text-muted small mt-2">O movimento de volumes só é aplicado quando o processo é <strong>fechado</strong>.</p>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

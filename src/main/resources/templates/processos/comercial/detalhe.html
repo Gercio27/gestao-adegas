@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="pt">
+<head th:replace="~{fragments/layout :: head('Comercial')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0">
+            <i class="bi bi-truck"></i>
+            <span class="codigo" th:text="${comercial.codigo}"></span>
+            <span th:if="${comercial.aberto}" class="badge bg-warning text-dark align-middle">Aberto</span>
+            <span th:unless="${comercial.aberto}" class="badge bg-success align-middle">Fechado</span>
+        </h3>
+        <div>
+            <a th:if="${comercial.numeroNota != null}" th:href="@{/processos/comercial/{id}/nota(id=${comercial.id})}"
+               class="btn btn-dark" target="_blank"><i class="bi bi-printer"></i> Nota de entrega</a>
+            <a th:if="${comercial.aberto}" th:href="@{/processos/comercial/{id}/editar(id=${comercial.id})}"
+               class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</a>
+            <form th:if="${comercial.aberto}" th:action="@{/processos/comercial/{id}/fechar(id=${comercial.id})}"
+                  method="post" class="d-inline"
+                  onsubmit="return confirm('Fechar? Dá baixa das garrafas e emite a nota de entrega.');">
+                <button class="btn btn-success"><i class="bi bi-lock"></i> Fechar e emitir nota</button>
+            </form>
+            <form sec:authorize="hasRole('ADMIN')" th:unless="${comercial.aberto}"
+                  th:action="@{/processos/comercial/{id}/reabrir(id=${comercial.id})}" method="post" class="d-inline"
+                  onsubmit="return confirm('Reabrir? As garrafas voltam ao stock disponível.');">
+                <button class="btn btn-outline-warning"><i class="bi bi-unlock"></i> Reabrir</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Nota de entrega</dt><dd class="col-sm-9"><span class="codigo" th:text="${comercial.numeroNota ?: '(emitida ao fechar)'}"></span></dd>
+            <dt class="col-sm-3">Vinho</dt><dd class="col-sm-9" th:text="${comercial.engarrafado != null ? (comercial.engarrafado.codigo + ' · ' + comercial.engarrafado.nome) : '—'}"></dd>
+            <dt class="col-sm-3">Garrafas entregues</dt><dd class="col-sm-9" th:text="${comercial.quantidadeGarrafas}"></dd>
+            <dt class="col-sm-3">Destinatário</dt><dd class="col-sm-9" th:text="${comercial.destinatario ?: '—'}"></dd>
+            <dt class="col-sm-3">Morada</dt><dd class="col-sm-9" th:text="${comercial.moradaDestino ?: '—'}"></dd>
+            <dt class="col-sm-3">Responsável</dt><dd class="col-sm-9" th:text="${comercial.responsavel != null ? comercial.responsavel.nome : '—'}"></dd>
+            <dt class="col-sm-3">Início</dt><dd class="col-sm-9" th:text="${comercial.dataHoraInicio != null ? #temporals.format(comercial.dataHoraInicio,'dd-MM-yyyy HH:mm') : '—'}"></dd>
+            <dt class="col-sm-3">Observações</dt><dd class="col-sm-9" th:text="${comercial.observacoes ?: '—'}"></dd>
+        </dl>
+    </div></div>
+
+    <a th:href="@{/processos/comercial}" class="btn btn-link mt-3">&larr; Voltar</a>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Guia de utilizador')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<style>
+    .guia h4 { color:#6b1f2a; margin-top:1.8rem; border-bottom:2px solid #efe7e3; padding-bottom:.3rem; }
+    .guia h5 { color:#3a2c29; margin-top:1.1rem; }
+    .guia .passo { background:#faf6f4; border-left:4px solid #6b1f2a; border-radius:6px; padding:.6rem .9rem; margin:.4rem 0; }
+    .guia .fase-card { border:1px solid #eadfda; border-radius:8px; padding:1rem; height:100%; }
+    .guia .fase-num { background:#6b1f2a; color:#fff; border-radius:50%; width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:.8rem; }
+    .guia dt { color:#6b1f2a; }
+    @media print {
+        .navbar, footer, .no-print { display:none !important; }
+        body { background:#fff; }
+        .guia { font-size:12px; }
+        .guia h4 { page-break-after:avoid; }
+    }
+</style>
+
+<div class="container guia" style="max-width:900px;">
+
+    <div class="d-flex justify-content-between align-items-center mt-2 mb-3">
+        <div>
+            <h3 class="mb-0">Guia de utilizador</h3>
+            <p class="text-muted mb-0">Gestão de Adegas · ACV Vinhos de Talha — da vinha ao produto acabado</p>
+        </div>
+        <button class="btn text-white no-print" style="background:#6b1f2a;" onclick="window.print()">
+            <i class="bi bi-printer"></i> Imprimir / Guardar PDF
+        </button>
+    </div>
+
+    <!-- 1 -->
+    <h4>1. O que é este programa</h4>
+    <p>É o sistema que regista <strong>tudo o que acontece na adega</strong>, desde a análise da uva na vinha até à
+    entrega do vinho ao cliente. A regra de ouro é simples: <em>“regista logo quando acontece, uma só vez, toda a
+    informação”</em>. O sistema atribui um <strong>código automático</strong> a cada registo (ex.: <span class="codigo">VDM-000001</span>),
+    por isso nunca tem de inventar números.</p>
+
+    <!-- 2 -->
+    <h4>2. Entrar e tipos de utilizador</h4>
+    <p>Abra o navegador em <strong>http://localhost:8080</strong> e introduza o seu utilizador e palavra-passe.</p>
+    <dl class="row">
+        <dt class="col-sm-3">Operador</dt><dd class="col-sm-9">Regista o trabalho do dia-a-dia. Vê os processos que <strong>ele próprio</strong> abriu.</dd>
+        <dt class="col-sm-3">Administrador</dt><dd class="col-sm-9">Vê tudo, gere os utilizadores e pode reabrir processos fechados.</dd>
+    </dl>
+    <div class="passo"><i class="bi bi-info-circle"></i> Para sair, use o botão <strong>Sair</strong> no canto superior direito.</div>
+
+    <!-- 3 -->
+    <h4>3. O Painel (página inicial)</h4>
+    <p>Mostra de relance a situação da adega:</p>
+    <ul>
+        <li><strong>Existências</strong> — litros de mosto e de vinho a granel, garrafas produzidas e disponíveis.</li>
+        <li><strong>Talhas e depósitos</strong> — quantos estão cheios e quantos vazios.</li>
+        <li><strong>Problemas críticos</strong> — avisa quando um consumível (garrafas, rolhas…) está com <strong>stock baixo</strong>.</li>
+        <li><strong>Fluxo de produção</strong> — atalhos para cada fase.</li>
+    </ul>
+
+    <!-- 4 -->
+    <h4>4. Duas ideias-chave: Fichas e Processos</h4>
+    <div class="row g-3">
+        <div class="col-md-6"><div class="fase-card">
+            <h5><i class="bi bi-card-list"></i> Fichas</h5>
+            <p class="mb-1">São as “coisas” com que se trabalha: castas, vinhas, trabalhadores, adegas, talhas, depósitos e
+            consumíveis. Cria-se uma vez e vai-se usando.</p>
+            <p class="mb-0 text-muted small">Menu <strong>Fichas</strong>.</p>
+        </div></div>
+        <div class="col-md-6"><div class="fase-card">
+            <h5><i class="bi bi-gear"></i> Processos</h5>
+            <p class="mb-1">São as operações. <strong>Abrem-se</strong>, preenchem-se e depois <strong>fecham-se</strong>.
+            Só ao <strong>Fechar</strong> é que o sistema aplica os efeitos (gera mostos, dá baixa de stock, etc.).</p>
+            <p class="mb-0 text-muted small">Menu <strong>Processos</strong>.</p>
+        </div></div>
+    </div>
+    <div class="passo mt-2"><i class="bi bi-exclamation-circle"></i> <strong>Importante:</strong> enquanto um processo está
+    <span class="badge bg-warning text-dark">Aberto</span> pode editá-lo. Depois de <span class="badge bg-success">Fechado</span>,
+    fica bloqueado (só o administrador o pode reabrir).</div>
+
+    <!-- 5 -->
+    <h4>5. Criar uma ficha (exemplo)</h4>
+    <div class="passo">1. Menu <strong>Fichas → Talhas</strong> (ou outra) → botão <strong>Nova talha</strong>.</div>
+    <div class="passo">2. Preencha os campos (o código é automático) e carregue em <strong>Guardar</strong>.</div>
+    <div class="passo">3. As talhas e depósitos têm <strong>capacidade</strong> — o sistema nunca deixa meter mais litros do que cabem.</div>
+
+    <!-- 6 -->
+    <h4>6. As 8 fases, passo a passo</h4>
+    <div class="row g-3">
+        <div class="col-md-6"><div class="fase-card">
+            <div><span class="fase-num">1</span> <strong>Maturação e planeamento</strong></div>
+            <p class="small mb-0 mt-2">Registe o <strong>boletim de análise</strong> à uva (grau, açúcar, pH) por vinha e casta.
+            No <strong>mapa de planeamento</strong> indica-se quanto colher, quando vindimar e que vinho fazer — as análises
+            aparecem lá automaticamente.</p>
+        </div></div>
+        <div class="col-md-6"><div class="fase-card">
+            <div><span class="fase-num">2</span> <strong>Vindima</strong></div>
+            <p class="small mb-0 mt-2">Registe a colheita: vinha, casta, quantidade (kg), adega de entrega e a
+            <strong>origem</strong> da uva (própria ou de terceiros).</p>
+        </div></div>
+        <div class="col-md-6"><div class="fase-card">
+            <div><span class="fase-num">3</span> <strong>Moagem</strong></div>
+            <p class="small mb-0 mt-2">Moer a uva e encher as talhas/cubas. Ao <strong>fechar</strong>, o sistema
+            <strong>cria as fichas de mosto</strong> e soma os litros a cada talha.</p>
+        </div></div>
+        <div class="col-md-6"><div class="fase-card">
+            <div><span class="fase-num">4</span> <strong>Fermentação</strong></div>
+            <p class="small mb-0 mt-2"><strong>Remontagens</strong> (mexer, várias talhas de uma vez), <strong>Atestos</strong>
+            (passar mosto entre recipientes, com controlo de capacidade dos dois lados), <strong>entradas/saídas de mosto</strong>
+            (com DA) e a passagem a <strong>vinho pronto a granel</strong>.</p>
+        </div></div>
+        <div class="col-md-6"><div class="fase-card">
+            <div><span class="fase-num">5</span> <strong>Certificação</strong></div>
+            <p class="small mb-0 mt-2">Registe o pedido de certificação (IVV/CVR), o resultado e a validade. Se for
+            <em>Aprovado</em>, o vinho fica marcado como certificado.</p>
+        </div></div>
+        <div class="col-md-6"><div class="fase-card">
+            <div><span class="fase-num">6</span> <strong>Engarrafamento</strong></div>
+            <p class="small mb-0 mt-2">Escolha o vinho a granel, as garrafas e as rolhas. Ao <strong>fechar</strong>, dá
+            <strong>baixa</strong> do vinho, garrafas e rolhas, e cria o <strong>vinho engarrafado</strong>.</p>
+        </div></div>
+        <div class="col-md-6"><div class="fase-card">
+            <div><span class="fase-num">7</span> <strong>Rotulagem</strong></div>
+            <p class="small mb-0 mt-2">Aplique rótulos, cápsulas e caixas (dá baixa do stock). O vinho fica marcado como
+            <strong>rotulado</strong>.</p>
+        </div></div>
+        <div class="col-md-6"><div class="fase-card">
+            <div><span class="fase-num">8</span> <strong>Comercial</strong></div>
+            <p class="small mb-0 mt-2">Entregue garrafas a um cliente. Ao <strong>fechar</strong>, dá baixa do stock disponível
+            e emite a <strong>Nota de Entrega</strong>.</p>
+        </div></div>
+    </div>
+
+    <!-- 7 -->
+    <h4>7. Produtos e mapas</h4>
+    <p>No menu <strong>Fichas → Produtos</strong> vê os <strong>Mostos</strong>, os <strong>Vinhos a granel</strong>
+    (com total de litros), os <strong>Vinhos engarrafados</strong> e os <strong>Lotes</strong>. Estes registos são
+    criados automaticamente pelos processos — não precisa de os escrever à mão.</p>
+
+    <!-- 8 -->
+    <h4>8. Documentos para imprimir</h4>
+    <ul>
+        <li><strong>Nota de Entrega</strong> — na entrega ao cliente (Fase 8).</li>
+        <li><strong>DA</strong> (documento de acompanhamento) — nas entradas/saídas de mosto.</li>
+        <li><strong>Etiquetas</strong> — para colar em talhas, depósitos e contentores (botão <i class="bi bi-printer"></i> nas listas).</li>
+    </ul>
+    <div class="passo"><i class="bi bi-printer"></i> Em qualquer documento, use o botão <strong>Imprimir / Guardar PDF</strong>.</div>
+
+    <!-- 9 -->
+    <h4>9. Consultas por datas</h4>
+    <p>No menu <strong>Listagens</strong> pode consultar as fichas registadas num intervalo de datas.</p>
+
+    <!-- 10 -->
+    <h4>10. Regras importantes a lembrar</h4>
+    <ul>
+        <li>Os efeitos (mostos, baixas de stock, volumes) só acontecem quando <strong>Fecha</strong> o processo.</li>
+        <li>O sistema <strong>não deixa</strong> encher acima da capacidade de uma talha/depósito, nem usar mais stock do que existe.</li>
+        <li>Enganou-se num processo fechado? Peça ao <strong>administrador</strong> para <strong>Reabrir</strong> — os efeitos são revertidos.</li>
+        <li>Cada registo guarda sempre <strong>quem fez, quando, com que meios e métodos</strong>.</li>
+    </ul>
+
+    <!-- 11 -->
+    <h4>11. Perguntas frequentes</h4>
+    <dl class="row">
+        <dt class="col-sm-4">Não vejo um processo de um colega</dt>
+        <dd class="col-sm-8">Normal: cada operador vê só o que abriu. O administrador vê tudo.</dd>
+        <dt class="col-sm-4">Não consigo editar</dt>
+        <dd class="col-sm-8">O processo já está fechado. Peça a reabertura ao administrador.</dd>
+        <dt class="col-sm-4">Aparece “capacidade excedida”</dt>
+        <dd class="col-sm-8">A talha/depósito não comporta essa quantidade. Reduza os litros ou escolha outro recipiente.</dd>
+        <dt class="col-sm-4">Aparece “stock insuficiente”</dt>
+        <dd class="col-sm-8">Não há garrafas/rolhas/rótulos suficientes. Atualize o stock na ficha do consumível.</dd>
+    </dl>
+
+    <p class="text-muted small mt-4">ACV – Produção e Comércio de Vinhos de Talha, Lda · Guia de utilizador do sistema de gestão da adega.</p>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

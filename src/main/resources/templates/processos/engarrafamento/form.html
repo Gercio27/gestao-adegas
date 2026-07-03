@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Engarrafamento')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-1" th:text="${engarrafamento.id == null} ? 'Novo engarrafamento' : 'Editar engarrafamento'">Engarrafamento</h3>
+    <p class="text-muted">Fase 6. Ao <strong>fechar</strong>, dá baixa do vinho a granel, das garrafas e das rolhas, e cria a ficha de vinho engarrafado.</p>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/processos/engarrafamento}" th:object="${engarrafamento}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="col-md-3" th:if="${engarrafamento.codigo != null}">
+                <label class="form-label">Código</label>
+                <input class="form-control" th:value="*{codigo}" disabled>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Nome do vinho</label>
+                <input type="text" class="form-control" th:field="*{nomeVinho}" placeholder="Ex.: Talha Tinto 2026">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Lote</label>
+                <input type="text" class="form-control" th:field="*{lote}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Responsável</label>
+                <select class="form-select" th:field="*{responsavel}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"></option>
+                </select>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Vinho a granel *</label>
+                <select class="form-select" th:field="*{vinhoGranel}" required>
+                    <option th:value="${null}">—</option>
+                    <option th:each="m : ${vinhosGranel}" th:value="${m.id}"
+                            th:text="${m.codigo} + ' · ' + ${m.localizacao} + ' · ' + ${m.litros} + ' L'"></option>
+                </select>
+                <div class="form-text" th:if="${vinhosGranel.isEmpty()}">Não há vinho a granel. Passe mostos a vinho na Fase 4.5.</div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Litros a utilizar *</label>
+                <input type="number" step="0.01" min="0" class="form-control" th:field="*{litrosUtilizados}" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Nº de garrafas *</label>
+                <input type="number" min="1" class="form-control" th:field="*{numeroGarrafas}" required>
+            </div>
+
+            <div class="col-md-6">
+                <label class="form-label">Garrafas (stock) *</label>
+                <select class="form-select" th:field="*{garrafa}" required>
+                    <option th:value="${null}">—</option>
+                    <option th:each="g : ${garrafas}" th:value="${g.id}"
+                            th:text="${g.codigo} + ' · ' + ${g.descricao} + ' · stock ' + ${g.stock}"></option>
+                </select>
+                <div class="form-text" th:if="${garrafas.isEmpty()}">Crie uma ficha de consumível do tipo Garrafa.</div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Rolhas (stock)</label>
+                <select class="form-select" th:field="*{rolha}">
+                    <option th:value="${null}">— (sem rolha)</option>
+                    <option th:each="r : ${rolhas}" th:value="${r.id}"
+                            th:text="${r.codigo} + ' · ' + ${r.descricao} + ' · stock ' + ${r.stock}"></option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Nº de rolhas</label>
+                <input type="number" min="0" class="form-control" th:field="*{numeroRolhas}">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Meios utilizados</label>
+                <input type="text" class="form-control" th:field="*{meios}">
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Métodos utilizados</label>
+                <input type="text" class="form-control" th:field="*{metodos}">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Observações</label>
+                <textarea class="form-control" th:field="*{observacoes}" rows="2"></textarea>
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/processos/engarrafamento}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

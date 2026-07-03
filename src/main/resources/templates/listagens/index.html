@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Listagens')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-3"><i class="bi bi-list-ul"></i> Listagens por datas</h3>
+
+    <div class="card shadow-sm mb-4"><div class="card-body">
+        <form th:action="@{/listagens}" method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Tipo de ficha</label>
+                <select name="tipo" class="form-select">
+                    <option value="CASTAS" th:selected="${tipo == 'CASTAS'}">Castas</option>
+                    <option value="VINHAS" th:selected="${tipo == 'VINHAS'}">Vinhas</option>
+                    <option value="TRABALHADORES" th:selected="${tipo == 'TRABALHADORES'}">Trabalhadores</option>
+                    <option value="ADEGAS" th:selected="${tipo == 'ADEGAS'}">Adegas</option>
+                    <option value="TALHAS" th:selected="${tipo == 'TALHAS'}">Talhas</option>
+                    <option value="DEPOSITOS" th:selected="${tipo == 'DEPOSITOS'}">Depósitos</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">De</label>
+                <input type="date" name="inicio" class="form-control" th:value="${inicio}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Até</label>
+                <input type="date" name="fim" class="form-control" th:value="${fim}">
+            </div>
+            <div class="col-md-2">
+                <button class="btn w-100 text-white" style="background-color:#6b1f2a;" type="submit">
+                    <i class="bi bi-search"></i> Listar
+                </button>
+            </div>
+        </form>
+    </div></div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between">
+            <span class="fw-bold">Resultados</span>
+            <span class="text-muted" th:text="${linhas.size()} + ' registo(s)'"></span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Código</th><th>Descrição</th><th>Detalhe</th><th>Data de registo</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="l : ${linhas}">
+                    <td><span class="codigo" th:text="${l.codigo}"></span></td>
+                    <td th:text="${l.descricao}"></td>
+                    <td th:text="${l.detalhe}"></td>
+                    <td th:text="${#temporals.format(l.dataCriacao, 'dd-MM-yyyy HH:mm')}"></td>
+                </tr>
+                <tr th:if="${linhas.isEmpty()}"><td colspan="4" class="text-center text-muted py-4">Sem registos no intervalo.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <p class="text-muted small mt-2">
+        As listagens mostram as fichas criadas no intervalo indicado. Nas próximas fases juntam-se aqui
+        os processos (vindima, moagem, fermentação, engarrafamento…) com toda a sua história.
+    </p>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

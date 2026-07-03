@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title th:text="'Etiqueta ' + ${v.codigo}">Etiqueta</title>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: Arial, Helvetica, sans-serif; margin:0; padding:20px; background:#f0f0f0; }
+        .barra { max-width:420px; margin:0 auto 12px; text-align:right; }
+        .btn { background:#6b1f2a; color:#fff; border:none; padding:8px 16px; border-radius:4px; cursor:pointer; text-decoration:none; font-size:14px; }
+        .btn.sec { background:#666; }
+        .etiqueta { width:420px; margin:0 auto; background:#fff; border:2px solid #6b1f2a; border-radius:8px; padding:18px 20px; }
+        .cab { display:flex; justify-content:space-between; align-items:center; border-bottom:2px solid #6b1f2a; padding-bottom:8px; margin-bottom:10px; }
+        .cab .empresa { font-size:11px; color:#6b1f2a; font-weight:bold; }
+        .cab .tipo { font-size:13px; background:#6b1f2a; color:#fff; padding:2px 10px; border-radius:12px; }
+        .nome { font-size:22px; font-weight:bold; color:#3a2c29; margin:2px 0; }
+        .codigo { font-family:monospace; font-size:15px; color:#6b1f2a; font-weight:bold; }
+        table { width:100%; border-collapse:collapse; margin-top:10px; }
+        td { padding:4px 2px; font-size:14px; border-bottom:1px dotted #ddd; }
+        td.l { color:#666; width:45%; } td.v { font-weight:600; text-align:right; }
+        .selo { margin-top:10px; text-align:center; font-size:12px; }
+        .cert { display:inline-block; background:#1e7e34; color:#fff; padding:3px 12px; border-radius:12px; }
+        @media print { .barra { display:none; } body { background:#fff; padding:0; } }
+    </style>
+</head>
+<body>
+<div class="barra">
+    <button class="btn" onclick="window.print()">Imprimir / Guardar PDF</button>
+    <a class="btn sec" href="javascript:history.back()">Voltar</a>
+</div>
+
+<div class="etiqueta">
+    <div class="cab">
+        <span class="empresa">ACV · Vinhos de Talha</span>
+        <span class="tipo">Contentor</span>
+    </div>
+    <div class="nome" th:text="${v.nome}">Vinho</div>
+    <div class="codigo" th:text="${v.codigo}">VEG-000001</div>
+
+    <table>
+        <tr><td class="l">Lote</td><td class="v" th:text="${v.lote ?: '—'}">—</td></tr>
+        <tr><td class="l">Garrafas</td><td class="v" th:text="${v.numeroGarrafas}">0</td></tr>
+        <tr><td class="l">Capacidade</td><td class="v"><span th:text="${v.capacidadeMl ?: '—'}"></span> ml</td></tr>
+        <tr><td class="l">Casta</td><td class="v" th:text="${v.casta != null ? v.casta.nome : '—'}">—</td></tr>
+        <tr><td class="l">Origem</td><td class="v" style="font-size:11px;" th:text="${v.origemDescricao}">—</td></tr>
+    </table>
+
+    <div class="selo">
+        <span th:if="${v.rotulado}" class="cert">✓ Rotulado</span>
+    </div>
+</div>
+</body>
+</html>

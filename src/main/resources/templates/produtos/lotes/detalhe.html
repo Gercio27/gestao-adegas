@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Lote')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0"><span class="codigo" th:text="${lote.codigo}"></span> · <span th:text="${lote.nome}"></span></h3>
+        <a th:href="@{/produtos/lotes/{id}/editar(id=${lote.id})}" class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</a>
+    </div>
+
+    <div class="card shadow-sm mb-3"><div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3">Descrição</dt><dd class="col-sm-9" th:text="${lote.descricao ?: '—'}"></dd>
+            <dt class="col-sm-3">Constituição</dt><dd class="col-sm-9" th:text="${lote.dataConstituicao != null ? #temporals.format(lote.dataConstituicao,'dd-MM-yyyy') : '—'}"></dd>
+        </dl>
+    </div></div>
+
+    <div class="card shadow-sm">
+        <div class="card-header bg-white fw-bold">Vinhos a granel neste lote</div>
+        <div class="table-responsive">
+            <table class="table mb-0">
+                <thead><tr><th>Código</th><th>Localização</th><th class="text-end">Litros</th><th>Casta</th><th>Certificado</th></tr></thead>
+                <tbody>
+                <tr th:each="v : ${vinhos}">
+                    <td><span class="codigo" th:text="${v.codigo}"></span></td>
+                    <td th:text="${v.localizacao}"></td>
+                    <td class="text-end" th:text="${v.litros}"></td>
+                    <td th:text="${v.casta != null ? v.casta.nome : '—'}"></td>
+                    <td>
+                        <span th:if="${v.certificado}" class="badge bg-success">Sim</span>
+                        <span th:unless="${v.certificado}" class="badge bg-secondary">Não</span>
+                    </td>
+                </tr>
+                <tr th:if="${vinhos.isEmpty()}"><td colspan="5" class="text-muted text-center py-3">Sem vinhos neste lote.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <a th:href="@{/produtos/lotes}" class="btn btn-link mt-3">&larr; Voltar aos lotes</a>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

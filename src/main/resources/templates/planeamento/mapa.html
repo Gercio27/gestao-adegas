@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Planeamento dos vinhos')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h3 class="mb-0"><i class="bi bi-map"></i> Mapa de planeamento dos vinhos <span class="badge bg-secondary">Fase 1.2</span></h3>
+        <a th:href="@{/planeamento/nova}" class="btn text-white" style="background-color:#6b1f2a;">
+            <i class="bi bi-plus-lg"></i> Nova linha
+        </a>
+    </div>
+    <p class="text-muted">As colunas de análise (grau, açúcar, pH) são <strong>automáticas</strong> — vêm da última análise à maturação de cada vinha/casta.</p>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr>
+                    <th>Vinha</th><th>Casta</th>
+                    <th class="text-end" style="background:#efe7e3;">Grau prov.</th>
+                    <th class="text-end" style="background:#efe7e3;">Açúcar</th>
+                    <th class="text-end" style="background:#efe7e3;">pH</th>
+                    <th class="text-end">Qtd. prevista</th><th>Data vindima</th><th>Adega</th><th>Vinho a fazer</th><th class="text-end">%</th>
+                    <th class="text-end">Ações</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="l : ${linhas}">
+                    <td th:text="${l.plano.vinha != null ? l.plano.vinha.nome : '—'}"></td>
+                    <td th:text="${l.plano.casta != null ? l.plano.casta.nome : '—'}"></td>
+                    <td class="text-end" style="background:#faf6f4;" th:text="${l.temAnalise() and l.analise.grauProvavel != null ? l.analise.grauProvavel + '%' : '—'}"></td>
+                    <td class="text-end" style="background:#faf6f4;" th:text="${l.temAnalise() and l.analise.acucar != null ? l.analise.acucar : '—'}"></td>
+                    <td class="text-end" style="background:#faf6f4;" th:text="${l.temAnalise() and l.analise.ph != null ? l.analise.ph : '—'}"></td>
+                    <td class="text-end" th:text="${l.plano.quantidadePrevistaKg != null ? l.plano.quantidadePrevistaKg + ' kg' : '—'}"></td>
+                    <td th:text="${l.plano.dataPrevistaVindima != null ? #temporals.format(l.plano.dataPrevistaVindima,'dd-MM-yyyy') : '—'}"></td>
+                    <td th:text="${l.plano.adegaDestino != null ? l.plano.adegaDestino.nome : '—'}"></td>
+                    <td th:text="${l.plano.nomeVinho ?: '—'}"></td>
+                    <td class="text-end" th:text="${l.plano.percentagem != null ? l.plano.percentagem + '%' : '—'}"></td>
+                    <td class="text-end">
+                        <a th:href="@{/planeamento/{id}/editar(id=${l.plano.id})}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                        <form th:action="@{/planeamento/{id}/eliminar(id=${l.plano.id})}" method="post" class="d-inline"
+                              onsubmit="return confirm('Eliminar esta linha?');">
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${linhas.isEmpty()}"><td colspan="11" class="text-center text-muted py-4">Sem planeamento. Adicione linhas por vinha/casta.</td></tr>
+                </tbody>
+                <tfoot th:if="${!linhas.isEmpty()}">
+                <tr class="table-light fw-bold">
+                    <td colspan="5" class="text-end">Total previsto colher:</td>
+                    <td class="text-end"><span th:text="${totalKg}"></span> kg</td>
+                    <td colspan="5"></td>
+                </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>
