@@ -32,14 +32,15 @@
             <div class="card shadow-sm"><div class="card-header bg-white fw-bold">Parcelas</div>
                 <div class="table-responsive">
                     <table class="table mb-0">
-                        <thead><tr><th>Identificação</th><th>Casta</th><th class="text-end">Área (ha)</th></tr></thead>
+                        <thead><tr><th>Identificação</th><th>Casta</th><th class="text-end">Área (ha)</th><th class="text-end">Ano plantação</th></tr></thead>
                         <tbody>
                         <tr th:each="p : ${vinha.parcelas}">
                             <td th:text="${p.identificacao}"></td>
                             <td th:text="${p.casta != null ? p.casta.nome : '—'}"></td>
                             <td class="text-end" th:text="${p.areaHa}"></td>
+                            <td class="text-end" th:text="${p.anoPlantacao ?: '—'}"></td>
                         </tr>
-                        <tr th:if="${vinha.parcelas.isEmpty()}"><td colspan="3" class="text-muted text-center py-3">Sem parcelas.</td></tr>
+                        <tr th:if="${vinha.parcelas.isEmpty()}"><td colspan="4" class="text-muted text-center py-3">Sem parcelas.</td></tr>
                         </tbody>
                     </table>
                 </div>

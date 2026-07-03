@@ -99,7 +99,8 @@ public class VinhaController {
             boolean semId = p.getIdentificacao() == null || p.getIdentificacao().isBlank();
             boolean semCasta = p.getCasta() == null || p.getCasta().getId() == null;
             boolean semArea = p.getAreaHa() == null;
-            if (semId && semCasta && semArea) {
+            boolean semAno = p.getAnoPlantacao() == null;
+            if (semId && semCasta && semArea && semAno) {
                 it.remove();
             }
         }

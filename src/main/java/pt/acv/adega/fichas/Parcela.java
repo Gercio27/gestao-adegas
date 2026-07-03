@@ -24,6 +24,9 @@ public class Parcela {
     @Column(precision = 10, scale = 4)
     private BigDecimal areaHa;
 
+    /** Ano em que a parcela (casta) foi plantada. */
+    private Integer anoPlantacao;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "vinha_id")
     private Vinha vinha;
@@ -39,6 +42,9 @@ public class Parcela {
 
     public BigDecimal getAreaHa() { return areaHa; }
     public void setAreaHa(BigDecimal areaHa) { this.areaHa = areaHa; }
+
+    public Integer getAnoPlantacao() { return anoPlantacao; }
+    public void setAnoPlantacao(Integer anoPlantacao) { this.anoPlantacao = anoPlantacao; }
 
     public Vinha getVinha() { return vinha; }
     public void setVinha(Vinha vinha) { this.vinha = vinha; }
