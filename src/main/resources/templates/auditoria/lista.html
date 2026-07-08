@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="pt">
+<head th:replace="~{fragments/layout :: head('Auditoria')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h3 class="mb-0"><i class="bi bi-clock-history"></i> Registo de auditoria</h3>
+
+        <form th:action="@{/auditoria}" method="get" class="d-flex align-items-center gap-2">
+            <label class="form-label mb-0 text-muted small">Operador</label>
+            <select name="utilizador" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="">Todos</option>
+                <option th:each="u : ${utilizadores}" th:value="${u.username}"
+                        th:text="${u.nome + ' (' + u.username + ')'}"
+                        th:selected="${u.username == filtroUtilizador}"></option>
+            </select>
+        </form>
+    </div>
+
+    <p class="text-muted small">
+        Mostra as alterações feitas na plataforma (últimos 500 registos), do mais recente para o mais antigo.
+    </p>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0 align-middle">
+                <thead>
+                <tr>
+                    <th style="white-space:nowrap;">Data / Hora</th>
+                    <th>Operador</th>
+                    <th>Ação</th>
+                    <th class="d-none d-md-table-cell">Detalhe</th>
+                    <th class="text-center">Estado</th>
+                    <th class="d-none d-lg-table-cell">IP</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="r : ${registos}">
+                    <td style="white-space:nowrap;"
+                        th:text="${#temporals.format(r.dataHora,'dd-MM-yyyy HH:mm:ss')}"></td>
+                    <td>
+                        <span class="fw-semibold" th:text="${r.nomeUtilizador}"></span>
+                        <span class="text-muted small d-block" th:text="${r.username}"></span>
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary me-1" th:text="${r.metodo}"></span>
+                        <span th:text="${r.descricao}"></span>
+                    </td>
+                    <td class="d-none d-md-table-cell text-muted small"
+                        style="word-break:break-all;" th:text="${r.caminho}"></td>
+                    <td class="text-center">
+                        <span class="badge" th:classappend="${r.sucesso} ? 'bg-success' : 'bg-danger'"
+                              th:text="${r.estado}"></span>
+                    </td>
+                    <td class="d-none d-lg-table-cell text-muted small" th:text="${r.ip}"></td>
+                </tr>
+                <tr th:if="${registos.isEmpty()}">
+                    <td colspan="6" class="text-center text-muted py-4">Sem registos de auditoria.</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

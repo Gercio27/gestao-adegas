@@ -24,6 +24,7 @@ public class SecurityConfig {
                 .requestMatchers("/css/**", "/js/**", "/webjars/**", "/img/**").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
                 .requestMatchers("/utilizadores/**").hasRole("ADMIN")
+                .requestMatchers("/auditoria/**").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form

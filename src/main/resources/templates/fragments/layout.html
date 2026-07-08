@@ -63,6 +63,9 @@
                 <li class="nav-item" sec:authorize="hasRole('ADMIN')">
                     <a class="nav-link" th:href="@{/utilizadores}"><i class="bi bi-person-gear"></i> Utilizadores</a>
                 </li>
+                <li class="nav-item" sec:authorize="hasRole('ADMIN')">
+                    <a class="nav-link" th:href="@{/auditoria}"><i class="bi bi-clock-history"></i> Auditoria</a>
+                </li>
             </ul>
             <ul class="navbar-nav">
                 <li class="nav-item">
