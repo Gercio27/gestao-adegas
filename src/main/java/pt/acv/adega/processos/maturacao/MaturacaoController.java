@@ -8,12 +8,19 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
+import pt.acv.adega.fichas.Casta;
 import pt.acv.adega.fichas.CastaRepository;
 import pt.acv.adega.fichas.TrabalhadorRepository;
+import pt.acv.adega.fichas.Vinha;
 import pt.acv.adega.fichas.VinhaRepository;
 import pt.acv.adega.processos.EstadoProcesso;
 
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @Controller
 @RequestMapping("/processos/maturacao")
@@ -129,9 +136,30 @@ public class MaturacaoController {
     }
 
     private void preencherOpcoes(Model model) {
-        model.addAttribute("vinhas", vinhaRepo.findAllByOrderByNomeAsc());
+        List<Vinha> vinhas = vinhaRepo.findAllByOrderByNomeAsc();
+        model.addAttribute("vinhas", vinhas);
         model.addAttribute("castas", castaRepo.findAllByOrderByNomeAsc());
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
+        model.addAttribute("castasPorVinha", castasPorVinha(vinhas));
+    }
+
+    /**
+     * Mapa vinha -> castas plantadas nessa vinha (obtidas das parcelas), usado
+     * no formulario para limitar a lista de castas a selecionar apos escolher a
+     * vinha, em vez de mostrar toda a lista nacional de castas.
+     */
+    private Map<Long, List<Long>> castasPorVinha(List<Vinha> vinhas) {
+        Map<Long, List<Long>> mapa = new LinkedHashMap<>();
+        for (Vinha v : vinhas) {
+            List<Long> castaIds = v.getParcelas().stream()
+                    .map(p -> p.getCasta())
+                    .filter(Objects::nonNull)
+                    .map(Casta::getId)
+                    .distinct()
+                    .collect(Collectors.toList());
+            mapa.put(v.getId(), castaIds);
+        }
+        return mapa;
     }
 
     private boolean isAdmin(Authentication auth) {

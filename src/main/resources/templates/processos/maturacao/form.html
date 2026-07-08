@@ -19,17 +19,18 @@
             </div>
             <div class="col-md-4">
                 <label class="form-label">Vinha</label>
-                <select class="form-select" th:field="*{vinha}">
+                <select class="form-select" th:field="*{vinha}" id="vinha">
                     <option th:value="${null}">—</option>
                     <option th:each="v : ${vinhas}" th:value="${v.id}" th:text="${v.nome}"></option>
                 </select>
             </div>
             <div class="col-md-3">
                 <label class="form-label">Casta</label>
-                <select class="form-select" th:field="*{casta}">
+                <select class="form-select" th:field="*{casta}" id="casta">
                     <option th:value="${null}">—</option>
                     <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
                 </select>
+                <div class="form-text" id="castaVazia" style="display:none;">Esta vinha não tem castas associadas.</div>
             </div>
             <div class="col-md-2">
                 <label class="form-label">Responsável</label>
@@ -45,7 +46,7 @@
                 <input type="number" step="0.01" min="0" class="form-control" th:field="*{grauProvavel}">
             </div>
             <div class="col-md-3">
-                <label class="form-label">Açúcar (g/L)</label>
+                <label class="form-label">Massa Volúmica (g/L)</label>
                 <input type="number" step="0.01" min="0" class="form-control" th:field="*{acucar}">
             </div>
             <div class="col-md-3">
@@ -88,5 +89,45 @@
 </div>
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:inline="javascript">
+    // Mapa vinha -> castas plantadas nessa vinha (ids), fornecido pelo controller.
+    const castasPorVinha = /*[[${castasPorVinha}]]*/ {};
+
+    (function () {
+        const vinhaSel = document.getElementById('vinha');
+        const castaSel = document.getElementById('casta');
+        const aviso = document.getElementById('castaVazia');
+        if (!vinhaSel || !castaSel) return;
+
+        // Aplica o filtro: mostra apenas as castas da vinha selecionada.
+        // limpar=true repoe a casta (usado quando o utilizador muda de vinha).
+        function filtrarCastas(limpar) {
+            const vid = vinhaSel.value;
+            const permitidas = (vid && castasPorVinha[vid]) ? castasPorVinha[vid].map(String) : null;
+            if (limpar) castaSel.value = '';
+
+            let disponiveis = 0, unicoValor = '';
+            Array.from(castaSel.options).forEach(function (opt) {
+                if (!opt.value) { opt.hidden = false; opt.disabled = false; return; } // opção "—"
+                const ok = permitidas ? permitidas.includes(opt.value) : true;
+                opt.hidden = !ok;
+                opt.disabled = !ok;
+                if (ok) { disponiveis++; unicoValor = opt.value; }
+            });
+
+            // Se a casta atualmente selecionada deixou de ser válida, repõe para "—".
+            const selOpt = castaSel.options[castaSel.selectedIndex];
+            if (selOpt && selOpt.hidden) castaSel.value = '';
+
+            // A vinha só tem uma casta associada: seleciona-a automaticamente.
+            if (disponiveis === 1 && !castaSel.value) castaSel.value = unicoValor;
+
+            if (aviso) aviso.style.display = (vid && disponiveis === 0) ? '' : 'none';
+        }
+
+        vinhaSel.addEventListener('change', function () { filtrarCastas(true); });
+        filtrarCastas(false); // estado inicial (preserva a casta ao editar)
+    })();
+</script>
 </body>
 </html>

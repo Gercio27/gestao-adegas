@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Configuracao de logging. Mantem o comportamento por omissao do Spring Boot
+  (consola) e acrescenta um ficheiro dedicado de auditoria (logs/auditoria.log)
+  onde ficam registadas todas as alteracoes e o utilizador que as fez.
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <!-- Ficheiro rotativo dedicado a auditoria (uma linha por alteracao). -->
+    <appender name="AUDITORIA_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>logs/auditoria.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>logs/auditoria.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>90</maxHistory>
+        </rollingPolicy>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss} %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- additivity=true: as linhas de auditoria tambem aparecem na consola. -->
+    <logger name="AUDITORIA" level="INFO" additivity="true">
+        <appender-ref ref="AUDITORIA_FILE"/>
+    </logger>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>
