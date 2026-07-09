@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import pt.acv.adega.fichas.Adega;
 import pt.acv.adega.fichas.Vinha;
 import pt.acv.adega.planeamento.LinhaPlaneamentoParcela;
+import pt.acv.adega.planeamento.PlaneamentoVinho;
 import pt.acv.adega.processos.Fase;
 import pt.acv.adega.processos.Processo;
 
@@ -12,9 +13,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Processo de Moagem e enchimento de talhas/cubas (Fase 3, ponto 3.1).
- * Ao fechar, gera automaticamente as fichas de mosto que resultaram, uma por
- * cada talha/cuba cheia (linhas de enchimento).
+ * Processo de Moagem e enchimento de talhas/cubas (Fase 3, ponto 3.1). Uma
+ * moagem e feita por adega + vinho e mói uma ou mais vindimas (parcelas
+ * colhidas) desse vinho entregues nessa adega. Ao fechar, gera as fichas de
+ * mosto (uma por enchimento) e soma os volumes aos recipientes.
  */
 @Entity
 @Table(name = "processo_moagem")
@@ -28,15 +30,19 @@ public class ProcessoMoagem extends Processo {
     @JoinColumn(name = "adega_id")
     private Adega adega;
 
-    /**
-     * Origem da uva: a linha do planeamento (vinho + parcela) que foi vindimada
-     * (rastreabilidade uva -> mosto). Opcional.
-     */
+    /** Vinho a que se destina a uva moída (planeamento). */
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "origem_vindima_linha_id")
-    private LinhaPlaneamentoParcela origemVindima;
+    @JoinColumn(name = "plano_id")
+    private PlaneamentoVinho plano;
 
-    /** Vinha de origem (redundante/alternativa a vindima). Opcional. */
+    /** Vindimas (parcelas colhidas) que esta moagem mói. Rastreabilidade uva->mosto. */
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "moagem_vindima",
+            joinColumns = @JoinColumn(name = "moagem_id"),
+            inverseJoinColumns = @JoinColumn(name = "linha_id"))
+    private List<LinhaPlaneamentoParcela> vindimas = new ArrayList<>();
+
+    /** Vinha de origem (opcional, redundante). */
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "vinha_id")
     private Vinha vinha;
@@ -48,14 +54,25 @@ public class ProcessoMoagem extends Processo {
     public Adega getAdega() { return adega; }
     public void setAdega(Adega adega) { this.adega = adega; }
 
-    public LinhaPlaneamentoParcela getOrigemVindima() { return origemVindima; }
-    public void setOrigemVindima(LinhaPlaneamentoParcela origemVindima) { this.origemVindima = origemVindima; }
+    public PlaneamentoVinho getPlano() { return plano; }
+    public void setPlano(PlaneamentoVinho plano) { this.plano = plano; }
+
+    public List<LinhaPlaneamentoParcela> getVindimas() { return vindimas; }
+    public void setVindimas(List<LinhaPlaneamentoParcela> vindimas) { this.vindimas = vindimas; }
 
     public Vinha getVinha() { return vinha; }
     public void setVinha(Vinha vinha) { this.vinha = vinha; }
 
     public List<Enchimento> getEnchimentos() { return enchimentos; }
     public void setEnchimentos(List<Enchimento> enchimentos) { this.enchimentos = enchimentos; }
+
+    /** Total de uva vindimada nas parcelas desta moagem (Kg). */
+    @Transient
+    public BigDecimal getTotalVindimadoKg() {
+        return vindimas.stream()
+                .map(LinhaPlaneamentoParcela::getTotalVindimadoKg)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
 
     /** Total de uva efetivamente moída (soma dos Kg dos enchimentos). */
     @Transient
@@ -71,5 +88,11 @@ public class ProcessoMoagem extends Processo {
         return enchimentos.stream()
                 .map(e -> e.getLitros() == null ? BigDecimal.ZERO : e.getLitros())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Uva que ainda falta moer (vindimado - moído). */
+    @Transient
+    public BigDecimal getSobraPorMoerKg() {
+        return getTotalVindimadoKg().subtract(getTotalMoidoKg());
     }
 }

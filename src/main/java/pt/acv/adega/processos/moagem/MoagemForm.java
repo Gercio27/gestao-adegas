@@ -3,20 +3,21 @@ package pt.acv.adega.processos.moagem;
 import org.springframework.format.annotation.DateTimeFormat;
 import pt.acv.adega.fichas.Adega;
 import pt.acv.adega.fichas.Trabalhador;
+import pt.acv.adega.planeamento.PlaneamentoVinho;
 
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Dados da moagem de uma linha vindimada, submetidos na folha da Fase 3.
- * responsavel/adega ligam por id (DomainClassConverter). Os enchimentos sao
- * acrescentados (as linhas vazias sao ignoradas ao guardar).
+ * Dados submetidos na folha da moagem: adega + vinho + vindimas selecionadas +
+ * enchimentos. adega/plano/responsavel ligam por id (DomainClassConverter).
  */
-public class MoagemLinhaForm {
+public class MoagemForm {
 
-    private Trabalhador responsavel;
     private Adega adega;
+    private PlaneamentoVinho plano;
+    private Trabalhador responsavel;
 
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate dataInicio;
@@ -24,19 +25,28 @@ public class MoagemLinhaForm {
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate dataFim;
 
-    private List<Enchimento> enchimentos = new ArrayList<>();
+    /** Ids das linhas (vindimas) selecionadas para moer. */
+    private List<Long> vindimaIds = new ArrayList<>();
 
-    public Trabalhador getResponsavel() { return responsavel; }
-    public void setResponsavel(Trabalhador responsavel) { this.responsavel = responsavel; }
+    private List<Enchimento> enchimentos = new ArrayList<>();
 
     public Adega getAdega() { return adega; }
     public void setAdega(Adega adega) { this.adega = adega; }
+
+    public PlaneamentoVinho getPlano() { return plano; }
+    public void setPlano(PlaneamentoVinho plano) { this.plano = plano; }
+
+    public Trabalhador getResponsavel() { return responsavel; }
+    public void setResponsavel(Trabalhador responsavel) { this.responsavel = responsavel; }
 
     public LocalDate getDataInicio() { return dataInicio; }
     public void setDataInicio(LocalDate dataInicio) { this.dataInicio = dataInicio; }
 
     public LocalDate getDataFim() { return dataFim; }
     public void setDataFim(LocalDate dataFim) { this.dataFim = dataFim; }
+
+    public List<Long> getVindimaIds() { return vindimaIds; }
+    public void setVindimaIds(List<Long> vindimaIds) { this.vindimaIds = vindimaIds; }
 
     public List<Enchimento> getEnchimentos() { return enchimentos; }
     public void setEnchimentos(List<Enchimento> enchimentos) { this.enchimentos = enchimentos; }

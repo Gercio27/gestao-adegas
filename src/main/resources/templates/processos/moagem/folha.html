@@ -9,215 +9,244 @@
 <div class="container-fluid px-4">
     <div class="d-flex justify-content-between align-items-center mb-2">
         <h3 class="mb-0"><i class="bi bi-gear-wide-connected"></i> Moagem <span class="badge bg-secondary">Fase 3</span></h3>
-        <a th:href="@{/processos/vindima}" class="btn btn-outline-secondary btn-sm">Ver vindima</a>
+        <button class="btn text-white" style="background-color:#6b1f2a;" type="button"
+                data-bs-toggle="collapse" data-bs-target="#novaMoagem">
+            <i class="bi bi-plus-lg"></i> Nova moagem
+        </button>
     </div>
-    <p class="text-muted">
-        Só aparecem as parcelas <strong>já vindimadas</strong>. Em cada linha, abra <strong>Moagem</strong>,
-        registe os enchimentos (talha/depósito, Kg moídos e litros de mosto) e depois <strong>Feche a moagem</strong>
-        para gerar as fichas de mosto e somar os volumes. Recipientes cheios aparecem a <span class="text-danger">vermelho</span>.
-    </p>
 
-    <div th:if="${vinhos.isEmpty()}" class="card shadow-sm"><div class="card-body text-center text-muted py-4">
-        Sem parcelas vindimadas. Primeiro registe a vindima na <a th:href="@{/processos/vindima}">Fase 2</a>.
-    </div></div>
+    <!-- ===== NOVA MOAGEM: adega -> vinho -> vindimas -> enchimentos ===== -->
+    <div class="collapse show mb-4" id="novaMoagem">
+        <div class="card shadow-sm"><div class="card-body">
+            <form th:action="@{/processos/moagem/nova}" method="post">
+                <div class="row g-2 mb-2">
+                    <div class="col-md-3">
+                        <label class="form-label small mb-0">Adega *</label>
+                        <select class="form-select form-select-sm" name="adega" id="mo-adega" onchange="filtrarVindimas()" required>
+                            <option value="">— escolher adega —</option>
+                            <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label small mb-0">Vinho *</label>
+                        <select class="form-select form-select-sm" name="plano" id="mo-vinho" onchange="filtrarVindimas()" required>
+                            <option value="">— escolher vinho —</option>
+                            <option th:each="p : ${planos}" th:value="${p.id}" th:text="${p.nomeVinho}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-0">Responsável</label>
+                        <select class="form-select form-select-sm" name="responsavel">
+                            <option value="">—</option>
+                            <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-0">Data início</label>
+                        <input type="date" class="form-control form-control-sm" name="dataInicio">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small mb-0">Data fim</label>
+                        <input type="date" class="form-control form-control-sm" name="dataFim">
+                    </div>
+                </div>
 
-    <div th:each="vm : ${vinhos}" class="card shadow-sm mb-3">
-        <div class="card-header bg-white">
-            <span class="fw-bold" th:text="${vm.plano.nomeVinho}"></span>
-            <span class="badge bg-dark ms-1" th:if="${vm.plano.tipoVinho != null}" th:text="${vm.plano.tipoVinho.descricao}"></span>
-            <span class="codigo text-muted small ms-1" th:text="${vm.plano.codigo}"></span>
+                <div class="small fw-bold mb-1">Vindimas disponíveis (deste vinho, nesta adega)</div>
+                <div class="table-responsive mb-2">
+                    <table class="table table-sm mb-0" style="max-width:640px;">
+                        <thead><tr><th style="width:40px;"></th><th>Parcela (casta)</th><th class="text-end">Vindimado</th></tr></thead>
+                        <tbody id="vindimasBody">
+                        <tr><td colspan="3" class="text-muted small py-2">Escolha a adega e o vinho.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="small fw-bold mb-1">Enchimentos — talha/depósito, casta, Kg moídos e litros de mosto</div>
+                <table class="table table-sm mb-0" style="max-width:760px;">
+                    <thead><tr><th style="width:36px;">#</th><th>Talha / Depósito</th><th>Casta</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th></tr></thead>
+                    <tbody>
+                    <tr th:each="i : ${#numbers.sequence(0,2)}">
+                        <td class="text-muted" th:text="${i + 1}"></td>
+                        <td>
+                            <select class="form-select form-select-sm" th:name="'enchimentos[' + ${i} + '].recipienteRef'">
+                                <option value="">—</option>
+                                <option th:each="r : ${recipientes}" th:value="${r.ref}" th:text="${r.label}"
+                                        th:style="${r.cheia} ? 'color:#b00020;font-weight:600;'"></option>
+                            </select>
+                        </td>
+                        <td>
+                            <select class="form-select form-select-sm" th:name="'enchimentos[' + ${i} + '].casta'">
+                                <option value="">—</option>
+                                <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
+                            </select>
+                        </td>
+                        <td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end ench-kg"
+                                   th:name="'enchimentos[' + ${i} + '].quantidadeMoidaKg'"></td>
+                        <td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end ench-litros"
+                                   th:name="'enchimentos[' + ${i} + '].litros'"></td>
+                    </tr>
+                    </tbody>
+                </table>
+
+                <button class="btn btn-sm text-white mt-2" style="background-color:#6b1f2a;" type="submit">
+                    <i class="bi bi-check-lg"></i> Criar moagem
+                </button>
+            </form>
+        </div></div>
+    </div>
+
+    <!-- ===== MOAGENS EXISTENTES ===== -->
+    <div th:if="${moagens.isEmpty()}" class="text-muted small">Ainda não há moagens.</div>
+
+    <div th:each="mo : ${moagens}" class="card shadow-sm mb-3">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <span class="codigo fw-bold" th:text="${mo.codigo}"></span>
+                <span class="ms-2" th:text="${mo.plano != null ? mo.plano.nomeVinho : '—'}"></span>
+                <span class="text-muted small" th:text="'· ' + (mo.adega != null ? mo.adega.nome : '—')"></span>
+                <span th:if="${mo.aberto}" class="badge bg-warning text-dark ms-1">Em moagem</span>
+                <span th:unless="${mo.aberto}" class="badge bg-success ms-1">Fechada</span>
+            </div>
+            <div class="small text-muted">
+                Vindimado: <strong th:text="${mo.totalVindimadoKg} + ' kg'"></strong>
+                · Moído: <strong th:text="${mo.totalMoidoKg} + ' kg'"></strong>
+                · Sobra: <strong th:classappend="${mo.sobraPorMoerKg.signum() gt 0} ? 'text-danger'"
+                                 th:text="${mo.sobraPorMoerKg} + ' kg'"></strong>
+            </div>
         </div>
-        <div class="table-responsive">
-            <table class="table table-sm mb-0 align-middle">
-                <thead>
-                <tr>
-                    <th>Parcela</th><th>Casta</th><th>Adega</th>
-                    <th class="text-end">Vindimado</th><th class="text-end">Moído</th><th class="text-end">Sobra p/ moer</th>
-                    <th>Estado</th><th></th>
-                </tr>
-                </thead>
+        <div class="card-body">
+            <div class="small mb-2">
+                Vindimas: <span th:each="v,s : ${mo.vindimas}" th:text="${(s.first ? '' : ', ') + v.etiqueta}"></span>
+                <span th:if="${mo.vindimas.isEmpty()}" class="text-muted">—</span>
+            </div>
+
+            <!-- Enchimentos registados -->
+            <table class="table table-sm mb-2" th:if="${!mo.enchimentos.isEmpty()}" style="max-width:760px;">
+                <thead><tr><th style="width:36px;">#</th><th>Recipiente</th><th>Casta</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th><th></th></tr></thead>
                 <tbody>
-                <th:block th:each="lv : ${vm.linhas}">
-                    <tr>
-                        <td>
-                            <span th:text="${lv.linha.parcela != null and lv.linha.parcela.vinha != null ? lv.linha.parcela.vinha.nome + ' — ' : ''}"></span>
-                            <span th:text="${lv.linha.parcela != null ? (lv.linha.parcela.nome ?: lv.linha.parcela.identificacao ?: '—') : '—'}"></span>
-                        </td>
-                        <td th:text="${lv.linha.parcela != null and lv.linha.parcela.casta != null ? lv.linha.parcela.casta.nome : '—'}"></td>
-                        <td th:text="${lv.temMoagem() and lv.moagem.adega != null ? lv.moagem.adega.nome : '—'}"></td>
-                        <td class="text-end" th:text="${lv.linha.totalVindimadoKg} + ' kg'"></td>
-                        <td class="text-end" th:text="${lv.temMoagem() ? lv.moidoKg() + ' kg' : '—'}"></td>
-                        <td class="text-end" th:classappend="${lv.sobrouPorMoer()} ? 'text-danger fw-bold'"
-                            th:text="${lv.temMoagem() ? lv.faltaMoer() + ' kg' : '—'}"></td>
-                        <td>
-                            <span th:if="${!lv.temMoagem()}" class="badge bg-secondary">Por moer</span>
-                            <span th:if="${lv.temMoagem() and !lv.fechada()}" class="badge bg-warning text-dark">Em moagem</span>
-                            <span th:if="${lv.fechada()}" class="badge bg-success">Moída</span>
-                            <span th:if="${lv.sobrouPorMoer()}" class="badge bg-danger ms-1"
-                                  th:text="'sobra ' + ${lv.faltaMoer()} + ' kg'"></span>
-                        </td>
-                        <td class="text-end">
-                            <button class="btn btn-sm btn-outline-secondary" type="button"
-                                    data-bs-toggle="collapse" th:data-bs-target="'#m-' + ${lv.linha.id}">
-                                <i class="bi bi-gear"></i> Moagem
-                            </button>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td colspan="8" class="p-0 border-0">
-                            <div class="collapse" th:id="'m-' + ${lv.linha.id}">
-                                <div class="p-3" style="background:#faf6f4;">
-                                    <div class="small mb-2">
-                                        <strong>Vindima de origem:</strong> <span th:text="${lv.linha.etiqueta}"></span>
-                                        · <strong>Casta:</strong> <span th:text="${lv.linha.parcela != null and lv.linha.parcela.casta != null ? lv.linha.parcela.casta.nome : '—'}"></span>
-                                        <span th:if="${lv.temMoagem()}"> · <span class="codigo" th:text="${lv.moagem.codigo}"></span></span>
-                                    </div>
-                                    <div class="small mb-2">
-                                        Vindimado: <strong th:text="${lv.linha.totalVindimadoKg} + ' kg'"></strong>
-                                        · Moído: <strong th:text="${lv.moidoKg()} + ' kg'"></strong>
-                                        · Sobra por moer:
-                                        <strong th:classappend="${lv.sobrouPorMoer()} ? 'text-danger'"
-                                                th:text="${lv.faltaMoer()} + ' kg'"></strong>
-                                        <span th:if="${lv.sobrouPorMoer()}" class="text-danger">— ficou uva por moer (ex.: recipientes cheios).</span>
-                                    </div>
-
-                                    <!-- MOAGEM FECHADA: mostos gerados -->
-                                    <div th:if="${lv.fechada()}">
-                                        <div class="alert alert-success py-2 small mb-2">Moagem fechada — mostos gerados:</div>
-                                        <table class="table table-sm" style="max-width:720px;">
-                                            <thead><tr><th>Mosto</th><th>Recipiente</th><th class="text-end">Litros</th><th>Casta</th></tr></thead>
-                                            <tbody>
-                                            <tr th:each="mo : ${lv.mostos}">
-                                                <td class="codigo small" th:text="${mo.codigo}"></td>
-                                                <td th:text="${mo.talha != null ? 'Talha ' + mo.talha.identificacao : (mo.deposito != null ? 'Depósito ' + mo.deposito.identificacao : '—')}"></td>
-                                                <td class="text-end" th:text="${mo.litros != null ? mo.litros + ' L' : '—'}"></td>
-                                                <td th:text="${mo.casta != null ? mo.casta.nome : '—'}"></td>
-                                            </tr>
-                                            <tr th:if="${lv.mostos.isEmpty()}"><td colspan="4" class="text-muted small">Sem mostos.</td></tr>
-                                            </tbody>
-                                        </table>
-                                        <form sec:authorize="hasRole('ADMIN')" method="post"
-                                              th:action="@{/processos/moagem/linha-moagem/{id}/reabrir(id=${lv.moagem.id})}"
-                                              onsubmit="return confirm('Reabrir? Os mostos gerados são anulados e os volumes repostos.');">
-                                            <button class="btn btn-sm btn-outline-warning"><i class="bi bi-unlock"></i> Reabrir moagem</button>
-                                        </form>
-                                    </div>
-
-                                    <!-- MOAGEM ABERTA / POR MOER -->
-                                    <div th:unless="${lv.fechada()}">
-                                        <!-- Enchimentos já registados -->
-                                        <div th:if="${lv.temMoagem() and !lv.moagem.enchimentos.isEmpty()}" class="mb-3">
-                                            <div class="small fw-bold mb-1">Enchimentos registados</div>
-                                            <table class="table table-sm mb-0" style="max-width:760px;">
-                                                <thead><tr><th style="width:36px;">#</th><th>Recipiente</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th><th></th></tr></thead>
-                                                <tbody>
-                                                <tr th:each="e, s : ${lv.moagem.enchimentos}">
-                                                    <td class="text-muted" th:text="${s.count}"></td>
-                                                    <td th:text="${e.recipienteDescricao}"></td>
-                                                    <td class="text-end" th:text="${e.quantidadeMoidaKg != null ? e.quantidadeMoidaKg + ' kg' : '—'}"></td>
-                                                    <td class="text-end" th:text="${e.litros != null ? e.litros + ' L' : '—'}"></td>
-                                                    <td class="text-end">
-                                                        <form th:action="@{/processos/moagem/enchimento/{eid}/eliminar(eid=${e.id})}" method="post"
-                                                              class="d-inline" onsubmit="return confirm('Remover este enchimento?');">
-                                                            <button class="btn btn-sm btn-outline-danger py-0"><i class="bi bi-trash"></i></button>
-                                                        </form>
-                                                    </td>
-                                                </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
-
-                                        <!-- Form: cabeçalho + acrescentar enchimentos -->
-                                        <form th:action="@{/processos/moagem/linha/{id}(id=${lv.linha.id})}" method="post">
-                                            <div class="row g-2 mb-2">
-                                                <div class="col-md-3">
-                                                    <label class="form-label small mb-0">Responsável</label>
-                                                    <select class="form-select form-select-sm" name="responsavel">
-                                                        <option value="">—</option>
-                                                        <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"
-                                                                th:selected="${lv.temMoagem() and lv.moagem.responsavel != null and lv.moagem.responsavel.id == t.id}"></option>
-                                                    </select>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <label class="form-label small mb-0">Adega</label>
-                                                    <select class="form-select form-select-sm" name="adega">
-                                                        <option value="">—</option>
-                                                        <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"
-                                                                th:selected="${lv.temMoagem() and lv.moagem.adega != null and lv.moagem.adega.id == a.id}"></option>
-                                                    </select>
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <label class="form-label small mb-0">Data de início</label>
-                                                    <input type="date" class="form-control form-control-sm" name="dataInicio"
-                                                           th:value="${lv.temMoagem() and lv.moagem.dataHoraInicio != null ? #temporals.format(lv.moagem.dataHoraInicio,'yyyy-MM-dd') : ''}">
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <label class="form-label small mb-0">Data de fim</label>
-                                                    <input type="date" class="form-control form-control-sm" name="dataFim"
-                                                           th:value="${lv.temMoagem() and lv.moagem.dataHoraFim != null ? #temporals.format(lv.moagem.dataHoraFim,'yyyy-MM-dd') : ''}">
-                                                </div>
-                                            </div>
-
-                                            <div class="small fw-bold mb-1">Acrescentar enchimento(s) — a casta vem da vindima</div>
-                                            <table class="table table-sm mb-2" style="max-width:760px;">
-                                                <thead><tr><th style="width:36px;">#</th><th>Talha / Depósito</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th></tr></thead>
-                                                <tbody>
-                                                <tr th:each="i : ${#numbers.sequence(0,2)}">
-                                                    <td class="text-muted" th:text="${i + 1}"></td>
-                                                    <td>
-                                                        <select class="form-select form-select-sm" th:name="'enchimentos[' + ${i} + '].recipienteRef'">
-                                                            <option value="">—</option>
-                                                            <option th:each="r : ${recipientes}" th:value="${r.ref}" th:text="${r.label}"
-                                                                    th:style="${r.cheia} ? 'color:#b00020;font-weight:600;'"></option>
-                                                        </select>
-                                                    </td>
-                                                    <td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end ench-kg"
-                                                               th:name="'enchimentos[' + ${i} + '].quantidadeMoidaKg'"></td>
-                                                    <td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end ench-litros"
-                                                               th:name="'enchimentos[' + ${i} + '].litros'"></td>
-                                                </tr>
-                                                </tbody>
-                                            </table>
-
-                                            <button class="btn btn-sm text-white" style="background-color:#6b1f2a;" type="submit">
-                                                <i class="bi bi-plus-lg"></i> Guardar / acrescentar
-                                            </button>
-                                        </form>
-
-                                        <!-- Fechar moagem (só se já houver enchimentos) -->
-                                        <form th:if="${lv.temMoagem() and !lv.moagem.enchimentos.isEmpty()}" method="post" class="mt-2"
-                                              th:action="@{/processos/moagem/linha-moagem/{id}/fechar(id=${lv.moagem.id})}"
-                                              onsubmit="return confirm('Fechar a moagem? Vai gerar os mostos e somar os volumes aos recipientes.');">
-                                            <button class="btn btn-sm btn-success"><i class="bi bi-lock"></i> Fechar moagem</button>
-                                        </form>
-                                    </div>
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                </th:block>
+                <tr th:each="e,s : ${mo.enchimentos}">
+                    <td class="text-muted" th:text="${s.count}"></td>
+                    <td th:text="${e.recipienteDescricao}"></td>
+                    <td th:text="${e.casta != null ? e.casta.nome : '—'}"></td>
+                    <td class="text-end" th:text="${e.quantidadeMoidaKg != null ? e.quantidadeMoidaKg + ' kg' : '—'}"></td>
+                    <td class="text-end" th:text="${e.litros != null ? e.litros + ' L' : '—'}"></td>
+                    <td class="text-end">
+                        <form th:if="${mo.aberto}" th:action="@{/processos/moagem/enchimento/{eid}/eliminar(eid=${e.id})}" method="post"
+                              class="d-inline" onsubmit="return confirm('Remover este enchimento?');">
+                            <button class="btn btn-sm btn-outline-danger py-0"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
                 </tbody>
             </table>
+
+            <!-- ABERTA: acrescentar enchimentos + fechar -->
+            <div th:if="${mo.aberto}">
+                <form th:action="@{/processos/moagem/{id}/enchimentos(id=${mo.id})}" method="post" class="mb-2">
+                    <div class="small fw-bold mb-1">Acrescentar enchimento(s)</div>
+                    <table class="table table-sm mb-0" style="max-width:760px;">
+                        <thead><tr><th style="width:36px;">#</th><th>Talha / Depósito</th><th>Casta</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th></tr></thead>
+                        <tbody>
+                        <tr th:each="i : ${#numbers.sequence(0,2)}">
+                            <td class="text-muted" th:text="${i + 1}"></td>
+                            <td>
+                                <select class="form-select form-select-sm" th:name="'enchimentos[' + ${i} + '].recipienteRef'">
+                                    <option value="">—</option>
+                                    <option th:each="r : ${recipientes}" th:value="${r.ref}" th:text="${r.label}"
+                                            th:style="${r.cheia} ? 'color:#b00020;font-weight:600;'"></option>
+                                </select>
+                            </td>
+                            <td>
+                                <select class="form-select form-select-sm" th:name="'enchimentos[' + ${i} + '].casta'">
+                                    <option value="">—</option>
+                                    <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
+                                </select>
+                            </td>
+                            <td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end ench-kg"
+                                       th:name="'enchimentos[' + ${i} + '].quantidadeMoidaKg'"></td>
+                            <td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end ench-litros"
+                                       th:name="'enchimentos[' + ${i} + '].litros'"></td>
+                        </tr>
+                        </tbody>
+                    </table>
+                    <button class="btn btn-sm btn-outline-secondary mt-2" type="submit"><i class="bi bi-plus-lg"></i> Guardar enchimentos</button>
+                </form>
+                <form th:if="${!mo.enchimentos.isEmpty()}" th:action="@{/processos/moagem/{id}/fechar(id=${mo.id})}" method="post"
+                      class="d-inline" onsubmit="return confirm('Fechar a moagem? Vai gerar os mostos e somar os volumes.');">
+                    <button class="btn btn-sm btn-success"><i class="bi bi-lock"></i> Fechar moagem</button>
+                </form>
+                <form th:action="@{/processos/moagem/{id}/eliminar(id=${mo.id})}" method="post" class="d-inline"
+                      onsubmit="return confirm('Eliminar esta moagem?');">
+                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Eliminar</button>
+                </form>
+            </div>
+
+            <!-- FECHADA: mostos gerados + reabrir -->
+            <div th:unless="${mo.aberto}">
+                <div class="small fw-bold mb-1">Mostos gerados</div>
+                <table class="table table-sm mb-2" style="max-width:720px;">
+                    <thead><tr><th>Mosto</th><th>Recipiente</th><th class="text-end">Litros</th><th>Casta</th></tr></thead>
+                    <tbody>
+                    <tr th:each="mos : ${mostosPorMoagem.get(mo.id)}">
+                        <td class="codigo small" th:text="${mos.codigo}"></td>
+                        <td th:text="${mos.talha != null ? 'Talha ' + mos.talha.identificacao : (mos.deposito != null ? 'Depósito ' + mos.deposito.identificacao : '—')}"></td>
+                        <td class="text-end" th:text="${mos.litros != null ? mos.litros + ' L' : '—'}"></td>
+                        <td th:text="${mos.casta != null ? mos.casta.nome : '—'}"></td>
+                    </tr>
+                    </tbody>
+                </table>
+                <form sec:authorize="hasRole('ADMIN')" th:action="@{/processos/moagem/{id}/reabrir(id=${mo.id})}" method="post"
+                      onsubmit="return confirm('Reabrir? Os mostos gerados são anulados e os volumes repostos.');">
+                    <button class="btn btn-sm btn-outline-warning"><i class="bi bi-unlock"></i> Reabrir moagem</button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
-<script>
-    // Sugere os litros de mosto = Kg moídos × 60% (editável).
+<script th:inline="javascript">
+    const vindimasDisponiveis = /*[[${vindimasDisponiveis}]]*/ [];
+
+    function filtrarVindimas() {
+        const adega = document.getElementById('mo-adega').value;
+        const vinho = document.getElementById('mo-vinho').value;
+        const corpo = document.getElementById('vindimasBody');
+        if (!adega || !vinho) {
+            corpo.innerHTML = '<tr><td colspan="3" class="text-muted small py-2">Escolha a adega e o vinho.</td></tr>';
+            return;
+        }
+        const lista = vindimasDisponiveis.filter(function (v) {
+            return String(v.adegaId) === adega && String(v.planoId) === vinho;
+        });
+        if (!lista.length) {
+            corpo.innerHTML = '<tr><td colspan="3" class="text-muted small py-2">Sem vindimas deste vinho nesta adega.</td></tr>';
+            return;
+        }
+        corpo.innerHTML = lista.map(function (v) {
+            return '<tr>'
+                + '<td class="text-center"><input type="checkbox" class="form-check-input" name="vindimaIds" value="' + v.id + '" checked></td>'
+                + '<td>' + v.label + '</td>'
+                + '<td class="text-end">' + v.vindimado + ' kg</td>'
+                + '</tr>';
+        }).join('');
+    }
+
+    // Sugere litros = Kg × 60% (editável) em qualquer linha de enchimento.
     document.addEventListener('input', function (e) {
-        if (!e.target.classList.contains('ench-kg')) return;
-        const tr = e.target.closest('tr');
-        const litros = tr.querySelector('.ench-litros');
-        if (!litros) return;
-        // só preenche se o utilizador ainda não escreveu um valor manual
-        if (litros.dataset.tocado === '1') return;
-        const kg = parseFloat(e.target.value);
-        litros.value = isNaN(kg) ? '' : (kg * 0.60).toFixed(2);
+        if (e.target.classList.contains('ench-kg')) {
+            const tr = e.target.closest('tr');
+            const litros = tr.querySelector('.ench-litros');
+            if (litros && litros.dataset.tocado !== '1') {
+                const kg = parseFloat(e.target.value);
+                litros.value = isNaN(kg) ? '' : (kg * 0.60).toFixed(2);
+            }
+        } else if (e.target.classList.contains('ench-litros')) {
+            e.target.dataset.tocado = '1';
+        }
     });
-    document.addEventListener('input', function (e) {
-        if (e.target.classList.contains('ench-litros')) e.target.dataset.tocado = '1';
-    });
+
+    document.addEventListener('DOMContentLoaded', filtrarVindimas);
 </script>
 </body>
 </html>
