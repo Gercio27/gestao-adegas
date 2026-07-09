@@ -14,6 +14,7 @@ import pt.acv.adega.planeamento.LinhaPlaneamentoParcela;
 import pt.acv.adega.planeamento.LinhaPlaneamentoParcelaRepository;
 import pt.acv.adega.planeamento.PlaneamentoVinhoRepository;
 import pt.acv.adega.planeamento.RegistoVindima;
+import pt.acv.adega.planeamento.RegistoVindimaRepository;
 import pt.acv.adega.processos.EstadoProcesso;
 
 import java.time.LocalDateTime;
@@ -34,11 +35,13 @@ public class VindimaController {
     private final CodigoService codigoService;
     private final PlaneamentoVinhoRepository planeamentoRepo;
     private final LinhaPlaneamentoParcelaRepository linhaRepo;
+    private final RegistoVindimaRepository registoVindimaRepo;
 
     public VindimaController(ProcessoVindimaRepository repo, VinhaRepository vinhaRepo,
                              CastaRepository castaRepo, AdegaRepository adegaRepo,
                              TrabalhadorRepository trabalhadorRepo, CodigoService codigoService,
-                             PlaneamentoVinhoRepository planeamentoRepo, LinhaPlaneamentoParcelaRepository linhaRepo) {
+                             PlaneamentoVinhoRepository planeamentoRepo, LinhaPlaneamentoParcelaRepository linhaRepo,
+                             RegistoVindimaRepository registoVindimaRepo) {
         this.repo = repo;
         this.vinhaRepo = vinhaRepo;
         this.castaRepo = castaRepo;
@@ -47,6 +50,7 @@ public class VindimaController {
         this.codigoService = codigoService;
         this.planeamentoRepo = planeamentoRepo;
         this.linhaRepo = linhaRepo;
+        this.registoVindimaRepo = registoVindimaRepo;
     }
 
     /** Fase 2 — Folha da vindima sobre todo o planeamento (vinhos e parcelas). */
@@ -73,14 +77,29 @@ public class VindimaController {
         l.setTransporte(form.getTransporte());
         l.setObservacoesVindima(form.getObservacoes());
 
-        l.getVindimas().clear();
+        // ACRESCENTA novas colheitas sem apagar as anteriores (cada dia/sessão é
+        // um registo novo). As linhas vazias submetidas são ignoradas.
+        int novas = 0;
         for (RegistoVindima r : form.getVindimas()) {
             if (r == null || r.isVazia()) continue;
+            r.setId(null);
             r.setLinha(l);
             l.getVindimas().add(r);
+            novas++;
         }
         linhaRepo.save(l);
-        ra.addFlashAttribute("sucesso", "Vindima guardada para a parcela.");
+        ra.addFlashAttribute("sucesso", novas > 0
+                ? "Vindima guardada (+" + novas + " colheita" + (novas == 1 ? "" : "s") + ")."
+                : "Dados da vindima atualizados.");
+        return "redirect:/processos/vindima";
+    }
+
+    /** Remove uma colheita específica de uma linha (para correções). */
+    @PostMapping("/vindima/{registoId}/eliminar")
+    @Transactional
+    public String eliminarVindima(@PathVariable Long registoId, RedirectAttributes ra) {
+        registoVindimaRepo.findById(registoId).ifPresent(registoVindimaRepo::delete);
+        ra.addFlashAttribute("sucesso", "Colheita removida.");
         return "redirect:/processos/vindima";
     }
 
