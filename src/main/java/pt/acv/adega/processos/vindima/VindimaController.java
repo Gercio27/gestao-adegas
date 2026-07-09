@@ -62,38 +62,49 @@ public class VindimaController {
         return "processos/vindima/folha";
     }
 
-    /** Guarda os dados da vindima (execução + colheitas) de uma linha do planeamento. */
+    /**
+     * Acrescenta UMA colheita nova a uma linha do planeamento, com os seus
+     * proprios dados (operador, carrinha, caixa, datas, Kg). Cada submissao cria
+     * um registo independente — nao herda dados da colheita anterior.
+     */
     @PostMapping("/linha/{id}")
     @Transactional
     public String guardarLinha(@PathVariable Long id, @ModelAttribute VindimaLinhaForm form, RedirectAttributes ra) {
         LinhaPlaneamentoParcela l = linhaRepo.findById(id).orElse(null);
         if (l == null) { ra.addFlashAttribute("erro", "Linha de planeamento não encontrada."); return "redirect:/processos/vindima"; }
 
-        l.setResponsavel(form.getResponsavel());
-        l.setAdegaEntrega(form.getAdegaEntrega());
-        l.setVasilame(form.getVasilame());
-        l.setMeios(form.getMeios());
-        l.setMetodos(form.getMetodos());
-        l.setTransporte(form.getTransporte());
-        l.setObservacoesVindima(form.getObservacoes());
+        // A adega de entrega é da parcela (usada pela moagem para agrupar).
+        if (form.getAdegaEntrega() != null) l.setAdegaEntrega(form.getAdegaEntrega());
 
-        // ACRESCENTA novas colheitas sem apagar as anteriores (cada dia/sessão é
-        // um registo novo). As linhas vazias submetidas são ignoradas.
-        int novas = 0;
-        for (RegistoVindima r : form.getVindimas()) {
-            if (r == null || r.isVazia()) continue;
-            r.setId(null);
+        boolean temDados = form.getQuantidadeKg() != null || form.getDataInicio() != null
+                || form.getDataFim() != null || form.getResponsavel() != null
+                || naoVazio(form.getVasilame()) || naoVazio(form.getTransporte())
+                || naoVazio(form.getMeios()) || naoVazio(form.getMetodos()) || naoVazio(form.getObservacoes());
+
+        if (temDados) {
+            RegistoVindima r = new RegistoVindima();
             r.setCodigo(codigoService.proximoCodigo(RegistoVindima.PREFIXO));
+            r.setDataInicio(form.getDataInicio());
+            r.setDataFim(form.getDataFim());
+            r.setQuantidadeKg(form.getQuantidadeKg());
+            r.setResponsavel(form.getResponsavel());
+            r.setVasilame(form.getVasilame());
+            r.setMeios(form.getMeios());
+            r.setMetodos(form.getMetodos());
+            r.setTransporte(form.getTransporte());
+            r.setObservacoes(form.getObservacoes());
             r.setLinha(l);
             l.getVindimas().add(r);
-            novas++;
+            linhaRepo.save(l);
+            ra.addFlashAttribute("sucesso", "Colheita registada: " + r.getCodigo());
+        } else {
+            linhaRepo.save(l);
+            ra.addFlashAttribute("sucesso", "Adega de entrega atualizada.");
         }
-        linhaRepo.save(l);
-        ra.addFlashAttribute("sucesso", novas > 0
-                ? "Vindima guardada (+" + novas + " colheita" + (novas == 1 ? "" : "s") + ")."
-                : "Dados da vindima atualizados.");
         return "redirect:/processos/vindima";
     }
+
+    private boolean naoVazio(String s) { return s != null && !s.isBlank(); }
 
     /** Remove uma colheita específica de uma linha (para correções). */
     @PostMapping("/vindima/{registoId}/eliminar")

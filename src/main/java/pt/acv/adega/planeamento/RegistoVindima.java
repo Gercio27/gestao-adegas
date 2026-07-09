@@ -2,14 +2,16 @@ package pt.acv.adega.planeamento;
 
 import jakarta.persistence.*;
 import org.springframework.format.annotation.DateTimeFormat;
+import pt.acv.adega.fichas.Trabalhador;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * Uma vindima (colheita) de uma linha de planeamento: intervalo de datas e
- * quantidade colhida (Kg). Cada linha de planeamento pode ter varias (ate 5).
- * A soma dos Kg e comparada com o "Kg a aplicar" planeado dessa linha.
+ * Uma vindima (colheita) de uma linha de planeamento: datas, quantidade (Kg) e
+ * os dados da operacao (responsavel, vasilame, transporte, meios, metodos,
+ * observacoes). Cada colheita e independente — pode ter operador/carrinha/caixa
+ * diferentes das outras colheitas da mesma parcela.
  */
 @Entity
 @Table(name = "registo_vindima")
@@ -39,6 +41,27 @@ public class RegistoVindima {
     @Column(precision = 12, scale = 2)
     private BigDecimal quantidadeKg;
 
+    // ----- Dados da operacao (proprios de cada colheita) -----
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "responsavel_id")
+    private Trabalhador responsavel;
+
+    @Column(length = 200)
+    private String vasilame;
+
+    @Column(length = 300)
+    private String meios;
+
+    @Column(length = 300)
+    private String metodos;
+
+    @Column(length = 200)
+    private String transporte;
+
+    @Column(length = 500)
+    private String observacoes;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -57,8 +80,29 @@ public class RegistoVindima {
     public BigDecimal getQuantidadeKg() { return quantidadeKg; }
     public void setQuantidadeKg(BigDecimal quantidadeKg) { this.quantidadeKg = quantidadeKg; }
 
+    public Trabalhador getResponsavel() { return responsavel; }
+    public void setResponsavel(Trabalhador responsavel) { this.responsavel = responsavel; }
+
+    public String getVasilame() { return vasilame; }
+    public void setVasilame(String vasilame) { this.vasilame = vasilame; }
+
+    public String getMeios() { return meios; }
+    public void setMeios(String meios) { this.meios = meios; }
+
+    public String getMetodos() { return metodos; }
+    public void setMetodos(String metodos) { this.metodos = metodos; }
+
+    public String getTransporte() { return transporte; }
+    public void setTransporte(String transporte) { this.transporte = transporte; }
+
+    public String getObservacoes() { return observacoes; }
+    public void setObservacoes(String observacoes) { this.observacoes = observacoes; }
+
     @Transient
     public boolean isVazia() {
-        return dataInicio == null && dataFim == null && quantidadeKg == null;
+        return dataInicio == null && dataFim == null && quantidadeKg == null
+                && responsavel == null
+                && (vasilame == null || vasilame.isBlank())
+                && (transporte == null || transporte.isBlank());
     }
 }

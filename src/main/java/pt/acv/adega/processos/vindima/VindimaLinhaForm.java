@@ -1,33 +1,39 @@
 package pt.acv.adega.processos.vindima;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import pt.acv.adega.fichas.Adega;
 import pt.acv.adega.fichas.Trabalhador;
-import pt.acv.adega.planeamento.RegistoVindima;
 
-import java.util.ArrayList;
-import java.util.List;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 
 /**
- * Dados da vindima de uma linha do planeamento, submetidos na folha da Fase 2.
- * responsavel/adegaEntrega ligam por id (DomainClassConverter). As vindimas sao
- * as 5 linhas da sub-tabela (as vazias sao ignoradas ao guardar).
+ * Uma colheita a acrescentar a uma linha do planeamento, com os seus proprios
+ * dados de operacao. adega/responsavel ligam por id (DomainClassConverter).
  */
 public class VindimaLinhaForm {
 
-    private Trabalhador responsavel;
     private Adega adegaEntrega;
+    private Trabalhador responsavel;
     private String vasilame;
     private String meios;
     private String metodos;
     private String transporte;
     private String observacoes;
-    private List<RegistoVindima> vindimas = new ArrayList<>();
 
-    public Trabalhador getResponsavel() { return responsavel; }
-    public void setResponsavel(Trabalhador responsavel) { this.responsavel = responsavel; }
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+    private LocalDate dataInicio;
+
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+    private LocalDate dataFim;
+
+    private BigDecimal quantidadeKg;
 
     public Adega getAdegaEntrega() { return adegaEntrega; }
     public void setAdegaEntrega(Adega adegaEntrega) { this.adegaEntrega = adegaEntrega; }
+
+    public Trabalhador getResponsavel() { return responsavel; }
+    public void setResponsavel(Trabalhador responsavel) { this.responsavel = responsavel; }
 
     public String getVasilame() { return vasilame; }
     public void setVasilame(String vasilame) { this.vasilame = vasilame; }
@@ -44,6 +50,12 @@ public class VindimaLinhaForm {
     public String getObservacoes() { return observacoes; }
     public void setObservacoes(String observacoes) { this.observacoes = observacoes; }
 
-    public List<RegistoVindima> getVindimas() { return vindimas; }
-    public void setVindimas(List<RegistoVindima> vindimas) { this.vindimas = vindimas; }
+    public LocalDate getDataInicio() { return dataInicio; }
+    public void setDataInicio(LocalDate dataInicio) { this.dataInicio = dataInicio; }
+
+    public LocalDate getDataFim() { return dataFim; }
+    public void setDataFim(LocalDate dataFim) { this.dataFim = dataFim; }
+
+    public BigDecimal getQuantidadeKg() { return quantidadeKg; }
+    public void setQuantidadeKg(BigDecimal quantidadeKg) { this.quantidadeKg = quantidadeKg; }
 }

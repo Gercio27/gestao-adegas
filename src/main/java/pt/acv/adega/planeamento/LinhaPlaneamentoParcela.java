@@ -3,7 +3,6 @@ package pt.acv.adega.planeamento;
 import jakarta.persistence.*;
 import pt.acv.adega.fichas.Adega;
 import pt.acv.adega.fichas.Parcela;
-import pt.acv.adega.fichas.Trabalhador;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -37,33 +36,14 @@ public class LinhaPlaneamentoParcela {
     @JoinColumn(name = "planeamento_id")
     private PlaneamentoVinho planeamento;
 
-    // ----- Dados da vindima (Fase 2), preenchidos por linha na folha da vindima -----
+    // ----- Dados da vindima (Fase 2) -----
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "vindima_responsavel_id")
-    private Trabalhador responsavel;
-
+    /** Adega de entrega da uva desta parcela (usada para agrupar na moagem). */
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "vindima_adega_entrega_id")
     private Adega adegaEntrega;
 
-    /** Vasilame usado (baldes/contentores/reboque). */
-    @Column(length = 200)
-    private String vasilame;
-
-    @Column(length = 300)
-    private String meios;
-
-    @Column(length = 300)
-    private String metodos;
-
-    /** Transporte até à adega. */
-    @Column(length = 200)
-    private String transporte;
-
-    @Column(length = 500)
-    private String observacoesVindima;
-
+    /** Colheitas desta parcela. Cada colheita tem os seus proprios dados de operacao. */
     @OneToMany(mappedBy = "linha", cascade = CascadeType.ALL, orphanRemoval = true)
     @OrderBy("id")
     private List<RegistoVindima> vindimas = new ArrayList<>();
@@ -90,26 +70,8 @@ public class LinhaPlaneamentoParcela {
     public BigDecimal getProducaoPrevistaKg() { return producaoPrevistaKg; }
     public void setProducaoPrevistaKg(BigDecimal producaoPrevistaKg) { this.producaoPrevistaKg = producaoPrevistaKg; }
 
-    public Trabalhador getResponsavel() { return responsavel; }
-    public void setResponsavel(Trabalhador responsavel) { this.responsavel = responsavel; }
-
     public Adega getAdegaEntrega() { return adegaEntrega; }
     public void setAdegaEntrega(Adega adegaEntrega) { this.adegaEntrega = adegaEntrega; }
-
-    public String getVasilame() { return vasilame; }
-    public void setVasilame(String vasilame) { this.vasilame = vasilame; }
-
-    public String getMeios() { return meios; }
-    public void setMeios(String meios) { this.meios = meios; }
-
-    public String getMetodos() { return metodos; }
-    public void setMetodos(String metodos) { this.metodos = metodos; }
-
-    public String getTransporte() { return transporte; }
-    public void setTransporte(String transporte) { this.transporte = transporte; }
-
-    public String getObservacoesVindima() { return observacoesVindima; }
-    public void setObservacoesVindima(String observacoesVindima) { this.observacoesVindima = observacoesVindima; }
 
     public List<RegistoVindima> getVindimas() { return vindimas; }
     public void setVindimas(List<RegistoVindima> vindimas) { this.vindimas = vindimas; }
