@@ -68,16 +68,19 @@
                             </select>
                         </div>
                         <div class="col-md-3">
+                            <label class="form-label small mb-0">Região / Distrito</label>
+                            <select class="form-select sel-distrito" th:field="*{parcelas[__${stat.index}__].regiao}"
+                                    th:data-sel="*{parcelas[__${stat.index}__].regiao}"></select>
+                        </div>
+                        <div class="col-md-3">
                             <label class="form-label small mb-0">Concelho</label>
-                            <input class="form-control" th:field="*{parcelas[__${stat.index}__].concelho}">
+                            <select class="form-select sel-concelho" th:field="*{parcelas[__${stat.index}__].concelho}"
+                                    th:data-sel="*{parcelas[__${stat.index}__].concelho}"></select>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label small mb-0">Freguesia</label>
-                            <input class="form-control" th:field="*{parcelas[__${stat.index}__].freguesia}">
-                        </div>
-                        <div class="col-md-3">
-                            <label class="form-label small mb-0">Região</label>
-                            <input class="form-control" th:field="*{parcelas[__${stat.index}__].regiao}">
+                            <select class="form-select sel-freguesia" th:field="*{parcelas[__${stat.index}__].freguesia}"
+                                    th:data-sel="*{parcelas[__${stat.index}__].freguesia}"></select>
                         </div>
                         <div class="col-md-3">
                             <label class="form-label small mb-0">Tipo de cultura</label>
@@ -144,16 +147,16 @@
                 </select>
             </div>
             <div class="col-md-3">
+                <label class="form-label small mb-0">Região / Distrito</label>
+                <select class="form-select sel-distrito" name="parcelas[__IDX__].regiao"></select>
+            </div>
+            <div class="col-md-3">
                 <label class="form-label small mb-0">Concelho</label>
-                <input class="form-control" name="parcelas[__IDX__].concelho">
+                <select class="form-select sel-concelho" name="parcelas[__IDX__].concelho"></select>
             </div>
             <div class="col-md-3">
                 <label class="form-label small mb-0">Freguesia</label>
-                <input class="form-control" name="parcelas[__IDX__].freguesia">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label small mb-0">Região</label>
-                <input class="form-control" name="parcelas[__IDX__].regiao">
+                <select class="form-select sel-freguesia" name="parcelas[__IDX__].freguesia"></select>
             </div>
             <div class="col-md-3">
                 <label class="form-label small mb-0">Tipo de cultura</label>
@@ -199,6 +202,8 @@
     function addParcela() {
         const tpl = document.getElementById('parcelaTemplate').innerHTML.replaceAll('__IDX__', contador);
         document.getElementById('parcelasBody').insertAdjacentHTML('beforeend', tpl);
+        const nova = document.getElementById('parcelasBody').lastElementChild;
+        if (nova) iniciarLocalidades(nova);
         contador++;
     }
     function removerParcela(btn) {
@@ -207,8 +212,85 @@
     function toggleTerceiro(sel) {
         document.getElementById('grpTerceiro').style.display = (sel.value === 'TERCEIRO') ? '' : 'none';
     }
+
+    // ---- Localidades de Portugal em cascata: Região/Distrito -> Concelho -> Freguesia ----
+    let PT_ADMIN = null;
+
+    function opcoes(sel, valores, valorAtual) {
+        const html = ['<option value="">—</option>']
+            .concat(valores.map(v => '<option value="' + v + '">' + v + '</option>'));
+        sel.innerHTML = html.join('');
+        if (valorAtual) definirValor(sel, valorAtual);
+    }
+
+    // Define o valor; se nao existir na lista (dados antigos em texto livre), acrescenta-o para nao se perder.
+    function definirValor(sel, valor) {
+        sel.value = valor;
+        if (sel.value !== valor) {
+            const o = document.createElement('option');
+            o.value = valor; o.textContent = valor + ' (atual)';
+            sel.appendChild(o);
+            sel.value = valor;
+        }
+    }
+
+    function concelhosDe(distrito) {
+        const d = PT_ADMIN.find(x => x.nome === distrito);
+        return d ? d.concelhos : [];
+    }
+    function freguesiasDe(distrito, concelho) {
+        const c = concelhosDe(distrito).find(x => x.nome === concelho);
+        return c ? c.freguesias : [];
+    }
+
+    function popularConcelhos(card) {
+        const d = card.querySelector('.sel-distrito');
+        const c = card.querySelector('.sel-concelho');
+        opcoes(c, concelhosDe(d.value).map(x => x.nome), c.dataset.sel || '');
+    }
+    function popularFreguesias(card) {
+        const d = card.querySelector('.sel-distrito');
+        const c = card.querySelector('.sel-concelho');
+        const f = card.querySelector('.sel-freguesia');
+        opcoes(f, freguesiasDe(d.value, c.value), f.dataset.sel || '');
+    }
+
+    // Inicializa os 3 selects de um cartao de parcela (respeitando valores guardados).
+    function iniciarLocalidades(card) {
+        const d = card.querySelector('.sel-distrito');
+        if (!d || !PT_ADMIN) return;
+        opcoes(d, PT_ADMIN.map(x => x.nome), d.dataset.sel || '');
+        popularConcelhos(card);
+        popularFreguesias(card);
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         toggleTerceiro(document.querySelector('[name=propriedade]'));
+
+        const corpo = document.getElementById('parcelasBody');
+        // Ao mudar o distrito, repoe concelho/freguesia e recarrega em cascata.
+        corpo.addEventListener('change', function (e) {
+            const card = e.target.closest('.parcela-card');
+            if (!card) return;
+            if (e.target.classList.contains('sel-distrito')) {
+                card.querySelector('.sel-concelho').dataset.sel = '';
+                card.querySelector('.sel-freguesia').dataset.sel = '';
+                popularConcelhos(card);
+                popularFreguesias(card);
+            } else if (e.target.classList.contains('sel-concelho')) {
+                card.querySelector('.sel-freguesia').dataset.sel = '';
+                popularFreguesias(card);
+            }
+        });
+
+        // Carrega o dataset e inicializa as parcelas existentes.
+        fetch('/data/pt-admin.json')
+            .then(r => r.json())
+            .then(dados => {
+                PT_ADMIN = dados;
+                corpo.querySelectorAll('.parcela-card').forEach(iniciarLocalidades);
+            })
+            .catch(() => console.error('Não foi possível carregar as localidades de Portugal.'));
     });
 </script>
 </body>
