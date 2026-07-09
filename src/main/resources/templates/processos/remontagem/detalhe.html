@@ -30,7 +30,7 @@
 
     <div class="card shadow-sm"><div class="card-body">
         <dl class="row mb-0">
-            <dt class="col-sm-3">Recipientes</dt><dd class="col-sm-9" th:text="${remontagem.recipientes ?: '—'}"></dd>
+            <dt class="col-sm-3">Adega</dt><dd class="col-sm-9" th:text="${remontagem.adega != null ? remontagem.adega.nome : '—'}"></dd>
             <dt class="col-sm-3">Responsável</dt><dd class="col-sm-9" th:text="${remontagem.responsavel != null ? remontagem.responsavel.nome : '—'}"></dd>
             <dt class="col-sm-3">Início</dt><dd class="col-sm-9" th:text="${remontagem.dataHoraInicio != null ? #temporals.format(remontagem.dataHoraInicio,'dd-MM-yyyy HH:mm') : '—'}"></dd>
             <dt class="col-sm-3">Fim</dt><dd class="col-sm-9" th:text="${remontagem.dataHoraFim != null ? #temporals.format(remontagem.dataHoraFim,'dd-MM-yyyy HH:mm') : '—'}"></dd>
@@ -40,6 +40,26 @@
             <dt class="col-sm-3">Aberto por</dt><dd class="col-sm-9"><span th:text="${remontagem.criadoPor}"></span> · <span th:text="${#temporals.format(remontagem.dataCriacao,'dd-MM-yyyy HH:mm')}"></span></dd>
         </dl>
     </div></div>
+
+    <div class="card shadow-sm mt-3"><div class="card-header bg-white fw-bold">
+        Talhas intervencionadas <span class="text-muted small" th:text="'(' + ${remontagem.concluidas} + '/' + ${remontagem.talhas.size()} + ' concluídas)'"></span>
+    </div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle">
+                <thead><tr><th>Talha</th><th class="text-center">Concluído</th></tr></thead>
+                <tbody>
+                <tr th:each="rt : ${remontagem.talhas}">
+                    <td th:text="${rt.talha != null ? 'Talha ' + rt.talha.identificacao : '—'}"></td>
+                    <td class="text-center">
+                        <span th:if="${rt.concluido}" class="badge bg-success"><i class="bi bi-check-lg"></i> Sim</span>
+                        <span th:unless="${rt.concluido}" class="badge bg-secondary">Não</span>
+                    </td>
+                </tr>
+                <tr th:if="${remontagem.talhas.isEmpty()}"><td colspan="2" class="text-muted text-center py-3">Sem talhas registadas.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 
     <a th:href="@{/processos/remontagem}" class="btn btn-link mt-3">&larr; Voltar às remontagens</a>
 </div>

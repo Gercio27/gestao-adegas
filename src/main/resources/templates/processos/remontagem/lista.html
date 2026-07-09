@@ -18,11 +18,12 @@
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle">
                 <thead>
-                <tr><th>Código</th><th>Recipientes</th><th>Responsável</th><th>Início</th><th>Estado</th><th class="text-end">Ações</th></tr>
+                <tr><th>Código</th><th>Adega</th><th>Talhas</th><th>Responsável</th><th>Início</th><th>Estado</th><th class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
                 <tr th:each="p : ${processos}">
                     <td><a th:href="@{/processos/remontagem/{id}(id=${p.id})}"><span class="codigo" th:text="${p.codigo}"></span></a></td>
+                    <td th:text="${p.adega != null ? p.adega.nome : '—'}"></td>
                     <td class="small" th:text="${p.recipientes ?: '—'}"></td>
                     <td th:text="${p.responsavel != null ? p.responsavel.nome : '—'}"></td>
                     <td th:text="${p.dataHoraInicio != null ? #temporals.format(p.dataHoraInicio,'dd-MM-yyyy HH:mm') : ''}"></td>
@@ -34,7 +35,7 @@
                         <a th:href="@{/processos/remontagem/{id}(id=${p.id})}" class="btn btn-sm btn-outline-primary"><i class="bi bi-eye"></i></a>
                     </td>
                 </tr>
-                <tr th:if="${processos.isEmpty()}"><td colspan="6" class="text-center text-muted py-4">Sem remontagens registadas.</td></tr>
+                <tr th:if="${processos.isEmpty()}"><td colspan="7" class="text-center text-muted py-4">Sem remontagens registadas.</td></tr>
                 </tbody>
             </table>
         </div>

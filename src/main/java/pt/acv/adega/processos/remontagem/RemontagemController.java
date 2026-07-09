@@ -1,33 +1,44 @@
 package pt.acv.adega.processos.remontagem;
 
-import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
-import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
-import pt.acv.adega.fichas.RecipienteService;
+import pt.acv.adega.fichas.Adega;
+import pt.acv.adega.fichas.AdegaRepository;
+import pt.acv.adega.fichas.Talha;
+import pt.acv.adega.fichas.TalhaRepository;
 import pt.acv.adega.fichas.TrabalhadorRepository;
 import pt.acv.adega.processos.EstadoProcesso;
+import pt.acv.adega.produtos.EstadoMosto;
+import pt.acv.adega.produtos.Mosto;
+import pt.acv.adega.produtos.MostoRepository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.StringJoiner;
+import java.util.*;
 
 @Controller
 @RequestMapping("/processos/remontagem")
 public class RemontagemController {
 
     private final ProcessoRemontagemRepository repo;
-    private final RecipienteService recipienteService;
+    private final AdegaRepository adegaRepo;
+    private final TalhaRepository talhaRepo;
+    private final MostoRepository mostoRepo;
     private final TrabalhadorRepository trabalhadorRepo;
     private final CodigoService codigoService;
 
-    public RemontagemController(ProcessoRemontagemRepository repo, RecipienteService recipienteService,
+    public RemontagemController(ProcessoRemontagemRepository repo, AdegaRepository adegaRepo,
+                                TalhaRepository talhaRepo, MostoRepository mostoRepo,
                                 TrabalhadorRepository trabalhadorRepo, CodigoService codigoService) {
         this.repo = repo;
-        this.recipienteService = recipienteService;
+        this.adegaRepo = adegaRepo;
+        this.talhaRepo = talhaRepo;
+        this.mostoRepo = mostoRepo;
         this.trabalhadorRepo = trabalhadorRepo;
         this.codigoService = codigoService;
     }
@@ -46,7 +57,7 @@ public class RemontagemController {
         ProcessoRemontagem r = new ProcessoRemontagem();
         r.setDataHoraInicio(LocalDateTime.now());
         model.addAttribute("remontagem", r);
-        preencherOpcoes(model);
+        preencherOpcoes(model, r);
         return "processos/remontagem/form";
     }
 
@@ -64,49 +75,58 @@ public class RemontagemController {
         if (r == null || !podeAceder(r, auth)) { ra.addFlashAttribute("erro", "Sem acesso a este processo."); return "redirect:/processos/remontagem"; }
         if (!r.isAberto()) { ra.addFlashAttribute("erro", "Processo fechado — não editável."); return "redirect:/processos/remontagem/" + id; }
         model.addAttribute("remontagem", r);
-        preencherOpcoes(model);
+        preencherOpcoes(model, r);
         return "processos/remontagem/form";
     }
 
     @PostMapping
-    public String guardar(@Valid @ModelAttribute("remontagem") ProcessoRemontagem remontagem, BindingResult result,
-                          Authentication auth, Model model, RedirectAttributes ra) {
-        if (result.hasErrors()) {
-            preencherOpcoes(model);
-            return "processos/remontagem/form";
-        }
-        // Constroi a descricao dos recipientes a partir da selecao
-        if (remontagem.getRecipienteRefs() != null && !remontagem.getRecipienteRefs().isEmpty()) {
-            StringJoiner sj = new StringJoiner(", ");
-            for (String ref : remontagem.getRecipienteRefs()) {
-                RecipienteService.Recipiente rec = recipienteService.resolver(ref);
-                if (rec.talha() != null) sj.add("Talha " + rec.talha().getIdentificacao());
-                else if (rec.deposito() != null) sj.add("Depósito " + rec.deposito().getIdentificacao());
-            }
-            if (sj.length() > 0) remontagem.setRecipientes(sj.toString());
-        }
-
+    @Transactional
+    public String guardar(@ModelAttribute("remontagem") ProcessoRemontagem remontagem,
+                          @RequestParam(name = "talhasPresentes", required = false) List<Long> talhasPresentes,
+                          @RequestParam(name = "concluidos", required = false) List<Long> concluidos,
+                          Authentication auth, RedirectAttributes ra) {
+        ProcessoRemontagem alvo;
         if (remontagem.getId() == null) {
-            remontagem.setCodigo(codigoService.proximoCodigo(ProcessoRemontagem.PREFIXO));
-            remontagem.setCriadoPor(auth.getName());
+            alvo = remontagem;
+            alvo.setCodigo(codigoService.proximoCodigo(ProcessoRemontagem.PREFIXO));
+            alvo.setCriadoPor(auth.getName());
         } else {
-            ProcessoRemontagem existente = repo.findById(remontagem.getId()).orElse(null);
-            if (existente == null || !podeAceder(existente, auth)) {
+            alvo = repo.findById(remontagem.getId()).orElse(null);
+            if (alvo == null || !podeAceder(alvo, auth)) {
                 ra.addFlashAttribute("erro", "Sem acesso a este processo.");
                 return "redirect:/processos/remontagem";
             }
-            remontagem.setCriadoPor(existente.getCriadoPor());
-            remontagem.setEstado(existente.getEstado());
-            remontagem.setDataFecho(existente.getDataFecho());
-            // Mantem a descricao anterior se nada foi selecionado
-            if ((remontagem.getRecipienteRefs() == null || remontagem.getRecipienteRefs().isEmpty())
-                    && remontagem.getRecipientes() == null) {
-                remontagem.setRecipientes(existente.getRecipientes());
+            alvo.setResponsavel(remontagem.getResponsavel());
+            alvo.setDataHoraInicio(remontagem.getDataHoraInicio());
+            alvo.setDataHoraFim(remontagem.getDataHoraFim());
+            alvo.setMeios(remontagem.getMeios());
+            alvo.setMetodos(remontagem.getMetodos());
+            alvo.setObservacoes(remontagem.getObservacoes());
+        }
+        alvo.setAdega(remontagem.getAdega());
+
+        // Reconstroi as talhas intervencionadas a partir da seleção submetida.
+        List<Long> concl = concluidos == null ? List.of() : concluidos;
+        alvo.getTalhas().clear();
+        StringJoiner sj = new StringJoiner(", ");
+        if (talhasPresentes != null) {
+            for (Long tid : talhasPresentes) {
+                Talha t = talhaRepo.findById(tid).orElse(null);
+                if (t == null) continue;
+                boolean feito = concl.contains(tid);
+                RemontagemTalha rt = new RemontagemTalha();
+                rt.setTalha(t);
+                rt.setConcluido(feito);
+                rt.setRemontagem(alvo);
+                alvo.getTalhas().add(rt);
+                sj.add("Talha " + t.getIdentificacao() + (feito ? " ✓" : ""));
             }
         }
-        repo.save(remontagem);
-        ra.addFlashAttribute("sucesso", "Remontagem guardada: " + remontagem.getCodigo());
-        return "redirect:/processos/remontagem/" + remontagem.getId();
+        alvo.setRecipientes(sj.length() > 0 ? sj.toString() : null);
+
+        repo.save(alvo);
+        ra.addFlashAttribute("sucesso", "Remontagem guardada: " + alvo.getCodigo());
+        return "redirect:/processos/remontagem/" + alvo.getId();
     }
 
     @PostMapping("/{id}/fechar")
@@ -141,9 +161,60 @@ public class RemontagemController {
         return "redirect:/processos/remontagem";
     }
 
-    private void preencherOpcoes(Model model) {
-        model.addAttribute("recipientes", recipienteService.opcoes());
+    // ----- auxiliares -----
+
+    private void preencherOpcoes(Model model, ProcessoRemontagem r) {
+        model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
+        model.addAttribute("talhasPorAdega", talhasPorAdega());
+        // Estado guardado (para editar): talha id -> concluido
+        Map<Long, Boolean> selecionadas = new LinkedHashMap<>();
+        for (RemontagemTalha rt : r.getTalhas()) {
+            if (rt.getTalha() != null) selecionadas.put(rt.getTalha().getId(), rt.isConcluido());
+        }
+        model.addAttribute("talhasSelecionadas", selecionadas);
+    }
+
+    /** Mapa adega -> talhas dessa adega com mosto em fermentação (id + etiqueta). */
+    private Map<Long, List<Map<String, Object>>> talhasPorAdega() {
+        List<Mosto> fermentando = new ArrayList<>();
+        fermentando.addAll(mostoRepo.findByEstadoOrderByDataProducaoDesc(EstadoMosto.EM_FERMENTACAO));
+        fermentando.addAll(mostoRepo.findByEstadoOrderByDataProducaoDesc(EstadoMosto.ATESTADO));
+
+        // adega -> (talha -> [litros, castas])
+        Map<Long, Map<Long, TalhaAgg>> agg = new LinkedHashMap<>();
+        for (Mosto m : fermentando) {
+            Talha t = m.getTalha();
+            if (t == null || t.getAdega() == null) continue;
+            Long adegaId = t.getAdega().getId();
+            Map<Long, TalhaAgg> porTalha = agg.computeIfAbsent(adegaId, k -> new LinkedHashMap<>());
+            TalhaAgg a = porTalha.computeIfAbsent(t.getId(), k -> new TalhaAgg(t.getIdentificacao()));
+            a.litros = a.litros.add(m.getLitros() == null ? BigDecimal.ZERO : m.getLitros());
+            if (m.getCasta() != null) a.castas.add(m.getCasta().getNome());
+        }
+
+        Map<Long, List<Map<String, Object>>> out = new LinkedHashMap<>();
+        for (Map.Entry<Long, Map<Long, TalhaAgg>> e : agg.entrySet()) {
+            List<Map<String, Object>> linhas = new ArrayList<>();
+            for (Map.Entry<Long, TalhaAgg> te : e.getValue().entrySet()) {
+                TalhaAgg a = te.getValue();
+                String label = "Talha " + a.ident + " · " + a.litros.toPlainString() + " L"
+                        + (a.castas.isEmpty() ? "" : " (" + String.join(", ", a.castas) + ")");
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("id", te.getKey());
+                m.put("label", label);
+                linhas.add(m);
+            }
+            out.put(e.getKey(), linhas);
+        }
+        return out;
+    }
+
+    private static class TalhaAgg {
+        final String ident;
+        BigDecimal litros = BigDecimal.ZERO;
+        final LinkedHashSet<String> castas = new LinkedHashSet<>();
+        TalhaAgg(String ident) { this.ident = ident; }
     }
 
     private boolean isAdmin(Authentication auth) {

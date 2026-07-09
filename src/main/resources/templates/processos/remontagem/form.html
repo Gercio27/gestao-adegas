@@ -1,27 +1,23 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-PT">
 <head th:replace="~{fragments/layout :: head('Remontagem')}"></head>
 <body>
 <nav th:replace="~{fragments/layout :: navbar}"></nav>
 
 <div class="container">
     <h3 class="mb-1" th:text="${remontagem.id == null} ? 'Nova remontagem' : 'Editar remontagem'">Remontagem</h3>
-    <p class="text-muted">Fase 4 — Remontagem. Pode indicar <strong>várias talhas/cubas de uma vez</strong>.</p>
+    <p class="text-muted">Fase 4 — Remontagem. Escolha a adega e marque o visto nas talhas cuja remontagem concluiu.</p>
 
     <div class="card shadow-sm"><div class="card-body">
         <form th:action="@{/processos/remontagem}" th:object="${remontagem}" method="post" class="row g-3">
             <input type="hidden" th:field="*{id}">
             <input type="hidden" th:field="*{codigo}">
 
-            <div class="col-md-3" th:if="${remontagem.codigo != null}">
-                <label class="form-label">Código</label>
-                <input class="form-control" th:value="*{codigo}" disabled>
-            </div>
-            <div class="col-md-5">
-                <label class="form-label">Responsável</label>
-                <select class="form-select" th:field="*{responsavel}">
-                    <option th:value="${null}">—</option>
-                    <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"></option>
+            <div class="col-md-4">
+                <label class="form-label">Adega</label>
+                <select class="form-select" th:field="*{adega}" id="adega" onchange="carregarTalhas()">
+                    <option th:value="${null}">— escolher adega —</option>
+                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
                 </select>
             </div>
             <div class="col-md-2">
@@ -32,32 +28,39 @@
                 <label class="form-label">Fim</label>
                 <input type="datetime-local" class="form-control" th:field="*{dataHoraFim}">
             </div>
-
-            <div class="col-md-6">
-                <label class="form-label">Talhas/cubas intervencionadas</label>
-                <select class="form-select" th:field="*{recipienteRefs}" multiple size="8">
-                    <option th:each="r : ${recipientes}" th:value="${r.ref}" th:text="${r.label}"></option>
+            <div class="col-md-4">
+                <label class="form-label">Responsável</label>
+                <select class="form-select" th:field="*{responsavel}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"></option>
                 </select>
-                <div class="form-text">Segure Ctrl (⌘ no Mac) para selecionar várias.</div>
-                <div class="mt-1" th:if="${remontagem.recipientes != null}">
-                    <span class="text-muted small">Atual: </span><span class="small" th:text="${remontagem.recipientes}"></span>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Talhas com mosto em fermentação (nesta adega)</label>
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead>
+                        <tr><th>Talha</th><th class="text-center" style="width:120px;">Concluído</th></tr>
+                        </thead>
+                        <tbody id="talhasBody">
+                        <tr><td colspan="2" class="text-muted small py-2">Escolha uma adega para ver as talhas.</td></tr>
+                        </tbody>
+                    </table>
                 </div>
             </div>
+
             <div class="col-md-6">
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label">Meios utilizados</label>
-                        <input type="text" class="form-control" th:field="*{meios}">
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">Métodos utilizados</label>
-                        <input type="text" class="form-control" th:field="*{metodos}">
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">Observações</label>
-                        <textarea class="form-control" th:field="*{observacoes}" rows="2"></textarea>
-                    </div>
-                </div>
+                <label class="form-label">Meios utilizados</label>
+                <input type="text" class="form-control" th:field="*{meios}">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Métodos utilizados</label>
+                <input type="text" class="form-control" th:field="*{metodos}">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Observações</label>
+                <textarea class="form-control" th:field="*{observacoes}" rows="2"></textarea>
             </div>
 
             <div class="col-12">
@@ -69,5 +72,30 @@
 </div>
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:inline="javascript">
+    const talhasPorAdega = /*[[${talhasPorAdega}]]*/ {};
+    const talhasSelecionadas = /*[[${talhasSelecionadas}]]*/ {};
+
+    function carregarTalhas() {
+        const adega = document.getElementById('adega').value;
+        const corpo = document.getElementById('talhasBody');
+        const lista = (adega && talhasPorAdega[adega]) ? talhasPorAdega[adega] : [];
+        if (!lista.length) {
+            corpo.innerHTML = '<tr><td colspan="2" class="text-muted small py-2">'
+                + (adega ? 'Sem talhas com mosto em fermentação nesta adega.' : 'Escolha uma adega para ver as talhas.')
+                + '</td></tr>';
+            return;
+        }
+        corpo.innerHTML = lista.map(function (t) {
+            const marcado = talhasSelecionadas[String(t.id)] ? 'checked' : '';
+            return '<tr>'
+                + '<td><input type="hidden" name="talhasPresentes" value="' + t.id + '">' + t.label + '</td>'
+                + '<td class="text-center"><input type="checkbox" class="form-check-input" name="concluidos" value="' + t.id + '" ' + marcado + '></td>'
+                + '</tr>';
+        }).join('');
+    }
+
+    document.addEventListener('DOMContentLoaded', carregarTalhas);
+</script>
 </body>
 </html>
