@@ -6,7 +6,7 @@
 
 <div class="container">
     <h3 class="mb-1" th:text="${atesto.id == null} ? 'Novo atesto' : 'Editar atesto'">Atesto</h3>
-    <p class="text-muted">Fase 4 — Atesto. Escolha a adega, veja os mostos que lá estão e transfira litros de uma origem para o recipiente a atestar. O movimento de volumes só é aplicado ao <strong>fechar</strong>.</p>
+    <p class="text-muted">Fase 4.2 — Fermentação · Atesto. Escolha a adega, veja os mostos que lá estão e transfira litros de uma origem para o recipiente a atestar. O movimento de volumes só é aplicado ao <strong>fechar</strong>.</p>
 
     <div class="card shadow-sm"><div class="card-body">
         <form th:action="@{/processos/atesto}" th:object="${atesto}" method="post" class="row g-3">

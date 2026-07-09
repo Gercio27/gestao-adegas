@@ -6,7 +6,7 @@
 
 <div class="container">
     <h3 class="mb-1" th:text="${remontagem.id == null} ? 'Nova remontagem' : 'Editar remontagem'">Remontagem</h3>
-    <p class="text-muted">Fase 4 — Remontagem. Escolha a adega e marque o visto nas talhas cuja remontagem concluiu.</p>
+    <p class="text-muted">Fase 4.1 — Fermentação · Remontagem. Escolha a adega e marque o visto nas talhas cuja remontagem concluiu.</p>
 
     <div class="card shadow-sm"><div class="card-body">
         <form th:action="@{/processos/remontagem}" th:object="${remontagem}" method="post" class="row g-3">

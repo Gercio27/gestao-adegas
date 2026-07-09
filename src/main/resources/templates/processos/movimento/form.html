@@ -6,7 +6,7 @@
 
 <div class="container">
     <h3 class="mb-1" th:text="${mov.id == null} ? 'Novo movimento de mosto' : 'Editar movimento'">Movimento</h3>
-    <p class="text-muted">Fase 4.7 (entrada) / 4.8 (saída). Ao <strong>fechar</strong>, aplica o movimento e emite o DA.</p>
+    <p class="text-muted">Fase 4.3 — Fermentação · Entradas / Saídas de mosto (DA). Ao <strong>fechar</strong>, aplica o movimento e emite o DA.</p>
 
     <div class="card shadow-sm"><div class="card-body">
         <form th:action="@{/processos/movimento-mosto}" th:object="${mov}" method="post" class="row g-3">

@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="pt">
-<head th:replace="~{fragments/layout :: head('O vinho está pronto')}"></head>
+<head th:replace="~{fragments/layout :: head('Passagem a limpo')}"></head>
 <body>
 <nav th:replace="~{fragments/layout :: navbar}"></nav>
 <div th:replace="~{fragments/layout :: mensagens}"></div>
 
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-2">
-        <h3 class="mb-0"><i class="bi bi-patch-check"></i> O vinho está pronto <span class="badge bg-secondary">Fase 4.5</span></h3>
+        <h3 class="mb-0"><i class="bi bi-patch-check"></i> Fermentação — Passagem a limpo (Vinho está Pronto) <span class="badge bg-secondary">Fase 4.4</span></h3>
         <a th:href="@{/processos/passagem-vinho/nova}" class="btn text-white" style="background-color:#6b1f2a;">
             <i class="bi bi-plus-lg"></i> Novo registo
         </a>

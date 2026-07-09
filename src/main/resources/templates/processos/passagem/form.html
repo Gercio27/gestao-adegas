@@ -1,12 +1,12 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="pt">
-<head th:replace="~{fragments/layout :: head('O vinho está pronto')}"></head>
+<head th:replace="~{fragments/layout :: head('Passagem a limpo')}"></head>
 <body>
 <nav th:replace="~{fragments/layout :: navbar}"></nav>
 
 <div class="container">
-    <h3 class="mb-1" th:text="${passagem.id == null} ? 'O vinho está pronto — novo registo' : 'Editar registo'">Passagem a vinho</h3>
-    <p class="text-muted">Fase 4.5. Selecione os mostos que ficaram prontos. Ao <strong>fechar</strong>, passam a <strong>vinho pronto a granel</strong>.</p>
+    <h3 class="mb-1" th:text="${passagem.id == null} ? 'Passagem a limpo (Vinho está Pronto) — novo registo' : 'Editar registo'">Passagem a limpo</h3>
+    <p class="text-muted">Fase 4.4 — Fermentação · Passagem a limpo. Selecione os mostos que ficaram prontos. Ao <strong>fechar</strong>, passam a <strong>vinho pronto a granel</strong>.</p>
 
     <div class="card shadow-sm"><div class="card-body">
         <form th:action="@{/processos/passagem-vinho}" th:object="${passagem}" method="post" class="row g-3">
