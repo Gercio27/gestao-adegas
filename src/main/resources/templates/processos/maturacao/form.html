@@ -42,8 +42,10 @@
 
             <div class="col-12"><hr class="my-1"><h6 class="text-muted">Resultados do boletim</h6></div>
             <div class="col-md-3">
-                <label class="form-label">Grau provável (% vol)</label>
-                <input type="number" step="0.01" min="0" class="form-control" th:field="*{grauProvavel}">
+                <label class="form-label">Grau provável (% vol) <span class="text-danger">*</span></label>
+                <input type="number" step="0.01" min="0" class="form-control" required
+                       th:classappend="${#fields.hasErrors('grauProvavel')} ? 'is-invalid'" th:field="*{grauProvavel}">
+                <div class="invalid-feedback" th:if="${#fields.hasErrors('grauProvavel')}" th:errors="*{grauProvavel}"></div>
             </div>
             <div class="col-md-3">
                 <label class="form-label">Massa Volúmica (g/L)</label>

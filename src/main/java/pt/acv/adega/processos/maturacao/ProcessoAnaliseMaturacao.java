@@ -1,6 +1,7 @@
 package pt.acv.adega.processos.maturacao;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.NotNull;
 import pt.acv.adega.fichas.Casta;
 import pt.acv.adega.fichas.Vinha;
 import pt.acv.adega.processos.Fase;
@@ -28,7 +29,8 @@ public class ProcessoAnaliseMaturacao extends Processo {
     @JoinColumn(name = "casta_id")
     private Casta casta;
 
-    /** Álcool provável (% vol). */
+    /** Álcool provável (% vol). Único resultado obrigatório do boletim. */
+    @NotNull(message = "O grau provável é obrigatório.")
     @Column(precision = 5, scale = 2)
     private BigDecimal grauProvavel;
 
