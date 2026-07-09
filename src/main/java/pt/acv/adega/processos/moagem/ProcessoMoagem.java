@@ -3,9 +3,9 @@ package pt.acv.adega.processos.moagem;
 import jakarta.persistence.*;
 import pt.acv.adega.fichas.Adega;
 import pt.acv.adega.fichas.Vinha;
+import pt.acv.adega.planeamento.LinhaPlaneamentoParcela;
 import pt.acv.adega.processos.Fase;
 import pt.acv.adega.processos.Processo;
-import pt.acv.adega.processos.vindima.ProcessoVindima;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,10 +27,13 @@ public class ProcessoMoagem extends Processo {
     @JoinColumn(name = "adega_id")
     private Adega adega;
 
-    /** Vindima de origem da uva (rastreabilidade uva -> mosto). Opcional. */
+    /**
+     * Origem da uva: a linha do planeamento (vinho + parcela) que foi vindimada
+     * (rastreabilidade uva -> mosto). Opcional.
+     */
     @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "vindima_id")
-    private ProcessoVindima vindima;
+    @JoinColumn(name = "origem_vindima_linha_id")
+    private LinhaPlaneamentoParcela origemVindima;
 
     /** Vinha de origem (redundante/alternativa a vindima). Opcional. */
     @ManyToOne(fetch = FetchType.EAGER)
@@ -44,8 +47,8 @@ public class ProcessoMoagem extends Processo {
     public Adega getAdega() { return adega; }
     public void setAdega(Adega adega) { this.adega = adega; }
 
-    public ProcessoVindima getVindima() { return vindima; }
-    public void setVindima(ProcessoVindima vindima) { this.vindima = vindima; }
+    public LinhaPlaneamentoParcela getOrigemVindima() { return origemVindima; }
+    public void setOrigemVindima(LinhaPlaneamentoParcela origemVindima) { this.origemVindima = origemVindima; }
 
     public Vinha getVinha() { return vinha; }
     public void setVinha(Vinha vinha) { this.vinha = vinha; }

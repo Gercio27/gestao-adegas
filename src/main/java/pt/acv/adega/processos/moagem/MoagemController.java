@@ -9,8 +9,11 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.fichas.*;
-import pt.acv.adega.processos.vindima.ProcessoVindimaRepository;
+import pt.acv.adega.planeamento.LinhaPlaneamentoParcela;
+import pt.acv.adega.planeamento.LinhaPlaneamentoParcelaRepository;
 import pt.acv.adega.produtos.MostoRepository;
+
+import java.math.BigDecimal;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -29,14 +32,14 @@ public class MoagemController {
     private final AdegaRepository adegaRepo;
     private final VinhaRepository vinhaRepo;
     private final TrabalhadorRepository trabalhadorRepo;
-    private final ProcessoVindimaRepository vindimaRepo;
+    private final LinhaPlaneamentoParcelaRepository linhaRepo;
     private final MostoRepository mostoRepo;
     private final CodigoService codigoService;
 
     public MoagemController(ProcessoMoagemRepository repo, MoagemService moagemService,
                             TalhaRepository talhaRepo, DepositoRepository depositoRepo,
                             CastaRepository castaRepo, AdegaRepository adegaRepo, VinhaRepository vinhaRepo,
-                            TrabalhadorRepository trabalhadorRepo, ProcessoVindimaRepository vindimaRepo,
+                            TrabalhadorRepository trabalhadorRepo, LinhaPlaneamentoParcelaRepository linhaRepo,
                             MostoRepository mostoRepo, CodigoService codigoService) {
         this.repo = repo;
         this.moagemService = moagemService;
@@ -46,7 +49,7 @@ public class MoagemController {
         this.adegaRepo = adegaRepo;
         this.vinhaRepo = vinhaRepo;
         this.trabalhadorRepo = trabalhadorRepo;
-        this.vindimaRepo = vindimaRepo;
+        this.linhaRepo = linhaRepo;
         this.mostoRepo = mostoRepo;
         this.codigoService = codigoService;
     }
@@ -199,7 +202,13 @@ public class MoagemController {
         model.addAttribute("castas", castaRepo.findAllByOrderByNomeAsc());
         model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
         model.addAttribute("vinhas", vinhaRepo.findAllByOrderByNomeAsc());
-        model.addAttribute("vindimas", vindimaRepo.findAllByOrderByDataCriacaoDesc());
+        // Origem da uva: linhas de planeamento ja vindimadas (com Kg colhidos).
+        List<LinhaPlaneamentoParcela> vindimadas = new ArrayList<>();
+        for (LinhaPlaneamentoParcela l : linhaRepo.findAll()) {
+            if (l.getTotalVindimadoKg().compareTo(BigDecimal.ZERO) > 0) vindimadas.add(l);
+        }
+        vindimadas.sort(java.util.Comparator.comparing(LinhaPlaneamentoParcela::getEtiqueta, String.CASE_INSENSITIVE_ORDER));
+        model.addAttribute("vindimadas", vindimadas);
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
     }
 

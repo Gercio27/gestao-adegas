@@ -166,7 +166,7 @@ public class MoagemService {
 
     private String descreverOrigem(ProcessoMoagem m) {
         StringBuilder sb = new StringBuilder("Moagem ").append(m.getCodigo());
-        if (m.getVindima() != null) sb.append(" · Vindima ").append(m.getVindima().getCodigo());
+        if (m.getOrigemVindima() != null) sb.append(" · Vindima ").append(m.getOrigemVindima().getEtiqueta());
         if (m.getVinha() != null) sb.append(" · Vinha ").append(m.getVinha().getNome());
         return sb.toString();
     }

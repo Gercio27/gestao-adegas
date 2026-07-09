@@ -37,7 +37,7 @@
                 <div class="card-body">
                     <dl class="row mb-0">
                         <dt class="col-sm-4">Adega</dt><dd class="col-sm-8" th:text="${moagem.adega != null ? moagem.adega.nome : '—'}"></dd>
-                        <dt class="col-sm-4">Vindima origem</dt><dd class="col-sm-8" th:text="${moagem.vindima != null ? moagem.vindima.codigo : '—'}"></dd>
+                        <dt class="col-sm-4">Vindima origem</dt><dd class="col-sm-8" th:text="${moagem.origemVindima != null ? moagem.origemVindima.etiqueta : '—'}"></dd>
                         <dt class="col-sm-4">Vinha</dt><dd class="col-sm-8" th:text="${moagem.vinha != null ? moagem.vinha.nome : '—'}"></dd>
                         <dt class="col-sm-4">Responsável</dt><dd class="col-sm-8" th:text="${moagem.responsavel != null ? moagem.responsavel.nome : '—'}"></dd>
                         <dt class="col-sm-4">Início</dt><dd class="col-sm-8" th:text="${moagem.dataHoraInicio != null ? #temporals.format(moagem.dataHoraInicio,'dd-MM-yyyy HH:mm') : '—'}"></dd>

@@ -25,7 +25,7 @@
                 <tr th:each="p : ${processos}">
                     <td><a th:href="@{/processos/moagem/{id}(id=${p.id})}"><span class="codigo" th:text="${p.codigo}"></span></a></td>
                     <td th:text="${p.adega != null ? p.adega.nome : '—'}"></td>
-                    <td class="small" th:text="${p.vindima != null ? ('Vindima ' + p.vindima.codigo) : (p.vinha != null ? p.vinha.nome : '—')}"></td>
+                    <td class="small" th:text="${p.origemVindima != null ? p.origemVindima.etiqueta : (p.vinha != null ? p.vinha.nome : '—')}"></td>
                     <td class="text-end" th:text="${p.enchimentos.size()}"></td>
                     <td th:text="${p.dataHoraInicio != null ? #temporals.format(p.dataHoraInicio,'dd-MM-yyyy HH:mm') : ''}"></td>
                     <td>

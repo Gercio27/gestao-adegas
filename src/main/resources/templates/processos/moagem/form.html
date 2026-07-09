@@ -35,12 +35,12 @@
 
                 <div class="col-md-4">
                     <label class="form-label">Vindima de origem</label>
-                    <select class="form-select" th:field="*{vindima}">
+                    <select class="form-select" th:field="*{origemVindima}">
                         <option th:value="${null}">—</option>
-                        <option th:each="v : ${vindimas}" th:value="${v.id}"
-                                th:text="${v.codigo} + (v.vinha != null ? ' · ' + v.vinha.nome : '')"></option>
+                        <option th:each="v : ${vindimadas}" th:value="${v.id}"
+                                th:text="${v.etiqueta} + ' · ' + ${v.totalVindimadoKg} + ' kg'"></option>
                     </select>
-                    <div class="form-text">Liga a uva ao mosto (rastreabilidade).</div>
+                    <div class="form-text">Liga a uva vindimada (vinho / parcela) ao mosto — rastreabilidade.</div>
                 </div>
                 <div class="col-md-4">
                     <label class="form-label">Vinha (alternativa)</label>

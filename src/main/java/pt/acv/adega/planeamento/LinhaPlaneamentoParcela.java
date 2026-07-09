@@ -120,6 +120,19 @@ public class LinhaPlaneamentoParcela {
         return kgAplicar == null ? null : kgAplicar.multiply(FATOR_LITROS);
     }
 
+    /** Etiqueta legivel "Vinho / Parcela" (para dropdowns e rastreabilidade). */
+    @Transient
+    public String getEtiqueta() {
+        String vinho = planeamento != null && planeamento.getNomeVinho() != null ? planeamento.getNomeVinho() : "?";
+        String parc = "?";
+        if (parcela != null) {
+            if (parcela.getNome() != null && !parcela.getNome().isBlank()) parc = parcela.getNome();
+            else if (parcela.getIdentificacao() != null && !parcela.getIdentificacao().isBlank()) parc = parcela.getIdentificacao();
+            else parc = "Parcela " + parcela.getId();
+        }
+        return vinho + " / " + parc;
+    }
+
     /** Soma dos Kg de todas as vindimas registadas nesta linha. */
     @Transient
     public BigDecimal getTotalVindimadoKg() {
