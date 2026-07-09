@@ -15,9 +15,16 @@ import java.time.LocalDate;
 @Table(name = "registo_vindima")
 public class RegistoVindima {
 
+    /** Prefixo do codigo automatico de cada colheita. */
+    public static final String PREFIXO = "VDM";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** Codigo unico e visivel da colheita (ex.: VDM-000001). */
+    @Column(unique = true, length = 20)
+    private String codigo;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "linha_id")
@@ -34,6 +41,9 @@ public class RegistoVindima {
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
+
+    public String getCodigo() { return codigo; }
+    public void setCodigo(String codigo) { this.codigo = codigo; }
 
     public LinhaPlaneamentoParcela getLinha() { return linha; }
     public void setLinha(LinhaPlaneamentoParcela linha) { this.linha = linha; }

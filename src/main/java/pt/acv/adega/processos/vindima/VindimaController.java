@@ -83,6 +83,7 @@ public class VindimaController {
         for (RegistoVindima r : form.getVindimas()) {
             if (r == null || r.isVazia()) continue;
             r.setId(null);
+            r.setCodigo(codigoService.proximoCodigo(RegistoVindima.PREFIXO));
             r.setLinha(l);
             l.getVindimas().add(r);
             novas++;

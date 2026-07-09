@@ -66,10 +66,11 @@
                                     <div th:if="${!l.vindimas.isEmpty()}" class="mb-3">
                                         <div class="small fw-bold mb-1">Vindimas já registadas</div>
                                         <table class="table table-sm mb-1" style="max-width:680px;">
-                                            <thead><tr><th style="width:36px;">#</th><th>Início</th><th>Fim</th><th class="text-end">Kg</th><th></th></tr></thead>
+                                            <thead><tr><th style="width:36px;">#</th><th>Código</th><th>Início</th><th>Fim</th><th class="text-end">Kg</th><th></th></tr></thead>
                                             <tbody>
                                             <tr th:each="v, s : ${l.vindimas}">
                                                 <td class="text-muted" th:text="${s.count}"></td>
+                                                <td class="codigo small" th:text="${v.codigo ?: '—'}"></td>
                                                 <td th:text="${v.dataInicio != null ? #temporals.format(v.dataInicio,'dd-MM-yyyy') : '—'}"></td>
                                                 <td th:text="${v.dataFim != null ? #temporals.format(v.dataFim,'dd-MM-yyyy') : '—'}"></td>
                                                 <td class="text-end" th:text="${v.quantidadeKg != null ? v.quantidadeKg + ' kg' : '—'}"></td>
@@ -81,7 +82,7 @@
                                                 </td>
                                             </tr>
                                             <tr class="fw-bold">
-                                                <td colspan="3" class="text-end">Já vindimado:</td>
+                                                <td colspan="4" class="text-end">Já vindimado:</td>
                                                 <td class="text-end" th:classappend="${l.vindimaExcede} ? 'text-danger'"
                                                     th:text="${l.totalVindimadoKg} + ' kg'"></td>
                                                 <td></td>
