@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-PT">
 <head th:replace="~{fragments/layout :: head('Passagem a limpo')}"></head>
 <body>
 <nav th:replace="~{fragments/layout :: navbar}"></nav>
@@ -33,19 +33,25 @@
                 <input type="datetime-local" class="form-control" th:field="*{dataHoraFim}">
             </div>
 
-            <div class="col-md-7">
-                <label class="form-label">Mostos em fermentação a passar a vinho</label>
-                <select class="form-select" th:field="*{mostoIds}" multiple size="8">
-                    <option th:each="m : ${mostosDisponiveis}" th:value="${m.id}"
-                            th:text="${m.codigo} + ' · ' + ${m.localizacao} + ' · ' + ${m.litros} + ' L' + (m.casta != null ? ' · ' + m.casta.nome : '')"></option>
+            <div class="col-md-3">
+                <label class="form-label">Adega</label>
+                <select class="form-select" id="pv-adega" onchange="filtrarMostos()">
+                    <option value="">— escolher adega —</option>
+                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
                 </select>
-                <div class="form-text">Segure Ctrl (⌘ no Mac) para selecionar vários.</div>
+            </div>
+            <div class="col-md-9">
+                <label class="form-label">Mostos em fermentação a passar a vinho (nesta adega)</label>
+                <div class="border rounded p-2" id="pv-mostos" style="max-height:220px;overflow:auto;">
+                    <span class="text-muted small">Escolha uma adega.</span>
+                </div>
                 <div class="mt-1" th:if="${passagem.mostosDescricao != null}">
-                    <span class="text-muted small">Selecionados atualmente: </span>
+                    <span class="text-muted small">Já selecionados: </span>
                     <span class="small" th:text="${passagem.mostosDescricao}"></span>
                 </div>
             </div>
-            <div class="col-md-5">
+            <div class="col-md-12">
+                <div class="row g-3">
                 <div class="row g-3">
                     <div class="col-12">
                         <label class="form-label">Meios utilizados</label>
@@ -68,11 +74,27 @@
             </div>
         </form>
     </div></div>
-    <p class="text-muted small mt-2" th:if="${mostosDisponiveis.isEmpty()}">
-        Não há mostos em fermentação. Feche uma moagem primeiro para gerar mostos.
-    </p>
+    <p class="text-muted small mt-2">Se não aparecerem mostos, feche uma moagem primeiro (Fase 3) para os gerar.</p>
 </div>
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:inline="javascript">
+    const mostosPorAdega = /*[[${mostosPorAdega}]]*/ {};
+    function filtrarMostos() {
+        const adega = document.getElementById('pv-adega').value;
+        const box = document.getElementById('pv-mostos');
+        const lista = (adega && mostosPorAdega[adega]) ? mostosPorAdega[adega] : [];
+        if (!lista.length) {
+            box.innerHTML = '<span class="text-muted small">' + (adega ? 'Sem mostos em fermentação nesta adega.' : 'Escolha uma adega.') + '</span>';
+            return;
+        }
+        box.innerHTML = lista.map(function (m) {
+            return '<div class="form-check">'
+                + '<input class="form-check-input" type="checkbox" name="mostoIds" value="' + m.id + '" id="pvm' + m.id + '">'
+                + '<label class="form-check-label small" for="pvm' + m.id + '">' + m.label + '</label></div>';
+        }).join('');
+    }
+    document.addEventListener('DOMContentLoaded', filtrarMostos);
+</script>
 </body>
 </html>

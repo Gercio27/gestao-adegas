@@ -8,13 +8,15 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
+import pt.acv.adega.fichas.AdegaRepository;
 import pt.acv.adega.fichas.TrabalhadorRepository;
 import pt.acv.adega.produtos.EstadoMosto;
 import pt.acv.adega.produtos.Mosto;
 import pt.acv.adega.produtos.MostoRepository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.StringJoiner;
+import java.util.*;
 
 @Controller
 @RequestMapping("/processos/passagem-vinho")
@@ -23,15 +25,17 @@ public class PassagemController {
     private final ProcessoPassagemVinhoRepository repo;
     private final PassagemService passagemService;
     private final MostoRepository mostoRepo;
+    private final AdegaRepository adegaRepo;
     private final TrabalhadorRepository trabalhadorRepo;
     private final CodigoService codigoService;
 
     public PassagemController(ProcessoPassagemVinhoRepository repo, PassagemService passagemService,
-                              MostoRepository mostoRepo, TrabalhadorRepository trabalhadorRepo,
-                              CodigoService codigoService) {
+                              MostoRepository mostoRepo, AdegaRepository adegaRepo,
+                              TrabalhadorRepository trabalhadorRepo, CodigoService codigoService) {
         this.repo = repo;
         this.passagemService = passagemService;
         this.mostoRepo = mostoRepo;
+        this.adegaRepo = adegaRepo;
         this.trabalhadorRepo = trabalhadorRepo;
         this.codigoService = codigoService;
     }
@@ -79,16 +83,23 @@ public class PassagemController {
             preencherOpcoes(model);
             return "processos/passagem/form";
         }
-        // Constroi csv de ids + descricao (codigos) a partir da selecao
+        // Constroi csv de ids + descricao (codigo · recipiente · litros) e total.
         if (passagem.getMostoIds() != null && !passagem.getMostoIds().isEmpty()) {
             StringJoiner ids = new StringJoiner(",");
-            StringJoiner cods = new StringJoiner(", ");
+            StringJoiner cods = new StringJoiner("; ");
+            BigDecimal total = BigDecimal.ZERO;
             for (Long mid : passagem.getMostoIds()) {
                 Mosto m = mostoRepo.findById(mid).orElse(null);
-                if (m != null) { ids.add(String.valueOf(mid)); cods.add(m.getCodigo() + " (" + m.getLocalizacao() + ")"); }
+                if (m != null) {
+                    ids.add(String.valueOf(mid));
+                    BigDecimal l = m.getLitros() == null ? BigDecimal.ZERO : m.getLitros();
+                    total = total.add(l);
+                    cods.add(m.getCodigo() + " · " + m.getLocalizacao() + " · " + l.toPlainString() + " L");
+                }
             }
             passagem.setMostosIdsCsv(ids.length() > 0 ? ids.toString() : null);
-            passagem.setMostosDescricao(cods.length() > 0 ? cods.toString() : null);
+            passagem.setMostosDescricao(cods.length() > 0
+                    ? cods + " — Total: " + total.toPlainString() + " L" : null);
         }
 
         if (passagem.getId() == null) {
@@ -149,7 +160,26 @@ public class PassagemController {
     }
 
     private void preencherOpcoes(Model model) {
-        model.addAttribute("mostosDisponiveis", mostoRepo.findByEstadoOrderByDataProducaoDesc(EstadoMosto.EM_FERMENTACAO));
+        // Mostos em fermentação agrupados por adega (do recipiente onde estão).
+        Map<Long, List<Map<String, Object>>> mostosPorAdega = new LinkedHashMap<>();
+        for (Mosto m : mostoRepo.findByEstadoOrderByDataProducaoDesc(EstadoMosto.EM_FERMENTACAO)) {
+            Long adegaId = null;
+            String local = "—";
+            if (m.getTalha() != null && m.getTalha().getAdega() != null) {
+                adegaId = m.getTalha().getAdega().getId();
+                local = "Talha " + m.getTalha().getIdentificacao();
+            } else if (m.getDeposito() != null && m.getDeposito().getAdega() != null) {
+                adegaId = m.getDeposito().getAdega().getId();
+                local = "Depósito " + m.getDeposito().getIdentificacao();
+            }
+            if (adegaId == null) continue;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", m.getId());
+            row.put("label", m.getCodigo() + " · " + local + " · " + (m.getLitros() == null ? "0" : m.getLitros().toPlainString()) + " L");
+            mostosPorAdega.computeIfAbsent(adegaId, k -> new ArrayList<>()).add(row);
+        }
+        model.addAttribute("mostosPorAdega", mostosPorAdega);
+        model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
     }
 
