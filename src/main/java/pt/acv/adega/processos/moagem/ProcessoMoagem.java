@@ -51,6 +51,13 @@ public class ProcessoMoagem extends Processo {
     @OrderBy("id")
     private List<Enchimento> enchimentos = new ArrayList<>();
 
+    /**
+     * Objetivo de Kg a moer, definido manualmente (ex.: numa moagem criada para
+     * a "sobra" de outra). Quando definido, sobrepoe-se ao total das vindimas.
+     */
+    @Column(precision = 12, scale = 2)
+    private BigDecimal objetivoKgManual;
+
     public Adega getAdega() { return adega; }
     public void setAdega(Adega adega) { this.adega = adega; }
 
@@ -66,9 +73,13 @@ public class ProcessoMoagem extends Processo {
     public List<Enchimento> getEnchimentos() { return enchimentos; }
     public void setEnchimentos(List<Enchimento> enchimentos) { this.enchimentos = enchimentos; }
 
-    /** Total de uva vindimada nas parcelas desta moagem (Kg). */
+    public BigDecimal getObjetivoKgManual() { return objetivoKgManual; }
+    public void setObjetivoKgManual(BigDecimal objetivoKgManual) { this.objetivoKgManual = objetivoKgManual; }
+
+    /** Total de uva a moer: objetivo manual (se definido) ou soma das vindimas. */
     @Transient
     public BigDecimal getTotalVindimadoKg() {
+        if (objetivoKgManual != null) return objetivoKgManual;
         return vindimas.stream()
                 .map(LinhaPlaneamentoParcela::getTotalVindimadoKg)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);

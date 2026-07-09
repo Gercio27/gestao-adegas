@@ -151,6 +151,29 @@ public class MoagemController {
         return "redirect:/processos/moagem";
     }
 
+    /** Inicia uma nova moagem para a uva que ainda faltou moer (sobra) desta. */
+    @PostMapping("/{id}/nova-sobra")
+    @Transactional
+    public String novaSobra(@PathVariable Long id, Authentication auth, RedirectAttributes ra) {
+        ProcessoMoagem orig = repo.findById(id).orElse(null);
+        if (orig == null || !podeAceder(orig, auth)) { ra.addFlashAttribute("erro", "Sem acesso a esta moagem."); return "redirect:/processos/moagem"; }
+        BigDecimal sobra = orig.getSobraPorMoerKg();
+        if (sobra.signum() <= 0) { ra.addFlashAttribute("erro", "Esta moagem não tem sobra por moer."); return "redirect:/processos/moagem"; }
+
+        ProcessoMoagem nova = new ProcessoMoagem();
+        nova.setCodigo(codigoService.proximoCodigo(ProcessoMoagem.PREFIXO));
+        nova.setCriadoPor(auth.getName());
+        nova.setAdega(orig.getAdega());
+        nova.setPlano(orig.getPlano());
+        nova.setResponsavel(orig.getResponsavel());
+        nova.getVindimas().addAll(orig.getVindimas());
+        nova.setObjetivoKgManual(sobra); // só falta moer esta quantidade
+        nova.setDataHoraInicio(LocalDateTime.now());
+        repo.save(nova);
+        ra.addFlashAttribute("sucesso", "Nova moagem criada para a sobra (" + sobra.toPlainString() + " kg): " + nova.getCodigo());
+        return "redirect:/processos/moagem";
+    }
+
     @PostMapping("/{id}/fechar")
     public String fechar(@PathVariable Long id, Authentication auth, RedirectAttributes ra) {
         ProcessoMoagem m = repo.findById(id).orElse(null);

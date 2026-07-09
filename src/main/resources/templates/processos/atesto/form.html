@@ -6,7 +6,7 @@
 
 <div class="container">
     <h3 class="mb-1" th:text="${atesto.id == null} ? 'Novo atesto' : 'Editar atesto'">Atesto</h3>
-    <p class="text-muted">Fase 4.2 — Fermentação · Atesto. Escolha a adega, veja os mostos que lá estão e transfira litros de uma origem para o recipiente a atestar. O movimento de volumes só é aplicado ao <strong>fechar</strong>.</p>
+    <p class="text-muted">Fase 4.2 — Fermentação · Atesto. Escolha o vinho (da moagem), a origem (onde esse vinho está) e o destino a atestar (na mesma adega). Ao <strong>fechar</strong>, transfere os litros com controlo de capacidade.</p>
 
     <div class="card shadow-sm"><div class="card-body">
         <form th:action="@{/processos/atesto}" th:object="${atesto}" method="post" class="row g-3">
@@ -14,10 +14,10 @@
             <input type="hidden" th:field="*{codigo}">
 
             <div class="col-md-4">
-                <label class="form-label">Adega</label>
-                <select class="form-select" th:field="*{adega}" id="adega" onchange="carregarRecipientes()">
-                    <option th:value="${null}">— escolher adega —</option>
-                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
+                <label class="form-label">Vinho (da moagem)</label>
+                <select class="form-select" id="at-vinho" onchange="popularOrigem()">
+                    <option value="">— escolher vinho —</option>
+                    <option th:each="v : ${vinhos}" th:value="${v.id}" th:text="${v.nome}"></option>
                 </select>
             </div>
             <div class="col-md-4">
@@ -36,40 +36,33 @@
                 <input type="datetime-local" class="form-control" th:field="*{dataHoraFim}">
             </div>
 
-            <div class="col-12">
-                <label class="form-label">Mostos nesta adega (referência)</label>
-                <div class="table-responsive">
-                    <table class="table table-sm mb-0">
-                        <thead><tr><th>Recipiente</th><th class="text-end">Litros</th><th>Casta(s)</th></tr></thead>
-                        <tbody id="refBody">
-                        <tr><td colspan="3" class="text-muted small py-2">Escolha uma adega para ver os mostos.</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
             <div class="col-md-5">
-                <label class="form-label">Origem (de onde sai) *</label>
-                <select class="form-select" th:field="*{origemRef}" required>
+                <label class="form-label">Origem — onde o vinho está *</label>
+                <select class="form-select" th:field="*{origemRef}" th:attr="data-sel=*{origemRef}"
+                        onchange="popularDestino()" required>
                     <option value="">—</option>
-                    <option th:each="r : ${recipientes}" th:value="${r.ref}" th:text="${r.label}"></option>
+                    <option th:if="${atesto.origemRef != null and !#strings.isEmpty(atesto.origemRef)}"
+                            th:value="*{origemRef}" th:text="*{origemDescricao}"></option>
                 </select>
-                <div class="form-text">Pode ser qualquer recipiente (ex.: reserva de atesto).</div>
+                <div class="form-text">Vem da moagem desse vinho.</div>
             </div>
             <div class="col-md-2 d-flex align-items-center justify-content-center">
                 <i class="bi bi-arrow-right fs-3 text-muted"></i>
             </div>
             <div class="col-md-5">
-                <label class="form-label">Destino — recipiente a atestar (desta adega) *</label>
+                <label class="form-label">Destino — recipiente a atestar (mesma adega) *</label>
                 <select class="form-select" th:field="*{destinoRef}" th:attr="data-sel=*{destinoRef}" required>
                     <option value="">—</option>
+                    <option th:if="${atesto.destinoRef != null and !#strings.isEmpty(atesto.destinoRef)}"
+                            th:value="*{destinoRef}" th:text="*{destinoDescricao}"></option>
                 </select>
-                <div class="form-text">Só recipientes desta adega com mosto em fermentação.</div>
+                <div class="form-text">Recipientes disponíveis na mesma adega (cheios a <span class="text-danger">vermelho</span>).</div>
             </div>
 
             <div class="col-md-3">
                 <label class="form-label">Litros a atestar *</label>
                 <input type="number" step="0.01" min="0" class="form-control" th:field="*{litros}" required>
+                <div class="form-text">Não pode tirar mais do que a origem tem, nem exceder a capacidade do destino (validado ao fechar).</div>
             </div>
             <div class="col-md-4">
                 <label class="form-label">Meios utilizados</label>
@@ -94,36 +87,36 @@
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
 <script th:inline="javascript">
-    const recipientesPorAdega = /*[[${recipientesPorAdega}]]*/ {};
+    const origensPorVinho = /*[[${origensPorVinho}]]*/ {};
+    const destinosPorAdega = /*[[${destinosPorAdega}]]*/ {};
 
-    function carregarRecipientes() {
-        const adega = document.getElementById('adega').value;
-        const lista = (adega && recipientesPorAdega[adega]) ? recipientesPorAdega[adega] : [];
-        const refBody = document.getElementById('refBody');
-        const destino = document.querySelector('[name="destinoRef"]');
-
-        // Quadro de referência (só leitura)
-        if (!lista.length) {
-            refBody.innerHTML = '<tr><td colspan="3" class="text-muted small py-2">'
-                + (adega ? 'Sem mostos em fermentação nesta adega.' : 'Escolha uma adega para ver os mostos.')
-                + '</td></tr>';
-        } else {
-            refBody.innerHTML = lista.map(function (r) {
-                return '<tr><td>' + r.ident + '</td><td class="text-end">' + r.litros + ' L</td><td>' + (r.castas || '—') + '</td></tr>';
-            }).join('');
-        }
-
-        // Seletor de destino (filtrado à adega), preservando o valor guardado
-        const escolhido = destino.dataset.sel || destino.value || '';
+    function popularOrigem() {
+        const vinho = document.getElementById('at-vinho').value;
+        const origem = document.querySelector('[name="origemRef"]');
+        const lista = (vinho && origensPorVinho[vinho]) ? origensPorVinho[vinho] : [];
         let html = '<option value="">—</option>';
-        lista.forEach(function (r) {
-            html += '<option value="' + r.ref + '">' + r.label + '</option>';
+        lista.forEach(function (o) {
+            html += '<option value="' + o.ref + '" data-adega="' + o.adegaId + '">' + o.label + '</option>';
         });
-        destino.innerHTML = html;
-        if (escolhido) destino.value = escolhido;
+        origem.innerHTML = html;
+        popularDestino();
     }
 
-    document.addEventListener('DOMContentLoaded', carregarRecipientes);
+    function popularDestino() {
+        const origem = document.querySelector('[name="origemRef"]');
+        const destino = document.querySelector('[name="destinoRef"]');
+        const opt = origem.options[origem.selectedIndex];
+        const adega = (opt && opt.dataset.adega) ? opt.dataset.adega : '';
+        const guardado = destino.dataset.sel || '';
+        const lista = (adega && destinosPorAdega[adega]) ? destinosPorAdega[adega] : [];
+        let html = '<option value="">—</option>';
+        lista.forEach(function (r) {
+            const estilo = r.cheia ? ' style="color:#b00020;font-weight:600;"' : '';
+            html += '<option value="' + r.ref + '"' + estilo + '>' + r.label + '</option>';
+        });
+        destino.innerHTML = html;
+        if (guardado) { destino.value = guardado; destino.dataset.sel = ''; }
+    }
 </script>
 </body>
 </html>
