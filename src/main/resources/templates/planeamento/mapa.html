@@ -7,57 +7,86 @@
 
 <div class="container-fluid px-4">
     <div class="d-flex justify-content-between align-items-center mb-2">
-        <h3 class="mb-0"><i class="bi bi-map"></i> Mapa de planeamento dos vinhos <span class="badge bg-secondary">Fase 1.2</span></h3>
+        <h3 class="mb-0"><i class="bi bi-map"></i> Planeamento dos vinhos <span class="badge bg-secondary">Fase 1.2</span></h3>
         <a th:href="@{/planeamento/nova}" class="btn text-white" style="background-color:#6b1f2a;">
-            <i class="bi bi-plus-lg"></i> Nova linha
+            <i class="bi bi-plus-lg"></i> Novo vinho
         </a>
     </div>
-    <p class="text-muted">As colunas de análise (grau, açúcar, pH) são <strong>automáticas</strong> — vêm da última análise à maturação de cada vinha/casta.</p>
+    <p class="text-muted">
+        Cada vinho tem as suas parcelas. As colunas de análise (grau, massa volúmica, pH) são
+        <strong>automáticas</strong> — vêm da última análise à maturação da vinha/casta de cada parcela.
+    </p>
 
-    <div class="card shadow-sm">
+    <div th:if="${vinhos.isEmpty()}" class="card shadow-sm"><div class="card-body text-center text-muted py-4">
+        Sem vinhos planeados. Clique em <strong>Novo vinho</strong> para começar.
+    </div></div>
+
+    <div th:each="vm : ${vinhos}" class="card shadow-sm mb-3">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <span class="fw-bold" th:text="${vm.plano.nomeVinho}"></span>
+                <span class="badge bg-dark ms-1" th:if="${vm.plano.tipoVinho != null}" th:text="${vm.plano.tipoVinho.descricao}"></span>
+                <span class="codigo text-muted small ms-1" th:text="${vm.plano.codigo}"></span>
+            </div>
+            <div class="small text-muted">
+                Planeado: <span th:text="${vm.plano.dataPlaneamento != null ? #temporals.format(vm.plano.dataPlaneamento,'dd-MM-yyyy') : '—'}"></span>
+                · Vindima prevista: <span th:text="${vm.plano.dataPrevistaVindima != null ? #temporals.format(vm.plano.dataPrevistaVindima,'dd-MM-yyyy') : '—'}"></span>
+            </div>
+            <div>
+                <a th:href="@{/planeamento/{id}/editar(id=${vm.plano.id})}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
+                <form th:action="@{/planeamento/{id}/eliminar(id=${vm.plano.id})}" method="post" class="d-inline"
+                      onsubmit="return confirm('Eliminar este vinho do planeamento?');">
+                    <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                </form>
+            </div>
+        </div>
         <div class="table-responsive">
-            <table class="table table-hover mb-0 align-middle">
+            <table class="table table-hover table-sm mb-0 align-middle">
                 <thead>
                 <tr>
-                    <th>Vinha</th><th>Casta</th>
+                    <th>Parcela</th><th>Casta</th><th class="text-end">Área (ha)</th>
+                    <th class="text-end">Produção prev.</th><th class="text-end">Kg a aplicar</th>
+                    <th class="text-end">Saldo</th><th class="text-end">Litros prev.</th>
                     <th class="text-end" style="background:#efe7e3;">Grau prov.</th>
                     <th class="text-end" style="background:#efe7e3;">Massa Volúmica</th>
                     <th class="text-end" style="background:#efe7e3;">pH</th>
-                    <th class="text-end">Qtd. prevista</th><th>Data vindima</th><th>Adega</th><th>Vinho a fazer</th><th class="text-end">%</th>
-                    <th class="text-end">Ações</th>
                 </tr>
                 </thead>
                 <tbody>
-                <tr th:each="l : ${linhas}">
-                    <td th:text="${l.plano.vinha != null ? l.plano.vinha.nome : '—'}"></td>
-                    <td th:text="${l.plano.casta != null ? l.plano.casta.nome : '—'}"></td>
-                    <td class="text-end" style="background:#faf6f4;" th:text="${l.temAnalise() and l.analise.grauProvavel != null ? l.analise.grauProvavel + '%' : '—'}"></td>
-                    <td class="text-end" style="background:#faf6f4;" th:text="${l.temAnalise() and l.analise.acucar != null ? l.analise.acucar : '—'}"></td>
-                    <td class="text-end" style="background:#faf6f4;" th:text="${l.temAnalise() and l.analise.ph != null ? l.analise.ph : '—'}"></td>
-                    <td class="text-end" th:text="${l.plano.quantidadePrevistaKg != null ? l.plano.quantidadePrevistaKg + ' kg' : '—'}"></td>
-                    <td th:text="${l.plano.dataPrevistaVindima != null ? #temporals.format(l.plano.dataPrevistaVindima,'dd-MM-yyyy') : '—'}"></td>
-                    <td th:text="${l.plano.adegaDestino != null ? l.plano.adegaDestino.nome : '—'}"></td>
-                    <td th:text="${l.plano.nomeVinho ?: '—'}"></td>
-                    <td class="text-end" th:text="${l.plano.percentagem != null ? l.plano.percentagem + '%' : '—'}"></td>
-                    <td class="text-end">
-                        <a th:href="@{/planeamento/{id}/editar(id=${l.plano.id})}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
-                        <form th:action="@{/planeamento/{id}/eliminar(id=${l.plano.id})}" method="post" class="d-inline"
-                              onsubmit="return confirm('Eliminar esta linha?');">
-                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
-                        </form>
+                <tr th:each="lm : ${vm.linhas}">
+                    <td>
+                        <span th:text="${lm.linha.parcela != null and lm.linha.parcela.vinha != null ? lm.linha.parcela.vinha.nome + ' — ' : ''}"></span>
+                        <span th:text="${lm.linha.parcela != null ? (lm.linha.parcela.nome ?: lm.linha.parcela.identificacao ?: '—') : '—'}"></span>
                     </td>
+                    <td th:text="${lm.linha.parcela != null and lm.linha.parcela.casta != null ? lm.linha.parcela.casta.nome : '—'}"></td>
+                    <td class="text-end" th:text="${lm.linha.parcela != null and lm.linha.parcela.areaHa != null ? lm.linha.parcela.areaHa : '—'}"></td>
+                    <td class="text-end" th:text="${lm.linha.parcela != null and lm.linha.parcela.producaoPrevistaKg != null ? lm.linha.parcela.producaoPrevistaKg + ' kg' : '—'}"></td>
+                    <td class="text-end" th:text="${lm.linha.kgAplicar != null ? lm.linha.kgAplicar + ' kg' : '—'}"></td>
+                    <td class="text-end" th:classappend="${lm.saldo != null and lm.saldo.signum() lt 0} ? 'text-danger fw-bold'"
+                        th:text="${lm.saldo != null ? lm.saldo + ' kg' : '—'}"></td>
+                    <td class="text-end" th:text="${lm.linha.litrosPrevistos != null ? lm.linha.litrosPrevistos + ' L' : '—'}"></td>
+                    <td class="text-end" style="background:#faf6f4;" th:text="${lm.temAnalise() and lm.analise.grauProvavel != null ? lm.analise.grauProvavel + '%' : '—'}"></td>
+                    <td class="text-end" style="background:#faf6f4;" th:text="${lm.temAnalise() and lm.analise.acucar != null ? lm.analise.acucar : '—'}"></td>
+                    <td class="text-end" style="background:#faf6f4;" th:text="${lm.temAnalise() and lm.analise.ph != null ? lm.analise.ph : '—'}"></td>
                 </tr>
-                <tr th:if="${linhas.isEmpty()}"><td colspan="11" class="text-center text-muted py-4">Sem planeamento. Adicione linhas por vinha/casta.</td></tr>
+                <tr th:if="${vm.linhas.isEmpty()}"><td colspan="10" class="text-center text-muted py-3">Vinho sem parcelas.</td></tr>
                 </tbody>
-                <tfoot th:if="${!linhas.isEmpty()}">
+                <tfoot th:if="${!vm.linhas.isEmpty()}">
                 <tr class="table-light fw-bold">
-                    <td colspan="5" class="text-end">Total previsto colher:</td>
-                    <td class="text-end"><span th:text="${totalKg}"></span> kg</td>
-                    <td colspan="5"></td>
+                    <td colspan="4" class="text-end">Total do vinho:</td>
+                    <td class="text-end"><span th:text="${vm.plano.totalKgAplicar}"></span> kg</td>
+                    <td></td>
+                    <td class="text-end"><span th:text="${vm.plano.totalLitrosPrevistos}"></span> L</td>
+                    <td colspan="3"></td>
                 </tr>
                 </tfoot>
             </table>
         </div>
+    </div>
+
+    <div th:if="${!vinhos.isEmpty()}" class="alert alert-light border d-flex justify-content-end gap-4 fw-bold">
+        <span>Total geral a aplicar: <span th:text="${totalKg}"></span> kg</span>
+        <span>Total geral previsto: <span th:text="${totalLitros}"></span> L</span>
     </div>
 </div>
 

@@ -52,6 +52,11 @@ public class Parcela {
     @Column(precision = 10, scale = 4)
     private BigDecimal areaHa;
 
+    /** Producao prevista da parcela no ano/campanha (Kg). Base para o saldo no
+     * planeamento: cada vinho consome Kg desta parcela e o saldo desce. */
+    @Column(precision = 12, scale = 2)
+    private BigDecimal producaoPrevistaKg;
+
     /** Area de enquadramento legal (ha). */
     @Column(precision = 10, scale = 4)
     private BigDecimal areaEnqLegal;
@@ -98,6 +103,9 @@ public class Parcela {
 
     public BigDecimal getAreaHa() { return areaHa; }
     public void setAreaHa(BigDecimal areaHa) { this.areaHa = areaHa; }
+
+    public BigDecimal getProducaoPrevistaKg() { return producaoPrevistaKg; }
+    public void setProducaoPrevistaKg(BigDecimal producaoPrevistaKg) { this.producaoPrevistaKg = producaoPrevistaKg; }
 
     public BigDecimal getAreaEnqLegal() { return areaEnqLegal; }
     public void setAreaEnqLegal(BigDecimal areaEnqLegal) { this.areaEnqLegal = areaEnqLegal; }

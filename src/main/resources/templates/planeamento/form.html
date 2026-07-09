@@ -1,64 +1,251 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="pt">
-<head th:replace="~{fragments/layout :: head('Planeamento')}"></head>
+<head th:replace="~{fragments/layout :: head('Planeamento do vinho')}"></head>
 <body>
 <nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
 
 <div class="container">
-    <h3 class="mb-3" th:text="${plano.id == null} ? 'Nova linha de planeamento' : 'Editar planeamento'">Planeamento</h3>
+    <h3 class="mb-3" th:text="${plano.id == null} ? 'Novo vinho — planeamento' : 'Editar planeamento do vinho'">Planeamento</h3>
 
     <div class="card shadow-sm"><div class="card-body">
-        <form th:action="@{/planeamento}" th:object="${plano}" method="post" class="row g-3">
+        <form th:action="@{/planeamento}" th:object="${plano}" method="post">
             <input type="hidden" th:field="*{id}">
             <input type="hidden" th:field="*{codigo}">
 
-            <div class="col-md-6">
-                <label class="form-label">Vinha</label>
-                <select class="form-select" th:field="*{vinha}">
-                    <option th:value="${null}">—</option>
-                    <option th:each="v : ${vinhas}" th:value="${v.id}" th:text="${v.nome}"></option>
-                </select>
-            </div>
-            <div class="col-md-6">
-                <label class="form-label">Casta</label>
-                <select class="form-select" th:field="*{casta}">
-                    <option th:value="${null}">—</option>
-                    <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Quantidade prevista (kg)</label>
-                <input type="number" step="0.01" min="0" class="form-control" th:field="*{quantidadePrevistaKg}">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Data prevista de vindima</label>
-                <input type="date" class="form-control" th:field="*{dataPrevistaVindima}">
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">Adega de destino</label>
-                <select class="form-select" th:field="*{adegaDestino}">
-                    <option th:value="${null}">—</option>
-                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
-                </select>
-            </div>
-            <div class="col-md-3">
-                <label class="form-label">% participação</label>
-                <input type="number" step="0.01" min="0" max="100" class="form-control" th:field="*{percentagem}">
-            </div>
-            <div class="col-12">
-                <label class="form-label">Vinho a fazer</label>
-                <input type="text" class="form-control" th:field="*{nomeVinho}" placeholder="Ex.: Talha Tinto 2026">
+            <!-- Cabeçalho do vinho -->
+            <div class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label">Nome do vinho <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control" required placeholder="Ex.: Talha Tinto 2026"
+                           th:classappend="${#fields.hasErrors('nomeVinho')} ? 'is-invalid'" th:field="*{nomeVinho}">
+                    <div class="invalid-feedback" th:if="${#fields.hasErrors('nomeVinho')}" th:errors="*{nomeVinho}"></div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tipo de vinho</label>
+                    <select class="form-select" th:field="*{tipoVinho}">
+                        <option th:value="${null}">—</option>
+                        <option th:each="t : ${tipos}" th:value="${t}" th:text="${t.descricao}"></option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Data de planeamento</label>
+                    <input type="date" class="form-control" th:field="*{dataPlaneamento}">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Data prevista da vindima</label>
+                    <input type="date" class="form-control" th:field="*{dataPrevistaVindima}">
+                </div>
             </div>
 
-            <div class="col-12">
+            <hr class="my-4">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h5 class="mb-0">Parcelas do vinho</h5>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addLinha()">
+                    <i class="bi bi-plus-lg"></i> Adicionar parcela
+                </button>
+            </div>
+            <p class="text-muted small mb-2">
+                Só aparecem parcelas com <strong>saldo</strong> disponível. Saldo = produção prevista − o que já foi
+                aplicado noutros vinhos. Litros previstos = Kg a aplicar × 60%.
+            </p>
+
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead>
+                    <tr>
+                        <th style="min-width:220px;">Parcela</th>
+                        <th>Casta</th>
+                        <th class="text-end">Área (ha)</th>
+                        <th style="width:140px;">Produção prev. (Kg)</th>
+                        <th style="width:140px;">Kg a aplicar</th>
+                        <th class="text-end">Saldo (Kg)</th>
+                        <th class="text-end">Litros prev.</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody id="linhasBody">
+                    <tr class="linha-parcela" th:each="p, stat : *{linhas}">
+                        <td>
+                            <select class="form-select form-select-sm sel-parcela"
+                                    th:field="*{linhas[__${stat.index}__].parcela}"
+                                    th:attr="data-sel=${p.parcela != null ? p.parcela.id : ''}"></select>
+                        </td>
+                        <td class="cel-casta small text-muted">—</td>
+                        <td class="cel-area text-end small text-muted">—</td>
+                        <td>
+                            <input type="number" step="0.01" min="0" class="form-control form-control-sm in-producao"
+                                   th:field="*{linhas[__${stat.index}__].producaoPrevistaKg}">
+                        </td>
+                        <td>
+                            <input type="number" step="0.01" min="0" class="form-control form-control-sm in-kg"
+                                   th:field="*{linhas[__${stat.index}__].kgAplicar}">
+                        </td>
+                        <td class="cel-saldo text-end">—</td>
+                        <td class="cel-litros text-end">—</td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removerLinha(this)">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    </tbody>
+                    <tfoot>
+                    <tr class="table-light fw-bold">
+                        <td colspan="4" class="text-end">Totais:</td>
+                        <td class="text-end"><span id="totKg">—</span></td>
+                        <td></td>
+                        <td class="text-end"><span id="totLitros">—</span> L</td>
+                        <td></td>
+                    </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <div class="mt-3">
                 <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
                 <a th:href="@{/planeamento}" class="btn btn-outline-secondary">Cancelar</a>
             </div>
         </form>
     </div></div>
-    <p class="text-muted small mt-2">Os resultados da análise à maturação aparecem automaticamente no mapa, para esta vinha e casta.</p>
 </div>
 
+<!-- Modelo de linha (parcela nova) -->
+<template id="linhaTemplate">
+    <tr class="linha-parcela">
+        <td>
+            <select class="form-select form-select-sm sel-parcela" name="linhas[__IDX__].parcela"></select>
+        </td>
+        <td class="cel-casta small text-muted">—</td>
+        <td class="cel-area text-end small text-muted">—</td>
+        <td>
+            <input type="number" step="0.01" min="0" class="form-control form-control-sm in-producao" name="linhas[__IDX__].producaoPrevistaKg">
+        </td>
+        <td>
+            <input type="number" step="0.01" min="0" class="form-control form-control-sm in-kg" name="linhas[__IDX__].kgAplicar">
+        </td>
+        <td class="cel-saldo text-end">—</td>
+        <td class="cel-litros text-end">—</td>
+        <td class="text-end">
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removerLinha(this)">
+                <i class="bi bi-trash"></i>
+            </button>
+        </td>
+    </tr>
+</template>
+
 <div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:inline="javascript">
+    const OPCOES = /*[[${parcelaOpcoes}]]*/ [];
+    const FATOR = 0.60;
+    let contador = /*[[${plano.linhas.size()}]]*/ 0;
+
+    const mapaOpcao = {};
+    OPCOES.forEach(o => mapaOpcao[String(o.id)] = o);
+
+    function fmt(n) {
+        if (n === null || n === undefined || isNaN(n)) return '—';
+        return Number(n).toLocaleString('pt-PT', { maximumFractionDigits: 2 });
+    }
+
+    function idsUsadosExceto(sel) {
+        const ids = [];
+        document.querySelectorAll('.sel-parcela').forEach(s => { if (s !== sel && s.value) ids.push(s.value); });
+        return ids;
+    }
+
+    function popularParcela(sel) {
+        const escolhido = sel.dataset.sel || sel.value || '';
+        const usados = idsUsadosExceto(sel);
+        let html = '<option value="">— escolher parcela —</option>';
+        OPCOES.forEach(o => {
+            const id = String(o.id);
+            if (usados.includes(id)) return;                           // já usada noutra linha
+            if (!o.disponivel && id !== String(escolhido)) return;     // sem saldo (exceto a já escolhida)
+            const saldoTxt = (o.producao == null) ? 'por definir' : fmt(o.producao - o.aplicado) + ' kg';
+            html += '<option value="' + id + '">' + o.vinha + ' — ' + o.nome + ' (' + o.casta + ') · saldo ' + saldoTxt + '</option>';
+        });
+        sel.innerHTML = html;
+        if (escolhido) sel.value = escolhido;
+    }
+
+    function recalcularLinha(tr) {
+        const sel = tr.querySelector('.sel-parcela');
+        const o = mapaOpcao[sel.value];
+        const inProd = tr.querySelector('.in-producao');
+        const inKg = tr.querySelector('.in-kg');
+        const celCasta = tr.querySelector('.cel-casta');
+        const celArea = tr.querySelector('.cel-area');
+        const celSaldo = tr.querySelector('.cel-saldo');
+        const celLitros = tr.querySelector('.cel-litros');
+
+        if (o) {
+            celCasta.textContent = o.casta;
+            celArea.textContent = fmt(o.area);
+            if (!inProd.value && o.producao != null) inProd.value = o.producao;
+        } else {
+            celCasta.textContent = '—';
+            celArea.textContent = '—';
+        }
+
+        const prod = parseFloat(inProd.value) || 0;
+        const aplicadoOutros = o ? (parseFloat(o.aplicado) || 0) : 0;
+        const kg = parseFloat(inKg.value) || 0;
+        const saldo = prod - aplicadoOutros - kg;
+
+        celSaldo.textContent = fmt(saldo);
+        celSaldo.classList.toggle('text-danger', saldo < 0);
+        celSaldo.classList.toggle('fw-bold', saldo < 0);
+        celLitros.textContent = fmt(kg * FATOR);
+        recalcularTotais();
+    }
+
+    function recalcularTotais() {
+        let kgT = 0;
+        document.querySelectorAll('.linha-parcela .in-kg').forEach(i => kgT += parseFloat(i.value) || 0);
+        document.getElementById('totKg').textContent = fmt(kgT);
+        document.getElementById('totLitros').textContent = fmt(kgT * FATOR);
+    }
+
+    function repopularTodas() {
+        document.querySelectorAll('.sel-parcela').forEach(s => { s.dataset.sel = s.value; popularParcela(s); });
+    }
+
+    function ligarLinha(tr) {
+        popularParcela(tr.querySelector('.sel-parcela'));
+        recalcularLinha(tr);
+    }
+
+    function addLinha() {
+        const tpl = document.getElementById('linhaTemplate').innerHTML.replaceAll('__IDX__', contador);
+        document.getElementById('linhasBody').insertAdjacentHTML('beforeend', tpl);
+        ligarLinha(document.getElementById('linhasBody').lastElementChild);
+        contador++;
+    }
+
+    function removerLinha(btn) {
+        btn.closest('tr').remove();
+        repopularTodas();
+        recalcularTotais();
+    }
+
+    document.addEventListener('change', function (e) {
+        if (e.target.classList.contains('sel-parcela')) {
+            const tr = e.target.closest('tr');
+            e.target.dataset.sel = e.target.value;
+            recalcularLinha(tr);
+            repopularTodas();
+        }
+    });
+    document.addEventListener('input', function (e) {
+        if (e.target.classList.contains('in-producao') || e.target.classList.contains('in-kg')) {
+            recalcularLinha(e.target.closest('tr'));
+        }
+    });
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('.linha-parcela').forEach(ligarLinha);
+        recalcularTotais();
+    });
+</script>
 </body>
 </html>
