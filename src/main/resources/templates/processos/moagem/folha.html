@@ -31,7 +31,8 @@
             <table class="table table-sm mb-0 align-middle">
                 <thead>
                 <tr>
-                    <th>Parcela</th><th>Casta</th><th class="text-end">Vindimado</th>
+                    <th>Parcela</th><th>Casta</th><th>Adega</th>
+                    <th class="text-end">Vindimado</th><th class="text-end">Moído</th><th class="text-end">Sobra p/ moer</th>
                     <th>Estado</th><th></th>
                 </tr>
                 </thead>
@@ -43,11 +44,17 @@
                             <span th:text="${lv.linha.parcela != null ? (lv.linha.parcela.nome ?: lv.linha.parcela.identificacao ?: '—') : '—'}"></span>
                         </td>
                         <td th:text="${lv.linha.parcela != null and lv.linha.parcela.casta != null ? lv.linha.parcela.casta.nome : '—'}"></td>
+                        <td th:text="${lv.temMoagem() and lv.moagem.adega != null ? lv.moagem.adega.nome : '—'}"></td>
                         <td class="text-end" th:text="${lv.linha.totalVindimadoKg} + ' kg'"></td>
+                        <td class="text-end" th:text="${lv.temMoagem() ? lv.moidoKg() + ' kg' : '—'}"></td>
+                        <td class="text-end" th:classappend="${lv.sobrouPorMoer()} ? 'text-danger fw-bold'"
+                            th:text="${lv.temMoagem() ? lv.faltaMoer() + ' kg' : '—'}"></td>
                         <td>
                             <span th:if="${!lv.temMoagem()}" class="badge bg-secondary">Por moer</span>
                             <span th:if="${lv.temMoagem() and !lv.fechada()}" class="badge bg-warning text-dark">Em moagem</span>
                             <span th:if="${lv.fechada()}" class="badge bg-success">Moída</span>
+                            <span th:if="${lv.sobrouPorMoer()}" class="badge bg-danger ms-1"
+                                  th:text="'sobra ' + ${lv.faltaMoer()} + ' kg'"></span>
                         </td>
                         <td class="text-end">
                             <button class="btn btn-sm btn-outline-secondary" type="button"
@@ -57,13 +64,21 @@
                         </td>
                     </tr>
                     <tr>
-                        <td colspan="5" class="p-0 border-0">
+                        <td colspan="8" class="p-0 border-0">
                             <div class="collapse" th:id="'m-' + ${lv.linha.id}">
                                 <div class="p-3" style="background:#faf6f4;">
                                     <div class="small mb-2">
                                         <strong>Vindima de origem:</strong> <span th:text="${lv.linha.etiqueta}"></span>
                                         · <strong>Casta:</strong> <span th:text="${lv.linha.parcela != null and lv.linha.parcela.casta != null ? lv.linha.parcela.casta.nome : '—'}"></span>
                                         <span th:if="${lv.temMoagem()}"> · <span class="codigo" th:text="${lv.moagem.codigo}"></span></span>
+                                    </div>
+                                    <div class="small mb-2">
+                                        Vindimado: <strong th:text="${lv.linha.totalVindimadoKg} + ' kg'"></strong>
+                                        · Moído: <strong th:text="${lv.moidoKg()} + ' kg'"></strong>
+                                        · Sobra por moer:
+                                        <strong th:classappend="${lv.sobrouPorMoer()} ? 'text-danger'"
+                                                th:text="${lv.faltaMoer()} + ' kg'"></strong>
+                                        <span th:if="${lv.sobrouPorMoer()}" class="text-danger">— ficou uva por moer (ex.: recipientes cheios).</span>
                                     </div>
 
                                     <!-- MOAGEM FECHADA: mostos gerados -->

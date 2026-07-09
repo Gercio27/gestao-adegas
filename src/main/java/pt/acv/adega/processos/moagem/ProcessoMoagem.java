@@ -7,6 +7,7 @@ import pt.acv.adega.planeamento.LinhaPlaneamentoParcela;
 import pt.acv.adega.processos.Fase;
 import pt.acv.adega.processos.Processo;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -55,4 +56,20 @@ public class ProcessoMoagem extends Processo {
 
     public List<Enchimento> getEnchimentos() { return enchimentos; }
     public void setEnchimentos(List<Enchimento> enchimentos) { this.enchimentos = enchimentos; }
+
+    /** Total de uva efetivamente moída (soma dos Kg dos enchimentos). */
+    @Transient
+    public BigDecimal getTotalMoidoKg() {
+        return enchimentos.stream()
+                .map(e -> e.getQuantidadeMoidaKg() == null ? BigDecimal.ZERO : e.getQuantidadeMoidaKg())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Total de litros de mosto gerados (soma dos litros dos enchimentos). */
+    @Transient
+    public BigDecimal getTotalLitrosMosto() {
+        return enchimentos.stream()
+                .map(e -> e.getLitros() == null ? BigDecimal.ZERO : e.getLitros())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
 }
