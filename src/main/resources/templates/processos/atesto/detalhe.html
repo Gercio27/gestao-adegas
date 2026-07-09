@@ -49,6 +49,7 @@
 
     <div class="card shadow-sm"><div class="card-header bg-white fw-bold">Execução</div><div class="card-body">
         <dl class="row mb-0">
+            <dt class="col-sm-3">Adega</dt><dd class="col-sm-9" th:text="${atesto.adega != null ? atesto.adega.nome : '—'}"></dd>
             <dt class="col-sm-3">Responsável</dt><dd class="col-sm-9" th:text="${atesto.responsavel != null ? atesto.responsavel.nome : '—'}"></dd>
             <dt class="col-sm-3">Início</dt><dd class="col-sm-9" th:text="${atesto.dataHoraInicio != null ? #temporals.format(atesto.dataHoraInicio,'dd-MM-yyyy HH:mm') : '—'}"></dd>
             <dt class="col-sm-3">Fim</dt><dd class="col-sm-9" th:text="${atesto.dataHoraFim != null ? #temporals.format(atesto.dataHoraFim,'dd-MM-yyyy HH:mm') : '—'}"></dd>

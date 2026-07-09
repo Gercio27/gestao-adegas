@@ -8,10 +8,16 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
+import pt.acv.adega.fichas.AdegaRepository;
 import pt.acv.adega.fichas.RecipienteService;
 import pt.acv.adega.fichas.TrabalhadorRepository;
+import pt.acv.adega.produtos.EstadoMosto;
+import pt.acv.adega.produtos.Mosto;
+import pt.acv.adega.produtos.MostoRepository;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.*;
 
 @Controller
 @RequestMapping("/processos/atesto")
@@ -20,15 +26,20 @@ public class AtestoController {
     private final ProcessoAtestoRepository repo;
     private final AtestoService atestoService;
     private final RecipienteService recipienteService;
+    private final AdegaRepository adegaRepo;
+    private final MostoRepository mostoRepo;
     private final TrabalhadorRepository trabalhadorRepo;
     private final CodigoService codigoService;
 
     public AtestoController(ProcessoAtestoRepository repo, AtestoService atestoService,
-                            RecipienteService recipienteService, TrabalhadorRepository trabalhadorRepo,
+                            RecipienteService recipienteService, AdegaRepository adegaRepo,
+                            MostoRepository mostoRepo, TrabalhadorRepository trabalhadorRepo,
                             CodigoService codigoService) {
         this.repo = repo;
         this.atestoService = atestoService;
         this.recipienteService = recipienteService;
+        this.adegaRepo = adegaRepo;
+        this.mostoRepo = mostoRepo;
         this.trabalhadorRepo = trabalhadorRepo;
         this.codigoService = codigoService;
     }
@@ -143,7 +154,62 @@ public class AtestoController {
 
     private void preencherOpcoes(Model model) {
         model.addAttribute("recipientes", recipienteService.opcoes());
+        model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
+        model.addAttribute("recipientesPorAdega", recipientesPorAdega());
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
+    }
+
+    /** Mapa adega -> recipientes dessa adega com mosto em fermentação (ref + info). */
+    private Map<Long, List<Map<String, Object>>> recipientesPorAdega() {
+        List<Mosto> fermentando = new ArrayList<>();
+        fermentando.addAll(mostoRepo.findByEstadoOrderByDataProducaoDesc(EstadoMosto.EM_FERMENTACAO));
+        fermentando.addAll(mostoRepo.findByEstadoOrderByDataProducaoDesc(EstadoMosto.ATESTADO));
+
+        Map<Long, LinkedHashMap<String, RecAgg>> agg = new LinkedHashMap<>();
+        for (Mosto m : fermentando) {
+            String ref, ident;
+            Long adegaId;
+            if (m.getTalha() != null && m.getTalha().getAdega() != null) {
+                ref = "TALHA:" + m.getTalha().getId();
+                ident = "Talha " + m.getTalha().getIdentificacao();
+                adegaId = m.getTalha().getAdega().getId();
+            } else if (m.getDeposito() != null && m.getDeposito().getAdega() != null) {
+                ref = "DEPOSITO:" + m.getDeposito().getId();
+                ident = "Depósito " + m.getDeposito().getIdentificacao();
+                adegaId = m.getDeposito().getAdega().getId();
+            } else {
+                continue;
+            }
+            RecAgg a = agg.computeIfAbsent(adegaId, k -> new LinkedHashMap<>())
+                    .computeIfAbsent(ref, k -> new RecAgg(ident));
+            a.litros = a.litros.add(m.getLitros() == null ? BigDecimal.ZERO : m.getLitros());
+            if (m.getCasta() != null) a.castas.add(m.getCasta().getNome());
+        }
+
+        Map<Long, List<Map<String, Object>>> out = new LinkedHashMap<>();
+        for (Map.Entry<Long, LinkedHashMap<String, RecAgg>> e : agg.entrySet()) {
+            List<Map<String, Object>> linhas = new ArrayList<>();
+            for (Map.Entry<String, RecAgg> re : e.getValue().entrySet()) {
+                RecAgg a = re.getValue();
+                String castasTxt = a.castas.isEmpty() ? "" : " (" + String.join(", ", a.castas) + ")";
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("ref", re.getKey());
+                m.put("ident", a.ident);
+                m.put("litros", a.litros.toPlainString());
+                m.put("castas", String.join(", ", a.castas));
+                m.put("label", a.ident + " · " + a.litros.toPlainString() + " L" + castasTxt);
+                linhas.add(m);
+            }
+            out.put(e.getKey(), linhas);
+        }
+        return out;
+    }
+
+    private static class RecAgg {
+        final String ident;
+        BigDecimal litros = BigDecimal.ZERO;
+        final LinkedHashSet<String> castas = new LinkedHashSet<>();
+        RecAgg(String ident) { this.ident = ident; }
     }
 
     private boolean isAdmin(Authentication auth) {

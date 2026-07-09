@@ -1,6 +1,7 @@
 package pt.acv.adega.processos.atesto;
 
 import jakarta.persistence.*;
+import pt.acv.adega.fichas.Adega;
 import pt.acv.adega.fichas.Deposito;
 import pt.acv.adega.fichas.Talha;
 import pt.acv.adega.processos.Fase;
@@ -20,6 +21,11 @@ public class ProcessoAtesto extends Processo {
 
     public static final String PREFIXO = "ATE";
     public static final Fase FASE = Fase.FASE_4;
+
+    /** Adega do recipiente atestado (destino); ajuda a filtrar os recipientes. */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "adega_id")
+    private Adega adega;
 
     // --- Origem (de onde sai o mosto) ---
     @ManyToOne(fetch = FetchType.EAGER)
@@ -47,6 +53,9 @@ public class ProcessoAtesto extends Processo {
     private String origemRef;
     @Transient
     private String destinoRef;
+
+    public Adega getAdega() { return adega; }
+    public void setAdega(Adega adega) { this.adega = adega; }
 
     public Talha getTalhaOrigem() { return talhaOrigem; }
     public void setTalhaOrigem(Talha talhaOrigem) { this.talhaOrigem = talhaOrigem; }
