@@ -3,12 +3,17 @@ package pt.acv.adega.processos.vindima;
 import jakarta.validation.Valid;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.fichas.*;
+import pt.acv.adega.planeamento.LinhaPlaneamentoParcela;
+import pt.acv.adega.planeamento.LinhaPlaneamentoParcelaRepository;
+import pt.acv.adega.planeamento.PlaneamentoVinhoRepository;
+import pt.acv.adega.planeamento.RegistoVindima;
 import pt.acv.adega.processos.EstadoProcesso;
 
 import java.time.LocalDateTime;
@@ -27,25 +32,56 @@ public class VindimaController {
     private final AdegaRepository adegaRepo;
     private final TrabalhadorRepository trabalhadorRepo;
     private final CodigoService codigoService;
+    private final PlaneamentoVinhoRepository planeamentoRepo;
+    private final LinhaPlaneamentoParcelaRepository linhaRepo;
 
     public VindimaController(ProcessoVindimaRepository repo, VinhaRepository vinhaRepo,
                              CastaRepository castaRepo, AdegaRepository adegaRepo,
-                             TrabalhadorRepository trabalhadorRepo, CodigoService codigoService) {
+                             TrabalhadorRepository trabalhadorRepo, CodigoService codigoService,
+                             PlaneamentoVinhoRepository planeamentoRepo, LinhaPlaneamentoParcelaRepository linhaRepo) {
         this.repo = repo;
         this.vinhaRepo = vinhaRepo;
         this.castaRepo = castaRepo;
         this.adegaRepo = adegaRepo;
         this.trabalhadorRepo = trabalhadorRepo;
         this.codigoService = codigoService;
+        this.planeamentoRepo = planeamentoRepo;
+        this.linhaRepo = linhaRepo;
     }
 
+    /** Fase 2 — Folha da vindima sobre todo o planeamento (vinhos e parcelas). */
     @GetMapping
-    public String listar(Authentication auth, Model model) {
-        model.addAttribute("processos", isAdmin(auth)
-                ? repo.findAllByOrderByDataCriacaoDesc()
-                : repo.findByCriadoPorOrderByDataCriacaoDesc(auth.getName()));
-        model.addAttribute("admin", isAdmin(auth));
-        return "processos/vindima/lista";
+    public String folha(Model model) {
+        model.addAttribute("vinhos", planeamentoRepo.findAllByOrderByNomeVinhoAsc());
+        model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
+        model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
+        return "processos/vindima/folha";
+    }
+
+    /** Guarda os dados da vindima (execução + colheitas) de uma linha do planeamento. */
+    @PostMapping("/linha/{id}")
+    @Transactional
+    public String guardarLinha(@PathVariable Long id, @ModelAttribute VindimaLinhaForm form, RedirectAttributes ra) {
+        LinhaPlaneamentoParcela l = linhaRepo.findById(id).orElse(null);
+        if (l == null) { ra.addFlashAttribute("erro", "Linha de planeamento não encontrada."); return "redirect:/processos/vindima"; }
+
+        l.setResponsavel(form.getResponsavel());
+        l.setAdegaEntrega(form.getAdegaEntrega());
+        l.setVasilame(form.getVasilame());
+        l.setMeios(form.getMeios());
+        l.setMetodos(form.getMetodos());
+        l.setTransporte(form.getTransporte());
+        l.setObservacoesVindima(form.getObservacoes());
+
+        l.getVindimas().clear();
+        for (RegistoVindima r : form.getVindimas()) {
+            if (r == null || r.isVazia()) continue;
+            r.setLinha(l);
+            l.getVindimas().add(r);
+        }
+        linhaRepo.save(l);
+        ra.addFlashAttribute("sucesso", "Vindima guardada para a parcela.");
+        return "redirect:/processos/vindima";
     }
 
     @GetMapping("/nova")

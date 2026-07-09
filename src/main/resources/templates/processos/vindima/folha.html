@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Vindima')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h3 class="mb-0"><i class="bi bi-basket"></i> Vindima <span class="badge bg-secondary">Fase 2</span></h3>
+        <a th:href="@{/planeamento}" class="btn btn-outline-secondary btn-sm">Ver planeamento</a>
+    </div>
+    <p class="text-muted">
+        Folha da vindima sobre o planeamento. Para cada parcela planeada, abra <strong>Vindimas</strong> e
+        registe as colheitas (até 5: início, fim, Kg). A soma é comparada com o Kg a aplicar planeado (só avisa).
+    </p>
+
+    <div th:if="${vinhos.isEmpty()}" class="card shadow-sm"><div class="card-body text-center text-muted py-4">
+        Sem planeamento. Primeiro planeie os vinhos na <a th:href="@{/planeamento}">Fase 1.2</a>.
+    </div></div>
+
+    <div th:each="vm : ${vinhos}" class="card shadow-sm mb-3">
+        <div class="card-header bg-white">
+            <span class="fw-bold" th:text="${vm.nomeVinho}"></span>
+            <span class="badge bg-dark ms-1" th:if="${vm.tipoVinho != null}" th:text="${vm.tipoVinho.descricao}"></span>
+            <span class="codigo text-muted small ms-1" th:text="${vm.codigo}"></span>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle">
+                <thead>
+                <tr>
+                    <th>Parcela</th><th>Casta</th><th class="text-end">Kg a aplicar</th>
+                    <th>Responsável</th><th>Adega de entrega</th>
+                    <th class="text-end">Vindimado</th><th></th>
+                </tr>
+                </thead>
+                <tbody>
+                <th:block th:each="l : ${vm.linhas}">
+                    <tr>
+                        <td>
+                            <span th:text="${l.parcela != null and l.parcela.vinha != null ? l.parcela.vinha.nome + ' — ' : ''}"></span>
+                            <span th:text="${l.parcela != null ? (l.parcela.nome ?: l.parcela.identificacao ?: '—') : '—'}"></span>
+                        </td>
+                        <td th:text="${l.parcela != null and l.parcela.casta != null ? l.parcela.casta.nome : '—'}"></td>
+                        <td class="text-end" th:text="${l.kgAplicar != null ? l.kgAplicar + ' kg' : '—'}"></td>
+                        <td th:text="${l.responsavel != null ? l.responsavel.nome : '—'}"></td>
+                        <td th:text="${l.adegaEntrega != null ? l.adegaEntrega.nome : '—'}"></td>
+                        <td class="text-end">
+                            <span th:classappend="${l.vindimaExcede} ? 'badge bg-danger' : 'badge bg-success'"
+                                  th:text="${l.totalVindimadoKg} + ' kg'"></span>
+                        </td>
+                        <td class="text-end">
+                            <button class="btn btn-sm btn-outline-secondary" type="button"
+                                    data-bs-toggle="collapse" th:data-bs-target="'#v-' + ${l.id}">
+                                <i class="bi bi-basket2"></i> Vindimas
+                            </button>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td colspan="7" class="p-0 border-0">
+                            <div class="collapse" th:id="'v-' + ${l.id}">
+                                <div class="p-3" style="background:#faf6f4;">
+                                    <form th:action="@{/processos/vindima/linha/{id}(id=${l.id})}" method="post"
+                                          th:attr="data-plan=${l.kgAplicar != null ? l.kgAplicar : 0}">
+                                        <div class="row g-2 mb-2">
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0">Responsável</label>
+                                                <select class="form-select form-select-sm" name="responsavel">
+                                                    <option value="">—</option>
+                                                    <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"
+                                                            th:selected="${l.responsavel != null and l.responsavel.id == t.id}"></option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0">Adega de entrega</label>
+                                                <select class="form-select form-select-sm" name="adegaEntrega">
+                                                    <option value="">—</option>
+                                                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"
+                                                            th:selected="${l.adegaEntrega != null and l.adegaEntrega.id == a.id}"></option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0">Vasilame (baldes/contentores/reboque)</label>
+                                                <input class="form-control form-control-sm" name="vasilame" th:value="${l.vasilame}">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0">Transporte até à adega</label>
+                                                <input class="form-control form-control-sm" name="transporte" th:value="${l.transporte}">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0">Meios utilizados</label>
+                                                <input class="form-control form-control-sm" name="meios" th:value="${l.meios}">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0">Métodos utilizados</label>
+                                                <input class="form-control form-control-sm" name="metodos" th:value="${l.metodos}">
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label small mb-0">Observações</label>
+                                                <input class="form-control form-control-sm" name="observacoes" th:value="${l.observacoesVindima}">
+                                            </div>
+                                        </div>
+
+                                        <table class="table table-sm mb-2" style="max-width:640px;">
+                                            <thead><tr><th style="width:40px;">#</th><th>Início</th><th>Fim</th><th class="text-end">Quantidade (Kg)</th></tr></thead>
+                                            <tbody>
+                                            <tr th:each="i : ${#numbers.sequence(0,4)}"
+                                                th:with="v=${i lt l.vindimas.size() ? l.vindimas.get(i) : null}">
+                                                <td class="text-muted" th:text="${i + 1}"></td>
+                                                <td><input type="date" class="form-control form-control-sm"
+                                                           th:name="'vindimas[' + ${i} + '].dataInicio'"
+                                                           th:value="${v != null and v.dataInicio != null ? #temporals.format(v.dataInicio,'yyyy-MM-dd') : ''}"></td>
+                                                <td><input type="date" class="form-control form-control-sm"
+                                                           th:name="'vindimas[' + ${i} + '].dataFim'"
+                                                           th:value="${v != null and v.dataFim != null ? #temporals.format(v.dataFim,'yyyy-MM-dd') : ''}"></td>
+                                                <td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end vind-kg"
+                                                           th:name="'vindimas[' + ${i} + '].quantidadeKg'"
+                                                           th:value="${v != null and v.quantidadeKg != null ? v.quantidadeKg : ''}"></td>
+                                            </tr>
+                                            </tbody>
+                                            <tfoot>
+                                            <tr class="fw-bold">
+                                                <td colspan="3" class="text-end">Soma / planeado:</td>
+                                                <td class="text-end">
+                                                    <span class="vind-soma">0</span> /
+                                                    <span th:text="${l.kgAplicar != null ? l.kgAplicar : '—'}"></span> kg
+                                                </td>
+                                            </tr>
+                                            </tfoot>
+                                        </table>
+
+                                        <button class="btn btn-sm text-white" style="background-color:#6b1f2a;" type="submit">
+                                            <i class="bi bi-check-lg"></i> Guardar vindima
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                </th:block>
+                <tr th:if="${vm.linhas.isEmpty()}"><td colspan="7" class="text-center text-muted py-3">Vinho sem parcelas planeadas.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script>
+    // Soma em tempo real dos Kg das vindimas de cada linha; avisa a vermelho se
+    // ultrapassar o Kg a aplicar planeado (apenas aviso, não bloqueia).
+    function recalcularSoma(form) {
+        const plano = parseFloat(form.getAttribute('data-plan')) || 0;
+        let soma = 0;
+        form.querySelectorAll('.vind-kg').forEach(i => soma += parseFloat(i.value) || 0);
+        const alvo = form.querySelector('.vind-soma');
+        if (!alvo) return;
+        alvo.textContent = soma.toLocaleString('pt-PT', { maximumFractionDigits: 2 });
+        const excede = plano > 0 && soma > plano;
+        alvo.classList.toggle('text-danger', excede);
+    }
+    document.addEventListener('input', function (e) {
+        if (e.target.classList.contains('vind-kg')) recalcularSoma(e.target.closest('form'));
+    });
+    document.addEventListener('DOMContentLoaded', function () {
+        document.querySelectorAll('form[data-plan]').forEach(recalcularSoma);
+    });
+</script>
+</body>
+</html>
