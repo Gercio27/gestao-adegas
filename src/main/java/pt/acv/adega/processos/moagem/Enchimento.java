@@ -33,6 +33,11 @@ public class Enchimento {
     @JoinColumn(name = "deposito_id")
     private Deposito deposito;
 
+    /** Quantidade de uva moida para este recipiente (Kg). */
+    @Column(precision = 12, scale = 2)
+    private BigDecimal quantidadeMoidaKg;
+
+    /** Litros de mosto resultantes (entram no recipiente e geram a ficha de mosto). */
     @Column(precision = 12, scale = 2)
     private BigDecimal litros;
 
@@ -58,6 +63,9 @@ public class Enchimento {
 
     public Deposito getDeposito() { return deposito; }
     public void setDeposito(Deposito deposito) { this.deposito = deposito; }
+
+    public BigDecimal getQuantidadeMoidaKg() { return quantidadeMoidaKg; }
+    public void setQuantidadeMoidaKg(BigDecimal quantidadeMoidaKg) { this.quantidadeMoidaKg = quantidadeMoidaKg; }
 
     public BigDecimal getLitros() { return litros; }
     public void setLitros(BigDecimal litros) { this.litros = litros; }
