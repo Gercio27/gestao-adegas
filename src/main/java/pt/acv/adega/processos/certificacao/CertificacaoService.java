@@ -9,6 +9,8 @@ import pt.acv.adega.produtos.VinhoEngarrafado;
 import pt.acv.adega.produtos.VinhoEngarrafadoRepository;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Fecho/reabertura da certificacao. Ao fechar com resultado APROVADO, marca o
@@ -34,22 +36,19 @@ public class CertificacaoService {
                 .orElseThrow(() -> new CertificacaoException("Certificação não encontrada."));
         if (p.getEstado() == EstadoProcesso.FECHADO) throw new CertificacaoException("A certificação já está fechada.");
 
-        if (p.getAlvo() == AlvoCertificacao.GRANEL && p.getVinhoGranel() == null)
-            throw new CertificacaoException("Indique o vinho a granel a certificar.");
-        if (p.getAlvo() == AlvoCertificacao.ENGARRAFADO && p.getEngarrafado() == null)
-            throw new CertificacaoException("Indique o vinho engarrafado a certificar.");
+        List<Long> ids = idsParaCertificar(p);
+        if (ids.isEmpty()) throw new CertificacaoException("Indique pelo menos um "
+                + (p.getAlvo() == AlvoCertificacao.GRANEL ? "depósito a certificar." : "lote engarrafado a certificar."));
 
         boolean aprovado = p.getResultado() == ResultadoCertificacao.APROVADO;
-        if (p.getAlvo() == AlvoCertificacao.GRANEL) {
-            Mosto m = mostoRepo.findById(p.getVinhoGranel().getId()).orElseThrow();
-            m.setCertificado(aprovado);
-            m.setValidadeCertificacao(aprovado ? p.getValidade() : null);
-            mostoRepo.save(m);
-        } else {
-            VinhoEngarrafado v = engarrafadoRepo.findById(p.getEngarrafado().getId()).orElseThrow();
-            v.setCertificado(aprovado);
-            v.setValidadeCertificacao(aprovado ? p.getValidade() : null);
-            engarrafadoRepo.save(v);
+        for (Long itemId : ids) {
+            if (p.getAlvo() == AlvoCertificacao.GRANEL) {
+                Mosto m = mostoRepo.findById(itemId).orElse(null);
+                if (m != null) { m.setCertificado(aprovado); m.setValidadeCertificacao(aprovado ? p.getValidade() : null); mostoRepo.save(m); }
+            } else {
+                VinhoEngarrafado v = engarrafadoRepo.findById(itemId).orElse(null);
+                if (v != null) { v.setCertificado(aprovado); v.setValidadeCertificacao(aprovado ? p.getValidade() : null); engarrafadoRepo.save(v); }
+            }
         }
 
         p.setEstado(EstadoProcesso.FECHADO);
@@ -63,15 +62,32 @@ public class CertificacaoService {
         ProcessoCertificacao p = repo.findById(id)
                 .orElseThrow(() -> new CertificacaoException("Certificação não encontrada."));
         if (p.getEstado() == EstadoProcesso.ABERTO) return;
-        if (p.getAlvo() == AlvoCertificacao.GRANEL && p.getVinhoGranel() != null) {
-            Mosto m = mostoRepo.findById(p.getVinhoGranel().getId()).orElse(null);
-            if (m != null) { m.setCertificado(false); m.setValidadeCertificacao(null); mostoRepo.save(m); }
-        } else if (p.getEngarrafado() != null) {
-            VinhoEngarrafado v = engarrafadoRepo.findById(p.getEngarrafado().getId()).orElse(null);
-            if (v != null) { v.setCertificado(false); v.setValidadeCertificacao(null); engarrafadoRepo.save(v); }
+        for (Long itemId : idsParaCertificar(p)) {
+            if (p.getAlvo() == AlvoCertificacao.GRANEL) {
+                Mosto m = mostoRepo.findById(itemId).orElse(null);
+                if (m != null) { m.setCertificado(false); m.setValidadeCertificacao(null); mostoRepo.save(m); }
+            } else {
+                VinhoEngarrafado v = engarrafadoRepo.findById(itemId).orElse(null);
+                if (v != null) { v.setCertificado(false); v.setValidadeCertificacao(null); engarrafadoRepo.save(v); }
+            }
         }
         p.setEstado(EstadoProcesso.ABERTO);
         p.setDataFecho(null);
         repo.save(p);
+    }
+
+    /** Ids dos itens a certificar: do CSV, ou (retro) do único alvo antigo. */
+    private List<Long> idsParaCertificar(ProcessoCertificacao p) {
+        List<Long> ids = new ArrayList<>();
+        if (p.getItensIdsCsv() != null && !p.getItensIdsCsv().isBlank()) {
+            for (String s : p.getItensIdsCsv().split(",")) {
+                try { ids.add(Long.valueOf(s.trim())); } catch (Exception ignored) { }
+            }
+        } else if (p.getAlvo() == AlvoCertificacao.GRANEL && p.getVinhoGranel() != null) {
+            ids.add(p.getVinhoGranel().getId());
+        } else if (p.getEngarrafado() != null) {
+            ids.add(p.getEngarrafado().getId());
+        }
+        return ids;
     }
 }

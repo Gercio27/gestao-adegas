@@ -32,7 +32,8 @@
     <div class="card shadow-sm"><div class="card-body">
         <dl class="row mb-0">
             <dt class="col-sm-3">Alvo</dt><dd class="col-sm-9" th:text="${cert.alvo.descricao}"></dd>
-            <dt class="col-sm-3">Produto</dt><dd class="col-sm-9" th:text="${cert.alvoDescricao}"></dd>
+            <dt class="col-sm-3">Itens certificados</dt><dd class="col-sm-9" th:text="${cert.itensDescricao ?: cert.alvoDescricao}"></dd>
+            <dt class="col-sm-3">Amostra CVR/IVV</dt><dd class="col-sm-9" th:text="${cert.alvoDescricao}"></dd>
             <dt class="col-sm-3">Entidade</dt><dd class="col-sm-9" th:text="${cert.entidade ?: '—'}"></dd>
             <dt class="col-sm-3">Data do pedido</dt><dd class="col-sm-9" th:text="${cert.dataPedido != null ? #temporals.format(cert.dataPedido,'dd-MM-yyyy') : '—'}"></dd>
             <dt class="col-sm-3">Nº certificado</dt><dd class="col-sm-9" th:text="${cert.numeroCertificado ?: '—'}"></dd>

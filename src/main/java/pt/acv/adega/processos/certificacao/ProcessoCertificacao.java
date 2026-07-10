@@ -8,6 +8,8 @@ import pt.acv.adega.produtos.Mosto;
 import pt.acv.adega.produtos.VinhoEngarrafado;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Pedido de certificacao (Fase 5.5 para vinho a granel; 6.4 para engarrafado).
@@ -25,13 +27,31 @@ public class ProcessoCertificacao extends Processo {
     @Column(nullable = false, length = 15)
     private AlvoCertificacao alvo = AlvoCertificacao.GRANEL;
 
+    /** Amostra enviada ao CVR/IVV (a granel): um dos mostos certificados. */
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "vinho_granel_id")
     private Mosto vinhoGranel;
 
+    /** Amostra enviada ao CVR/IVV (engarrafado): um dos lotes certificados. */
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "engarrafado_id")
     private VinhoEngarrafado engarrafado;
+
+    /** Ids de todos os itens certificados (mostos ou engarrafados), separados por vírgula. */
+    @Column(length = 1000)
+    private String itensIdsCsv;
+
+    /** Descrição legível dos itens certificados. */
+    @Column(length = 1000)
+    private String itensDescricao;
+
+    /** Seleção do formulário (ids dos depósitos/lotes a certificar). */
+    @Transient
+    private List<Long> itemIds = new ArrayList<>();
+
+    /** Id do item escolhido como amostra (do formulário). */
+    @Transient
+    private Long amostraId;
 
     @Column(length = 120)
     private String entidade;
@@ -60,6 +80,18 @@ public class ProcessoCertificacao extends Processo {
 
     public VinhoEngarrafado getEngarrafado() { return engarrafado; }
     public void setEngarrafado(VinhoEngarrafado engarrafado) { this.engarrafado = engarrafado; }
+
+    public String getItensIdsCsv() { return itensIdsCsv; }
+    public void setItensIdsCsv(String itensIdsCsv) { this.itensIdsCsv = itensIdsCsv; }
+
+    public String getItensDescricao() { return itensDescricao; }
+    public void setItensDescricao(String itensDescricao) { this.itensDescricao = itensDescricao; }
+
+    public List<Long> getItemIds() { return itemIds; }
+    public void setItemIds(List<Long> itemIds) { this.itemIds = itemIds; }
+
+    public Long getAmostraId() { return amostraId; }
+    public void setAmostraId(Long amostraId) { this.amostraId = amostraId; }
 
     public String getEntidade() { return entidade; }
     public void setEntidade(String entidade) { this.entidade = entidade; }

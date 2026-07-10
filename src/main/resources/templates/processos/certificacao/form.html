@@ -1,42 +1,54 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-PT">
 <head th:replace="~{fragments/layout :: head('Certificação')}"></head>
 <body>
 <nav th:replace="~{fragments/layout :: navbar}"></nav>
 
 <div class="container">
     <h3 class="mb-1" th:text="${cert.id == null} ? 'Novo pedido de certificação' : 'Editar certificação'">Certificação</h3>
-    <p class="text-muted">Fase 5.5 (a granel) / 6.4 (engarrafado). Ao <strong>fechar</strong> com resultado <em>Aprovado</em>, o produto fica marcado como certificado.</p>
+    <p class="text-muted">Fase 5. A certificação é <strong>por depósito</strong> (a granel) ou por <strong>lote engarrafado</strong> (só depois do engarrafamento). Ao <strong>fechar</strong> com <em>Aprovado</em>, os itens ficam certificados.</p>
 
     <div class="card shadow-sm"><div class="card-body">
         <form th:action="@{/processos/certificacao}" th:object="${cert}" method="post" class="row g-3">
             <input type="hidden" th:field="*{id}">
             <input type="hidden" th:field="*{codigo}">
 
-            <div class="col-md-3" th:if="${cert.codigo != null}">
-                <label class="form-label">Código</label>
-                <input class="form-control" th:value="*{codigo}" disabled>
-            </div>
             <div class="col-md-3">
                 <label class="form-label">Alvo *</label>
-                <select class="form-select" th:field="*{alvo}" onchange="toggleAlvo(this.value)">
+                <select class="form-select" th:field="*{alvo}" id="cert-alvo" onchange="toggleAlvo()">
                     <option th:each="a : ${alvos}" th:value="${a}" th:text="${a.descricao}"></option>
                 </select>
             </div>
-            <div class="col-md-6" id="grpGranel">
-                <label class="form-label">Vinho a granel</label>
-                <select class="form-select" th:field="*{vinhoGranel}">
-                    <option th:value="${null}">—</option>
-                    <option th:each="m : ${vinhosGranel}" th:value="${m.id}"
-                            th:text="${m.codigo} + ' · ' + ${m.localizacao} + ' · ' + ${m.litros} + ' L'"></option>
+
+            <!-- GRANEL: adega + vinho -->
+            <div class="col-md-4 grp-granel">
+                <label class="form-label">Adega</label>
+                <select class="form-select" id="cert-adega" onchange="filtrarGranel()">
+                    <option value="">— escolher adega —</option>
+                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
                 </select>
             </div>
-            <div class="col-md-6" id="grpEngarrafado">
-                <label class="form-label">Vinho engarrafado</label>
-                <select class="form-select" th:field="*{engarrafado}">
-                    <option th:value="${null}">—</option>
-                    <option th:each="v : ${engarrafados}" th:value="${v.id}" th:text="${v.codigo} + ' · ' + ${v.nome}"></option>
+            <div class="col-md-4 grp-granel">
+                <label class="form-label">Vinho</label>
+                <select class="form-select" id="cert-vinho" onchange="filtrarGranel()">
+                    <option value="">— escolher vinho —</option>
+                    <option th:each="v : ${vinhos}" th:value="${v.id}" th:text="${v.nome}"></option>
                 </select>
+            </div>
+
+            <div class="col-12 grp-granel">
+                <label class="form-label">Depósitos por certificar (marque os que vai certificar; escolha a amostra CVR/IVV)</label>
+                <div class="border rounded p-2" id="cert-granel-itens"><span class="text-muted small">Escolha a adega e o vinho.</span></div>
+            </div>
+
+            <!-- ENGARRAFADO: lotes -->
+            <div class="col-12 grp-eng">
+                <label class="form-label">Lotes engarrafados por certificar (marque os que vai certificar; escolha a amostra)</label>
+                <div class="border rounded p-2" id="cert-eng-itens"><span class="text-muted small">A carregar…</span></div>
+            </div>
+
+            <div th:if="${cert.itensDescricao != null}" class="col-12">
+                <span class="text-muted small">Já selecionados: </span><span class="small" th:text="${cert.itensDescricao}"></span>
             </div>
 
             <div class="col-md-4">
@@ -51,7 +63,6 @@
                 <label class="form-label">Nº de certificado</label>
                 <input type="text" class="form-control" th:field="*{numeroCertificado}">
             </div>
-
             <div class="col-md-4">
                 <label class="form-label">Resultado</label>
                 <select class="form-select" th:field="*{resultado}">
@@ -66,7 +77,6 @@
                 <label class="form-label">Validade da certificação</label>
                 <input type="date" class="form-control" th:field="*{validade}">
             </div>
-
             <div class="col-md-4">
                 <label class="form-label">Responsável</label>
                 <select class="form-select" th:field="*{responsavel}">
@@ -88,13 +98,46 @@
 </div>
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
-<script>
-    function toggleAlvo(v) {
-        document.getElementById('grpGranel').style.display = (v === 'GRANEL') ? '' : 'none';
-        document.getElementById('grpEngarrafado').style.display = (v === 'ENGARRAFADO') ? '' : 'none';
+<script th:inline="javascript">
+    const granelDisponivel = /*[[${granelDisponivel}]]*/ [];
+    const engarrafadosDisponiveis = /*[[${engarrafadosDisponiveis}]]*/ [];
+
+    function linhaItem(id, label) {
+        return '<div class="d-flex align-items-center gap-3 py-1">'
+            + '<div class="form-check mb-0"><input class="form-check-input" type="checkbox" name="itemIds" value="' + id + '" id="it' + id + '">'
+            + '<label class="form-check-label small" for="it' + id + '">' + label + '</label></div>'
+            + '<div class="form-check mb-0"><input class="form-check-input" type="radio" name="amostraId" value="' + id + '" id="am' + id + '">'
+            + '<label class="form-check-label small text-muted" for="am' + id + '">amostra</label></div>'
+            + '</div>';
     }
+
+    function filtrarGranel() {
+        const adega = document.getElementById('cert-adega').value;
+        const vinho = document.getElementById('cert-vinho').value;
+        const box = document.getElementById('cert-granel-itens');
+        if (!adega || !vinho) { box.innerHTML = '<span class="text-muted small">Escolha a adega e o vinho.</span>'; return; }
+        const lista = granelDisponivel.filter(function (m) { return String(m.adegaId) === adega && String(m.vinhoId) === vinho; });
+        box.innerHTML = lista.length ? lista.map(function (m) { return linhaItem(m.id, m.label); }).join('')
+            : '<span class="text-muted small">Sem depósitos por certificar para este vinho nesta adega.</span>';
+    }
+
+    function carregarEngarrafados() {
+        const box = document.getElementById('cert-eng-itens');
+        box.innerHTML = engarrafadosDisponiveis.length
+            ? engarrafadosDisponiveis.map(function (v) { return linhaItem(v.id, v.label); }).join('')
+            : '<span class="text-muted small">Sem lotes engarrafados por certificar. Engarrafe primeiro (Fase 6).</span>';
+    }
+
+    function toggleAlvo() {
+        const granel = (document.getElementById('cert-alvo').value === 'GRANEL');
+        document.querySelectorAll('.grp-granel').forEach(function (e) { e.style.display = granel ? '' : 'none'; });
+        document.querySelectorAll('.grp-eng').forEach(function (e) { e.style.display = granel ? 'none' : ''; });
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
-        toggleAlvo(document.querySelector('[name=alvo]').value);
+        toggleAlvo();
+        filtrarGranel();
+        carregarEngarrafados();
     });
 </script>
 </body>

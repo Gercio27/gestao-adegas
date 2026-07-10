@@ -8,12 +8,19 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
+import pt.acv.adega.fichas.AdegaRepository;
 import pt.acv.adega.fichas.TrabalhadorRepository;
+import pt.acv.adega.planeamento.PlaneamentoVinho;
+import pt.acv.adega.processos.moagem.ProcessoMoagem;
+import pt.acv.adega.processos.moagem.ProcessoMoagemRepository;
 import pt.acv.adega.produtos.EstadoMosto;
+import pt.acv.adega.produtos.Mosto;
 import pt.acv.adega.produtos.MostoRepository;
+import pt.acv.adega.produtos.VinhoEngarrafado;
 import pt.acv.adega.produtos.VinhoEngarrafadoRepository;
 
 import java.time.LocalDateTime;
+import java.util.*;
 
 @Controller
 @RequestMapping("/processos/certificacao")
@@ -23,16 +30,21 @@ public class CertificacaoController {
     private final CertificacaoService service;
     private final MostoRepository mostoRepo;
     private final VinhoEngarrafadoRepository engarrafadoRepo;
+    private final AdegaRepository adegaRepo;
+    private final ProcessoMoagemRepository moagemRepo;
     private final TrabalhadorRepository trabalhadorRepo;
     private final CodigoService codigoService;
 
     public CertificacaoController(ProcessoCertificacaoRepository repo, CertificacaoService service,
                                   MostoRepository mostoRepo, VinhoEngarrafadoRepository engarrafadoRepo,
+                                  AdegaRepository adegaRepo, ProcessoMoagemRepository moagemRepo,
                                   TrabalhadorRepository trabalhadorRepo, CodigoService codigoService) {
         this.repo = repo;
         this.service = service;
         this.mostoRepo = mostoRepo;
         this.engarrafadoRepo = engarrafadoRepo;
+        this.adegaRepo = adegaRepo;
+        this.moagemRepo = moagemRepo;
         this.trabalhadorRepo = trabalhadorRepo;
         this.codigoService = codigoService;
     }
@@ -76,14 +88,32 @@ public class CertificacaoController {
     @PostMapping
     public String guardar(@Valid @ModelAttribute("cert") ProcessoCertificacao cert, BindingResult result,
                           Authentication auth, Model model, RedirectAttributes ra) {
-        // Mantem apenas o alvo escolhido
-        if (cert.getAlvo() == AlvoCertificacao.GRANEL) cert.setEngarrafado(null);
-        else cert.setVinhoGranel(null);
-
+        // Constroi a lista de itens (depósitos/lotes) e a amostra a partir da seleção.
         if (result.hasErrors()) {
             preencherOpcoes(model);
             return "processos/certificacao/form";
         }
+        boolean granel = cert.getAlvo() == AlvoCertificacao.GRANEL;
+        if (cert.getItemIds() != null && !cert.getItemIds().isEmpty()) {
+            StringJoiner ids = new StringJoiner(",");
+            StringJoiner desc = new StringJoiner("; ");
+            for (Long itemId : cert.getItemIds()) {
+                boolean amostra = itemId.equals(cert.getAmostraId());
+                if (granel) {
+                    Mosto m = mostoRepo.findById(itemId).orElse(null);
+                    if (m != null) { ids.add(String.valueOf(itemId)); desc.add(m.getCodigo() + " · " + m.getLocalizacao() + (amostra ? " (amostra)" : "")); }
+                } else {
+                    VinhoEngarrafado v = engarrafadoRepo.findById(itemId).orElse(null);
+                    if (v != null) { ids.add(String.valueOf(itemId)); desc.add(v.getCodigo() + " · " + v.getNome() + (amostra ? " (amostra)" : "")); }
+                }
+            }
+            cert.setItensIdsCsv(ids.length() > 0 ? ids.toString() : null);
+            cert.setItensDescricao(desc.length() > 0 ? desc.toString() : null);
+            // A amostra fica guardada no campo do alvo (para o detalhe).
+            if (granel) { cert.setEngarrafado(null); cert.setVinhoGranel(cert.getAmostraId() != null ? mostoRepo.findById(cert.getAmostraId()).orElse(null) : null); }
+            else { cert.setVinhoGranel(null); cert.setEngarrafado(cert.getAmostraId() != null ? engarrafadoRepo.findById(cert.getAmostraId()).orElse(null) : null); }
+        }
+
         if (cert.getId() == null) {
             cert.setCodigo(codigoService.proximoCodigo(ProcessoCertificacao.PREFIXO));
             cert.setCriadoPor(auth.getName());
@@ -96,6 +126,13 @@ public class CertificacaoController {
             cert.setCriadoPor(existente.getCriadoPor());
             cert.setEstado(existente.getEstado());
             cert.setDataFecho(existente.getDataFecho());
+            // Mantém a seleção anterior se nada foi submetido agora.
+            if (cert.getItemIds() == null || cert.getItemIds().isEmpty()) {
+                cert.setItensIdsCsv(existente.getItensIdsCsv());
+                cert.setItensDescricao(existente.getItensDescricao());
+                cert.setVinhoGranel(existente.getVinhoGranel());
+                cert.setEngarrafado(existente.getEngarrafado());
+            }
         }
         repo.save(cert);
         ra.addFlashAttribute("sucesso", "Certificação guardada: " + cert.getCodigo());
@@ -138,11 +175,54 @@ public class CertificacaoController {
     }
 
     private void preencherOpcoes(Model model) {
-        model.addAttribute("vinhosGranel", mostoRepo.findByEstadoOrderByDataProducaoDesc(EstadoMosto.VINHO_GRANEL));
-        model.addAttribute("engarrafados", engarrafadoRepo.findAllByOrderByDataProducaoDesc());
         model.addAttribute("alvos", AlvoCertificacao.values());
         model.addAttribute("resultados", ResultadoCertificacao.values());
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
+        model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
+
+        // GRANEL: depósitos/talhas com vinho a granel ainda NÃO certificado, por adega + vinho.
+        Map<Long, PlaneamentoVinho> moagemPlano = new HashMap<>();
+        for (ProcessoMoagem mo : moagemRepo.findAll()) {
+            if (mo.getPlano() != null) moagemPlano.put(mo.getId(), mo.getPlano());
+        }
+        Map<Long, String> vinhoNome = new LinkedHashMap<>();
+        List<Map<String, Object>> granel = new ArrayList<>();
+        for (Mosto m : mostoRepo.findByEstadoOrderByDataProducaoDesc(EstadoMosto.VINHO_GRANEL)) {
+            if (m.isCertificado()) continue;
+            Long adegaId = null;
+            String local = "—";
+            if (m.getTalha() != null && m.getTalha().getAdega() != null) { adegaId = m.getTalha().getAdega().getId(); local = "Talha " + m.getTalha().getIdentificacao(); }
+            else if (m.getDeposito() != null && m.getDeposito().getAdega() != null) { adegaId = m.getDeposito().getAdega().getId(); local = "Depósito " + m.getDeposito().getIdentificacao(); }
+            PlaneamentoVinho w = m.getOrigemMoagemId() != null ? moagemPlano.get(m.getOrigemMoagemId()) : null;
+            if (adegaId == null || w == null) continue;
+            vinhoNome.putIfAbsent(w.getId(), w.getNomeVinho());
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", m.getId());
+            row.put("adegaId", adegaId);
+            row.put("vinhoId", w.getId());
+            row.put("label", m.getCodigo() + " · " + local + " · " + (m.getLitros() == null ? "0" : m.getLitros().toPlainString()) + " L");
+            granel.add(row);
+        }
+        List<Map<String, Object>> vinhos = new ArrayList<>();
+        for (Map.Entry<Long, String> e : vinhoNome.entrySet()) {
+            Map<String, Object> v = new LinkedHashMap<>();
+            v.put("id", e.getKey());
+            v.put("nome", e.getValue());
+            vinhos.add(v);
+        }
+        model.addAttribute("vinhos", vinhos);
+        model.addAttribute("granelDisponivel", granel);
+
+        // ENGARRAFADO: lotes ainda NÃO certificados.
+        List<Map<String, Object>> engs = new ArrayList<>();
+        for (VinhoEngarrafado v : engarrafadoRepo.findAllByOrderByDataProducaoDesc()) {
+            if (v.isCertificado()) continue;
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", v.getId());
+            row.put("label", v.getCodigo() + " · " + v.getNome() + " · " + v.getNumeroGarrafas() + " garrafas");
+            engs.add(row);
+        }
+        model.addAttribute("engarrafadosDisponiveis", engs);
     }
 
     private boolean isAdmin(Authentication auth) {
