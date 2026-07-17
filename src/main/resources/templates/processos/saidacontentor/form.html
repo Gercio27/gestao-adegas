@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Nova saída de contentor')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-1">Nova saída de contentor</h3>
+    <p class="text-muted">Dá baixa de garrafas de um contentor por um motivo. Para entrega a cliente, use a Fase 10 (Comercial).</p>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/processos/saida-contentor}" th:object="${saida}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+
+            <div class="col-md-8">
+                <label class="form-label">Contentor *</label>
+                <select class="form-select" th:field="*{contentorId}" required>
+                    <option value="">—</option>
+                    <option th:each="c : ${contentores}" th:value="${c.id}" th:text="${c.label}"></option>
+                </select>
+                <div class="form-text" th:if="${contentores.isEmpty()}">Não há contentores com garrafas.</div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Garrafas a sair *</label>
+                <input type="number" min="1" class="form-control" th:field="*{quantidade}" required>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Motivo *</label>
+                <select class="form-select" th:field="*{motivo}" id="sc-motivo" onchange="toggleObs()">
+                    <option th:each="m : ${motivos}" th:value="${m}" th:text="${m.descricao}"></option>
+                </select>
+            </div>
+            <div class="col-md-8" id="grpObs">
+                <label class="form-label">Observação (obrigatória se "Outras")</label>
+                <input type="text" class="form-control" th:field="*{observacao}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Data</label>
+                <input type="datetime-local" class="form-control" th:field="*{dataSaida}">
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Registar saída</button>
+                <a th:href="@{/processos/saida-contentor}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script>
+    function toggleObs() {
+        const outras = document.getElementById('sc-motivo').value === 'OUTRAS';
+        document.getElementById('grpObs').style.display = outras ? '' : '';
+        // observação é sempre visível; apenas realçamos quando é Outras
+    }
+    document.addEventListener('DOMContentLoaded', toggleObs);
+</script>
+</body>
+</html>
