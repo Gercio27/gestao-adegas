@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-PT">
+<head th:replace="~{fragments/layout :: head('Movimento de vinho a granel')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-1" th:text="${mov.id == null} ? 'Novo movimento de vinho a granel' : 'Editar movimento'">Movimento</h3>
+    <p class="text-muted">Fase 5. Escolha a adega e o vinho; aparecem os depósitos/talhas com esse vinho. <strong>Transfega</strong> = mover litros de um recipiente para outro no mesmo vinho. Ao <strong>fechar</strong>, aplica (e emite DA nas entradas/saídas).</p>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/processos/movimento-vinho}" th:object="${mov}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="col-md-4">
+                <label class="form-label">Tipo *</label>
+                <select class="form-select" th:field="*{tipo}" id="mv-tipo" onchange="atualizar()">
+                    <option th:each="t : ${tipos}" th:value="${t}" th:text="${t.descricao}"></option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Adega</label>
+                <select class="form-select" id="mv-adega" onchange="atualizar()">
+                    <option value="">— escolher adega —</option>
+                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
+                </select>
+            </div>
+            <div class="col-md-4" id="grpVinhoSel">
+                <label class="form-label">Vinho</label>
+                <select class="form-select" id="mv-vinho" onchange="onVinho()">
+                    <option value="">— escolher vinho —</option>
+                    <option th:each="v : ${vinhos}" th:value="${v}" th:text="${v}"></option>
+                </select>
+            </div>
+
+            <div class="col-md-6" id="grpNome">
+                <label class="form-label">Nome do vinho</label>
+                <input type="text" class="form-control" th:field="*{nomeVinho}" id="mv-nome" placeholder="Nome do vinho">
+            </div>
+
+            <!-- ORIGEM (SAÍDA / TRANSFEGA) -->
+            <div class="col-md-8" id="grpOrigem">
+                <label class="form-label">Depósito/talha de origem (com este vinho)</label>
+                <select class="form-select" th:field="*{mostoOrigem}" th:attr="data-sel=${mov.mostoOrigem != null ? mov.mostoOrigem.id : ''}">
+                    <option value="">—</option>
+                    <option th:if="${mov.mostoOrigem != null}" th:value="${mov.mostoOrigem.id}"
+                            th:text="${mov.mostoOrigem.codigo + ' · ' + mov.mostoOrigem.localizacao + ' · ' + mov.mostoOrigem.litros + ' L'}"></option>
+                </select>
+            </div>
+
+            <!-- DESTINO (ENTRADA / TRANSFEGA) -->
+            <div class="col-md-8" id="grpDestino">
+                <label class="form-label">Recipiente de destino (na adega)</label>
+                <select class="form-select" th:field="*{destinoRef}" th:attr="data-sel=*{destinoRef}">
+                    <option value="">—</option>
+                    <option th:if="${mov.destinoRef != null and !#strings.isEmpty(mov.destinoRef)}"
+                            th:value="*{destinoRef}" th:text="*{destinoDescricao}"></option>
+                </select>
+            </div>
+
+            <!-- CASTA (ENTRADA) -->
+            <div class="col-md-4" id="grpCasta">
+                <label class="form-label">Casta</label>
+                <select class="form-select" th:field="*{casta}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
+                </select>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Litros *</label>
+                <input type="number" step="0.01" min="0" class="form-control" th:field="*{litros}" required>
+            </div>
+
+            <div class="col-md-6" id="grpContraparte">
+                <label class="form-label"><span id="lblContraparte">Fornecedor / Cliente</span></label>
+                <input type="text" class="form-control" th:field="*{contraparte}">
+            </div>
+            <div class="col-md-6" id="grpTransporte">
+                <label class="form-label">Transporte</label>
+                <input type="text" class="form-control" th:field="*{transporte}">
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Responsável</label>
+                <select class="form-select" th:field="*{responsavel}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"></option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Início</label>
+                <input type="datetime-local" class="form-control" th:field="*{dataHoraInicio}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Observações</label>
+                <input type="text" class="form-control" th:field="*{observacoes}">
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/processos/movimento-vinho}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:inline="javascript">
+    const mostosPorVinho = /*[[${mostosPorVinho}]]*/ {};
+    const recipientesPorAdega = /*[[${recipientesPorAdega}]]*/ {};
+    const nomeGuardado = /*[[${mov.nomeVinho}]]*/ '';
+
+    function tipo() { return document.getElementById('mv-tipo').value; }
+
+    function toggleTipo() {
+        const t = tipo();
+        const entrada = t === 'ENTRADA', saida = t === 'SAIDA', transfega = t === 'TRANSFEGA';
+        document.getElementById('grpVinhoSel').style.display = entrada ? 'none' : '';
+        document.getElementById('grpOrigem').style.display = entrada ? 'none' : '';
+        document.getElementById('grpDestino').style.display = saida ? 'none' : '';
+        document.getElementById('grpCasta').style.display = entrada ? '' : 'none';
+        document.getElementById('grpContraparte').style.display = transfega ? 'none' : '';
+        document.getElementById('grpTransporte').style.display = transfega ? 'none' : '';
+        document.getElementById('lblContraparte').textContent = entrada ? 'Fornecedor' : 'Cliente';
+        // Nome: editável só na entrada; nas outras vem do vinho escolhido.
+        document.getElementById('mv-nome').readOnly = !entrada;
+    }
+
+    function onVinho() {
+        const v = document.getElementById('mv-vinho').value;
+        if (v) document.getElementById('mv-nome').value = v;
+        filtrarOrigem();
+    }
+
+    function filtrarOrigem() {
+        const adega = document.getElementById('mv-adega').value;
+        const nome = document.getElementById('mv-nome').value;
+        const sel = document.querySelector('[name="mostoOrigem"]');
+        if (!sel) return;
+        const guardado = sel.dataset.sel || '';
+        let lista = (nome && mostosPorVinho[nome]) ? mostosPorVinho[nome] : [];
+        if (adega) lista = lista.filter(function (m) { return String(m.adegaId) === adega; });
+        let h = '<option value="">—</option>';
+        lista.forEach(function (m) { h += '<option value="' + m.id + '">' + m.label + '</option>'; });
+        sel.innerHTML = h;
+        if (guardado) sel.value = guardado;
+    }
+
+    function filtrarDestino() {
+        const adega = document.getElementById('mv-adega').value;
+        const sel = document.querySelector('[name="destinoRef"]');
+        if (!sel) return;
+        const guardado = sel.dataset.sel || '';
+        const recs = (adega && recipientesPorAdega[adega]) ? recipientesPorAdega[adega] : [];
+        let h = '<option value="">—</option>';
+        recs.forEach(function (r) {
+            const estilo = r.cheia ? ' style="color:#b00020;font-weight:600;"' : '';
+            h += '<option value="' + r.ref + '"' + estilo + '>' + r.label + '</option>';
+        });
+        sel.innerHTML = h;
+        if (guardado) sel.value = guardado;
+    }
+
+    function atualizar() {
+        toggleTipo();
+        filtrarOrigem();
+        filtrarDestino();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Preseleciona o vinho guardado (edição de saída/transfega)
+        if (nomeGuardado) {
+            const vsel = document.getElementById('mv-vinho');
+            if (vsel) vsel.value = nomeGuardado;
+        }
+        atualizar();
+    });
+</script>
+</body>
+</html>

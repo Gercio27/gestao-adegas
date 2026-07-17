@@ -59,6 +59,17 @@ public class Mosto extends BaseEntity {
     @Column(length = 20)
     private String loteCodigo;
 
+    /**
+     * Nome do vinho (denormalizado) para agrupar de forma uniforme os vinhos a
+     * granel: vem do planeamento (via moagem) ou do lote construido (Fase 6).
+     * Quando nulo, o nome deriva do planeamento de origem.
+     */
+    @Column(length = 160)
+    private String vinhoNome;
+
+    public String getVinhoNome() { return vinhoNome; }
+    public void setVinhoNome(String vinhoNome) { this.vinhoNome = vinhoNome; }
+
     /** Certificacao (Fase 5.5) do vinho a granel. */
     @Column(nullable = false)
     private boolean certificado = false;

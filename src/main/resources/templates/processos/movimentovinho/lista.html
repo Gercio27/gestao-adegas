@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="pt">
+<head th:replace="~{fragments/layout :: head('Movimento de vinho a granel')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0"><i class="bi bi-arrow-left-right"></i> Fase 5 — Entradas / Saídas / Transfegas de vinho a granel</h3>
+        <a th:href="@{/processos/movimento-vinho/novo}" class="btn text-white" style="background-color:#6b1f2a;">
+            <i class="bi bi-plus-lg"></i> Novo movimento
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Código</th><th>Tipo</th><th>Vinho</th><th class="text-end">Litros</th>
+                    <th>Estado</th><th>DA</th><th class="text-end">Ações</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="p : ${processos}">
+                    <td><span class="codigo" th:text="${p.codigo}"></span></td>
+                    <td th:text="${p.tipo.descricao}"></td>
+                    <td th:text="${p.nomeVinho ?: (p.mostoOrigem != null ? p.mostoOrigem.codigo : '—')}"></td>
+                    <td class="text-end" th:text="${p.litros}"></td>
+                    <td>
+                        <span th:if="${p.aberto}" class="badge bg-warning text-dark">Aberto</span>
+                        <span th:unless="${p.aberto}" class="badge bg-success">Fechado</span>
+                    </td>
+                    <td th:text="${p.numeroDA ?: '—'}"></td>
+                    <td class="text-end">
+                        <a th:href="@{/processos/movimento-vinho/{id}(id=${p.id})}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                <tr th:if="${processos.isEmpty()}"><td colspan="7" class="text-center text-muted py-4">Sem movimentos registados.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>
