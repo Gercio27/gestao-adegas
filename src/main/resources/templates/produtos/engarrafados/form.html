@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Saldo inicial engarrafado')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-1" th:text="${engarrafado.id == null} ? 'Saldo inicial de vinho engarrafado' : 'Editar vinho engarrafado'">Vinho engarrafado</h3>
+    <p class="text-muted">Registo direto de vinho já engarrafado que existe na adega/armazém (adega "a meio"). No fluxo normal, estas fichas são geradas pelo Engarrafamento.</p>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/produtos/engarrafados/saldo-inicial}" th:object="${engarrafado}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="col-md-3" th:if="${engarrafado.codigo != null}">
+                <label class="form-label">Código</label>
+                <input class="form-control" th:value="*{codigo}" disabled>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Nome do vinho *</label>
+                <input type="text" class="form-control" th:field="*{nome}" required>
+                <div class="text-danger small" th:if="${#fields.hasErrors('nome')}" th:errors="*{nome}"></div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Nº de garrafas *</label>
+                <input type="number" min="0" class="form-control" th:field="*{numeroGarrafas}" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Capacidade (ml)</label>
+                <input type="number" min="0" class="form-control" th:field="*{capacidadeMl}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Lote</label>
+                <input type="text" class="form-control" th:field="*{lote}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Casta</label>
+                <select class="form-select" th:field="*{casta}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
+                </select>
+            </div>
+            <div class="col-md-3 d-flex align-items-end">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" th:field="*{rotulado}" id="veg-rot">
+                    <label class="form-check-label" for="veg-rot">Já rotulado</label>
+                </div>
+            </div>
+
+            <div class="col-md-3 d-flex align-items-end">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" th:field="*{certificado}" id="veg-cert">
+                    <label class="form-check-label" for="veg-cert">Já certificado</label>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Validade da certificação</label>
+                <input type="date" class="form-control" th:field="*{validadeCertificacao}">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Colocar no contentor (opcional)</label>
+                <select class="form-select" name="contentorId">
+                    <option value="">— não colocar —</option>
+                    <option th:each="c : ${contentores}" th:value="${c.id}"
+                            th:text="${c.codigo + ' · ' + c.nome + ' · ' + c.localizacao}"></option>
+                </select>
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/produtos/engarrafados}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

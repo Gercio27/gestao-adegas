@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Saldo inicial de mosto')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-1" th:text="${mosto.id == null} ? 'Saldo inicial de mosto / vinho a granel' : 'Editar mosto'">Mosto</h3>
+    <p class="text-muted">Registo direto de mosto/vinho a granel que já existe na adega (adega "a meio"). No fluxo normal, estas fichas são geradas pela Moagem.</p>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/produtos/mostos/saldo-inicial}" th:object="${mosto}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="col-md-3" th:if="${mosto.codigo != null}">
+                <label class="form-label">Código</label>
+                <input class="form-control" th:value="*{codigo}" disabled>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Estado *</label>
+                <select class="form-select" th:field="*{estado}">
+                    <option th:each="e : ${estados}" th:value="${e}" th:text="${e.descricao}"></option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Litros *</label>
+                <input type="number" step="0.01" min="0" class="form-control" th:field="*{litros}" required>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Casta</label>
+                <select class="form-select" th:field="*{casta}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
+                </select>
+            </div>
+
+            <div class="col-12"><span class="text-muted small">Localização — escolha <strong>uma talha</strong> ou <strong>um depósito</strong> (se escolher talha, o depósito é ignorado).</span></div>
+            <div class="col-md-4">
+                <label class="form-label">Talha</label>
+                <select class="form-select" th:field="*{talha}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="t : ${talhas}" th:value="${t.id}" th:text="${t.identificacao}"></option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">ou Depósito / Cuba</label>
+                <select class="form-select" th:field="*{deposito}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="d : ${depositos}" th:value="${d.id}" th:text="${d.identificacao}"></option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Lote (opcional)</label>
+                <input type="text" class="form-control" th:field="*{loteCodigo}">
+            </div>
+
+            <div class="col-md-8">
+                <label class="form-label">Origem / observação</label>
+                <input type="text" class="form-control" th:field="*{origemDescricao}" placeholder="Saldo inicial (adega a meio)">
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/produtos/mostos}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+    <p class="text-muted small mt-2">Nota: o volume atual das talhas/depósitos define-se na respetiva ficha (Fichas → Talhas / Depósitos).</p>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

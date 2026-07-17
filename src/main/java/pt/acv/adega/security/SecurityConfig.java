@@ -29,6 +29,11 @@ public class SecurityConfig {
                 // Planeamento: ver é para todos; criar/alterar/eliminar só admin.
                 .requestMatchers("/planeamento/nova", "/planeamento/*/editar").hasRole("ADMIN")
                 .requestMatchers(HttpMethod.POST, "/planeamento", "/planeamento/*/eliminar").hasRole("ADMIN")
+                // Saldo inicial de produtos (adega a meio): ver é para todos; alterar só admin.
+                .requestMatchers("/produtos/mostos/saldo-inicial", "/produtos/mostos/*/editar",
+                        "/produtos/engarrafados/saldo-inicial", "/produtos/engarrafados/*/editar").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/produtos/mostos/saldo-inicial", "/produtos/mostos/*/eliminar",
+                        "/produtos/engarrafados/saldo-inicial", "/produtos/engarrafados/*/eliminar").hasRole("ADMIN")
                 .anyRequest().authenticated()
             )
             .formLogin(form -> form

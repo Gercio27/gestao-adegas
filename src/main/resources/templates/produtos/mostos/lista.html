@@ -1,20 +1,27 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="pt">
 <head th:replace="~{fragments/layout :: head('Mostos')}"></head>
 <body>
 <nav th:replace="~{fragments/layout :: navbar}"></nav>
 <div th:replace="~{fragments/layout :: mensagens}"></div>
 
 <div class="container">
-    <h3 class="mb-1"><i class="bi bi-droplet"></i> Mostos (existências)</h3>
-    <p class="text-muted">Fichas geradas automaticamente pelos processos. Consulta apenas.</p>
+    <div class="d-flex justify-content-between align-items-center mb-1">
+        <h3 class="mb-0"><i class="bi bi-droplet"></i> Mostos (existências)</h3>
+        <a sec:authorize="hasRole('ADMIN')" th:href="@{/produtos/mostos/saldo-inicial}" class="btn text-white" style="background-color:#6b1f2a;">
+            <i class="bi bi-plus-lg"></i> Saldo inicial
+        </a>
+    </div>
+    <p class="text-muted">Fichas geradas automaticamente pelos processos. O administrador pode registar o <strong>saldo inicial</strong> de uma adega a meio.</p>
 
     <div class="card shadow-sm">
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle">
                 <thead>
                 <tr><th>Código</th><th>Localização</th><th class="text-end">Litros</th><th>Casta</th>
-                    <th>Estado</th><th>Origem</th><th>Produção</th></tr>
+                    <th>Estado</th><th>Origem</th><th>Produção</th>
+                    <th sec:authorize="hasRole('ADMIN')" class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
                 <tr th:each="m : ${mostos}">
@@ -25,9 +32,18 @@
                     <td><span class="badge bg-info text-dark" th:text="${m.estado.descricao}"></span></td>
                     <td class="small" th:text="${m.origemDescricao}"></td>
                     <td th:text="${m.dataProducao != null ? #temporals.format(m.dataProducao,'dd-MM-yyyy HH:mm') : ''}"></td>
+                    <td sec:authorize="hasRole('ADMIN')" class="text-end">
+                        <a th:href="@{/produtos/mostos/{id}/editar(id=${m.id})}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form th:action="@{/produtos/mostos/{id}/eliminar(id=${m.id})}" method="post" class="d-inline"
+                              onsubmit="return confirm('Eliminar este mosto?');">
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
                 </tr>
-                <tr th:if="${mostos.isEmpty()}"><td colspan="7" class="text-center text-muted py-4">
-                    Sem mostos. Feche uma moagem para gerar as fichas de mosto.</td></tr>
+                <tr th:if="${mostos.isEmpty()}"><td colspan="8" class="text-center text-muted py-4">
+                    Sem mostos. Feche uma moagem para gerar as fichas de mosto, ou registe um saldo inicial.</td></tr>
                 </tbody>
             </table>
         </div>

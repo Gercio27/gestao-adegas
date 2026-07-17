@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Contentor de garrafas')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-3" th:text="${contentor.id == null} ? 'Novo contentor de garrafas' : 'Editar contentor'">Contentor</h3>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/fichas/contentores}" th:object="${contentor}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="col-md-3" th:if="${contentor.codigo != null}">
+                <label class="form-label">Código</label>
+                <input class="form-control" th:value="*{codigo}" disabled>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Nome *</label>
+                <input type="text" class="form-control" th:field="*{nome}" required>
+                <div class="text-danger small" th:if="${#fields.hasErrors('nome')}" th:errors="*{nome}"></div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Formato de garrafa</label>
+                <select class="form-select" th:field="*{tipoGarrafa}">
+                    <option th:each="t : ${tiposGarrafa}" th:value="${t}" th:text="${t.descricao}"></option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Capacidade (nº garrafas)</label>
+                <input type="number" min="0" class="form-control" th:field="*{capacidadeGarrafas}">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Armazém</label>
+                <select class="form-select" th:field="*{armazem}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="a : ${armazens}" th:value="${a.id}" th:text="${a.nome}"></option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">ou Adega</label>
+                <select class="form-select" th:field="*{adega}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
+                </select>
+            </div>
+
+            <div class="col-12"><hr class="my-1"></div>
+            <div class="col-12">
+                <span class="text-muted small">Conteúdo atual — preencha só para registar <strong>stock inicial</strong> de uma adega a meio.
+                    No fluxo normal, o engarrafamento é que coloca as garrafas.</span>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Vinho (nome)</label>
+                <input type="text" class="form-control" th:field="*{vinhoNome}" placeholder="Ex.: Vinho de Talha Tinto 2025">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Garrafas atuais</label>
+                <input type="number" min="0" class="form-control" th:field="*{garrafasAtuais}">
+            </div>
+            <div class="col-md-4 d-flex align-items-end">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" th:field="*{rotulado}" id="ctg-rot">
+                    <label class="form-check-label" for="ctg-rot">Já rotulado (pronto para o comercial)</label>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/fichas/contentores}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>
