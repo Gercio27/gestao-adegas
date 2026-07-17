@@ -21,8 +21,22 @@ public class ProcessoPassagemComercial extends Processo {
     @JoinColumn(name = "engarrafado_id")
     private VinhoEngarrafado engarrafado;
 
+    /** Contentor (rotulado) de onde saem as garrafas — define o vinho e o local. */
+    @Column(name = "contentor_id")
+    private Long contentorId;
+
+    /** Vinho + local (armazem/adega) de onde saiu, para a nota de entrega. */
+    @Column(length = 250)
+    private String origemDescricao;
+
     @Column(nullable = false)
     private int quantidadeGarrafas;
+
+    public Long getContentorId() { return contentorId; }
+    public void setContentorId(Long contentorId) { this.contentorId = contentorId; }
+
+    public String getOrigemDescricao() { return origemDescricao; }
+    public void setOrigemDescricao(String origemDescricao) { this.origemDescricao = origemDescricao; }
 
     @Column(length = 160)
     private String destinatario;

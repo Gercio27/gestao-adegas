@@ -8,10 +8,14 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
+import pt.acv.adega.fichas.ContentorGarrafas;
+import pt.acv.adega.fichas.ContentorGarrafasRepository;
 import pt.acv.adega.fichas.TrabalhadorRepository;
+import pt.acv.adega.produtos.VinhoEngarrafado;
 import pt.acv.adega.produtos.VinhoEngarrafadoRepository;
 
 import java.time.LocalDateTime;
+import java.util.*;
 
 @Controller
 @RequestMapping("/processos/comercial")
@@ -21,15 +25,17 @@ public class ComercialController {
     private final ComercialService service;
     private final VinhoEngarrafadoRepository engarrafadoRepo;
     private final TrabalhadorRepository trabalhadorRepo;
+    private final ContentorGarrafasRepository contentorRepo;
     private final CodigoService codigoService;
 
     public ComercialController(ProcessoPassagemComercialRepository repo, ComercialService service,
                                VinhoEngarrafadoRepository engarrafadoRepo, TrabalhadorRepository trabalhadorRepo,
-                               CodigoService codigoService) {
+                               ContentorGarrafasRepository contentorRepo, CodigoService codigoService) {
         this.repo = repo;
         this.service = service;
         this.engarrafadoRepo = engarrafadoRepo;
         this.trabalhadorRepo = trabalhadorRepo;
+        this.contentorRepo = contentorRepo;
         this.codigoService = codigoService;
     }
 
@@ -86,6 +92,17 @@ public class ComercialController {
             preencherOpcoes(model);
             return "processos/comercial/form";
         }
+        // A partir do contentor escolhido, resolve o vinho engarrafado e o local de origem.
+        if (com.getContentorId() != null) {
+            ContentorGarrafas c = contentorRepo.findById(com.getContentorId()).orElse(null);
+            if (c != null) {
+                com.setOrigemDescricao((c.getVinhoNome() != null ? c.getVinhoNome() : "—") + " · " + c.getLocalizacao() + " · " + c.getNome());
+                if (c.getVinhoEngarrafadoId() != null) {
+                    VinhoEngarrafado veg = engarrafadoRepo.findById(c.getVinhoEngarrafadoId()).orElse(null);
+                    com.setEngarrafado(veg);
+                }
+            }
+        }
         if (com.getId() == null) {
             com.setCodigo(codigoService.proximoCodigo(ProcessoPassagemComercial.PREFIXO));
             com.setCriadoPor(auth.getName());
@@ -141,7 +158,16 @@ public class ComercialController {
     }
 
     private void preencherOpcoes(Model model) {
-        model.addAttribute("engarrafados", engarrafadoRepo.findByRotuladoTrueOrderByDataProducaoDesc());
+        // Garrafas disponiveis por vinho em cada armazem/adega: contentores rotulados com garrafas.
+        List<Map<String, Object>> disponiveis = new ArrayList<>();
+        for (ContentorGarrafas c : contentorRepo.findByRotuladoTrueAndGarrafasAtuaisGreaterThanOrderByNomeAsc(0)) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", c.getId());
+            row.put("label", (c.getVinhoNome() != null ? c.getVinhoNome() : "Vinho") + " · " + c.getLocalizacao()
+                    + " · " + c.getGarrafasAtuais() + " garrafas · " + c.getNome());
+            disponiveis.add(row);
+        }
+        model.addAttribute("contentoresDisponiveis", disponiveis);
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
     }
 

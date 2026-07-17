@@ -3,6 +3,8 @@ package pt.acv.adega.processos.comercial;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pt.acv.adega.common.CodigoService;
+import pt.acv.adega.fichas.ContentorGarrafas;
+import pt.acv.adega.fichas.ContentorGarrafasRepository;
 import pt.acv.adega.processos.EstadoProcesso;
 import pt.acv.adega.produtos.VinhoEngarrafado;
 import pt.acv.adega.produtos.VinhoEngarrafadoRepository;
@@ -21,12 +23,15 @@ public class ComercialService {
 
     private final ProcessoPassagemComercialRepository repo;
     private final VinhoEngarrafadoRepository engarrafadoRepo;
+    private final ContentorGarrafasRepository contentorRepo;
     private final CodigoService codigoService;
 
     public ComercialService(ProcessoPassagemComercialRepository repo,
-                            VinhoEngarrafadoRepository engarrafadoRepo, CodigoService codigoService) {
+                            VinhoEngarrafadoRepository engarrafadoRepo, ContentorGarrafasRepository contentorRepo,
+                            CodigoService codigoService) {
         this.repo = repo;
         this.engarrafadoRepo = engarrafadoRepo;
+        this.contentorRepo = contentorRepo;
         this.codigoService = codigoService;
     }
 
@@ -35,15 +40,29 @@ public class ComercialService {
         ProcessoPassagemComercial p = repo.findById(id)
                 .orElseThrow(() -> new ComercialException("Processo não encontrado."));
         if (p.getEstado() == EstadoProcesso.FECHADO) throw new ComercialException("O processo já está fechado.");
-        if (p.getEngarrafado() == null) throw new ComercialException("Indique o vinho engarrafado a entregar.");
         if (p.getQuantidadeGarrafas() <= 0) throw new ComercialException("Indique a quantidade de garrafas (> 0).");
 
+        // Preferencialmente a entrega sai de um contentor rotulado (define vinho + local).
+        ContentorGarrafas c = p.getContentorId() != null ? contentorRepo.findById(p.getContentorId()).orElse(null) : null;
+        if (c != null) {
+            if (!c.isRotulado()) throw new ComercialException("O contentor " + c.getNome() + " ainda não está rotulado (Fase 7).");
+            if (p.getQuantidadeGarrafas() > c.getGarrafasAtuais()) {
+                throw new ComercialException(String.format(
+                        "%s (%s) só tem %d garrafas — não pode entregar %d.",
+                        c.getNome(), c.getLocalizacao(), c.getGarrafasAtuais(), p.getQuantidadeGarrafas()));
+            }
+            c.setGarrafasAtuais(c.getGarrafasAtuais() - p.getQuantidadeGarrafas());
+            contentorRepo.save(c);
+        }
+
+        if (p.getEngarrafado() == null) throw new ComercialException("Indique o vinho a entregar.");
         VinhoEngarrafado veg = engarrafadoRepo.findById(p.getEngarrafado().getId())
                 .orElseThrow(() -> new ComercialException("Vinho engarrafado não encontrado."));
         if (!veg.isRotulado()) {
             throw new ComercialException("O vinho " + veg.getCodigo() + " ainda não está rotulado (Fase 7).");
         }
-        if (p.getQuantidadeGarrafas() > veg.getDisponiveis()) {
+        // Sem contentor (registos antigos): valida contra o disponivel do produto acabado.
+        if (c == null && p.getQuantidadeGarrafas() > veg.getDisponiveis()) {
             throw new ComercialException(String.format(
                     "%s só tem %d garrafas disponíveis — não pode entregar %d.",
                     veg.getCodigo(), veg.getDisponiveis(), p.getQuantidadeGarrafas()));
@@ -73,6 +92,11 @@ public class ComercialService {
                 veg.setGarrafasEntregues(reposto);
                 engarrafadoRepo.save(veg);
             }
+        }
+        // Repor as garrafas no contentor de origem.
+        if (p.getContentorId() != null) {
+            ContentorGarrafas c = contentorRepo.findById(p.getContentorId()).orElse(null);
+            if (c != null) { c.setGarrafasAtuais(c.getGarrafasAtuais() + p.getQuantidadeGarrafas()); contentorRepo.save(c); }
         }
         p.setEstado(EstadoProcesso.ABERTO);
         p.setDataFecho(null);

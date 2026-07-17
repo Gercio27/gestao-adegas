@@ -9,6 +9,8 @@ import pt.acv.adega.produtos.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /**
  * Regras do Engarrafamento (Fase 6.3). Ao fechar: valida o vinho a granel e o
@@ -24,18 +26,20 @@ public class EngarrafamentoService {
     private final TalhaRepository talhaRepo;
     private final DepositoRepository depositoRepo;
     private final VinhoEngarrafadoRepository engarrafadoRepo;
+    private final ContentorGarrafasRepository contentorRepo;
     private final CodigoService codigoService;
 
     public EngarrafamentoService(ProcessoEngarrafamentoRepository repo, MostoRepository mostoRepo,
                                  ConsumivelRepository consumivelRepo, TalhaRepository talhaRepo,
                                  DepositoRepository depositoRepo, VinhoEngarrafadoRepository engarrafadoRepo,
-                                 CodigoService codigoService) {
+                                 ContentorGarrafasRepository contentorRepo, CodigoService codigoService) {
         this.repo = repo;
         this.mostoRepo = mostoRepo;
         this.consumivelRepo = consumivelRepo;
         this.talhaRepo = talhaRepo;
         this.depositoRepo = depositoRepo;
         this.engarrafadoRepo = engarrafadoRepo;
+        this.contentorRepo = contentorRepo;
         this.codigoService = codigoService;
     }
 
@@ -105,6 +109,23 @@ public class EngarrafamentoService {
         veg.setDataProducao(LocalDateTime.now());
         engarrafadoRepo.save(veg);
 
+        // Colocar as garrafas nos contentores indicados (se houver distribuicao).
+        for (Map.Entry<Long, Integer> e : parseDistribuicao(p.getDistribuicaoContentores()).entrySet()) {
+            ContentorGarrafas c = contentorRepo.findById(e.getKey()).orElse(null);
+            if (c == null) continue;
+            int novoTotal = c.getGarrafasAtuais() + e.getValue();
+            if (c.getCapacidadeGarrafas() > 0 && novoTotal > c.getCapacidadeGarrafas()) {
+                throw new EngarrafamentoException(String.format(
+                        "Contentor %s: capacidade excedida. Cabem %d, tem %d, a colocar %d.",
+                        c.getNome(), c.getCapacidadeGarrafas(), c.getGarrafasAtuais(), e.getValue()));
+            }
+            c.setGarrafasAtuais(novoTotal);
+            c.setVinhoEngarrafadoId(veg.getId());
+            c.setVinhoNome(veg.getNome());
+            c.setRotulado(false);
+            contentorRepo.save(c);
+        }
+
         p.setEstado(EstadoProcesso.FECHADO);
         if (p.getDataHoraFim() == null) p.setDataHoraFim(LocalDateTime.now());
         p.setDataFecho(LocalDateTime.now());
@@ -116,6 +137,19 @@ public class EngarrafamentoService {
         ProcessoEngarrafamento p = repo.findById(id)
                 .orElseThrow(() -> new EngarrafamentoException("Engarrafamento não encontrado."));
         if (p.getEstado() == EstadoProcesso.ABERTO) return;
+
+        // Retirar as garrafas dos contentores onde foram colocadas
+        for (Map.Entry<Long, Integer> e : parseDistribuicao(p.getDistribuicaoContentores()).entrySet()) {
+            ContentorGarrafas c = contentorRepo.findById(e.getKey()).orElse(null);
+            if (c == null) continue;
+            c.setGarrafasAtuais(Math.max(0, c.getGarrafasAtuais() - e.getValue()));
+            if (c.getGarrafasAtuais() == 0) {
+                c.setVinhoEngarrafadoId(null);
+                c.setVinhoNome(null);
+                c.setRotulado(false);
+            }
+            contentorRepo.save(c);
+        }
 
         // Apagar produtos acabados gerados
         engarrafadoRepo.findByOrigemEngarrafamentoId(p.getId()).forEach(engarrafadoRepo::delete);
@@ -154,6 +188,22 @@ public class EngarrafamentoService {
             Deposito d = depositoRepo.findById(vinho.getDeposito().getId()).orElse(null);
             if (d != null) { d.setVolumeAtualLitros(naoNegativo(v(d.getVolumeAtualLitros()).add(delta))); depositoRepo.save(d); }
         }
+    }
+
+    /** Interpreta a distribuicao "contentorId:qtd;contentorId:qtd" num mapa id->qtd. */
+    private Map<Long, Integer> parseDistribuicao(String csv) {
+        Map<Long, Integer> out = new LinkedHashMap<>();
+        if (csv == null || csv.isBlank()) return out;
+        for (String par : csv.split(";")) {
+            String[] kv = par.split(":");
+            if (kv.length != 2) continue;
+            try {
+                Long id = Long.valueOf(kv[0].trim());
+                int qtd = Integer.parseInt(kv[1].trim());
+                if (qtd > 0) out.merge(id, qtd, Integer::sum);
+            } catch (Exception ignored) { }
+        }
+        return out;
     }
 
     private BigDecimal v(BigDecimal x) { return x == null ? BigDecimal.ZERO : x; }

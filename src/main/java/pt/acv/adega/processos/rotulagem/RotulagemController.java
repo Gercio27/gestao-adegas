@@ -8,12 +8,16 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
+import pt.acv.adega.fichas.ContentorGarrafas;
+import pt.acv.adega.fichas.ContentorGarrafasRepository;
 import pt.acv.adega.fichas.ConsumivelRepository;
 import pt.acv.adega.fichas.TipoConsumivel;
 import pt.acv.adega.fichas.TrabalhadorRepository;
+import pt.acv.adega.produtos.VinhoEngarrafado;
 import pt.acv.adega.produtos.VinhoEngarrafadoRepository;
 
 import java.time.LocalDateTime;
+import java.util.*;
 
 @Controller
 @RequestMapping("/processos/rotulagem")
@@ -24,16 +28,19 @@ public class RotulagemController {
     private final VinhoEngarrafadoRepository engarrafadoRepo;
     private final ConsumivelRepository consumivelRepo;
     private final TrabalhadorRepository trabalhadorRepo;
+    private final ContentorGarrafasRepository contentorRepo;
     private final CodigoService codigoService;
 
     public RotulagemController(ProcessoRotulagemRepository repo, RotulagemService service,
                               VinhoEngarrafadoRepository engarrafadoRepo, ConsumivelRepository consumivelRepo,
-                              TrabalhadorRepository trabalhadorRepo, CodigoService codigoService) {
+                              TrabalhadorRepository trabalhadorRepo, ContentorGarrafasRepository contentorRepo,
+                              CodigoService codigoService) {
         this.repo = repo;
         this.service = service;
         this.engarrafadoRepo = engarrafadoRepo;
         this.consumivelRepo = consumivelRepo;
         this.trabalhadorRepo = trabalhadorRepo;
+        this.contentorRepo = contentorRepo;
         this.codigoService = codigoService;
     }
 
@@ -134,11 +141,24 @@ public class RotulagemController {
     }
 
     private void preencherOpcoes(Model model) {
-        model.addAttribute("engarrafados", engarrafadoRepo.findByRotuladoFalseOrderByDataProducaoDesc());
+        List<VinhoEngarrafado> naoRotulados = engarrafadoRepo.findByRotuladoFalseOrderByDataProducaoDesc();
+        model.addAttribute("engarrafados", naoRotulados);
         model.addAttribute("rotulos", consumivelRepo.findByTipoOrderByDescricaoAsc(TipoConsumivel.ROTULO));
         model.addAttribute("capsulas", consumivelRepo.findByTipoOrderByDescricaoAsc(TipoConsumivel.CAPSULA));
         model.addAttribute("caixas", consumivelRepo.findByTipoOrderByDescricaoAsc(TipoConsumivel.CAIXA));
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
+
+        // Contentores onde cada vinho engarrafado se encontra (para mostrar na rotulagem).
+        Map<Long, List<String>> contentoresPorEngarrafado = new LinkedHashMap<>();
+        for (VinhoEngarrafado v : naoRotulados) {
+            List<String> locais = new ArrayList<>();
+            for (ContentorGarrafas c : contentorRepo.findByVinhoEngarrafadoIdOrderByNomeAsc(v.getId())) {
+                locais.add(c.getCodigo() + " · " + c.getNome() + " · " + c.getLocalizacao()
+                        + " · " + c.getGarrafasAtuais() + " garrafas");
+            }
+            contentoresPorEngarrafado.put(v.getId(), locais);
+        }
+        model.addAttribute("contentoresPorEngarrafado", contentoresPorEngarrafado);
     }
 
     private boolean isAdmin(Authentication auth) {

@@ -19,7 +19,7 @@
             </div>
             <div class="col-md-6">
                 <label class="form-label">Vinho engarrafado *</label>
-                <select class="form-select" th:field="*{engarrafado}" required>
+                <select class="form-select" th:field="*{engarrafado}" id="rot-veg" onchange="mostrarContentores()" required>
                     <option th:value="${null}">—</option>
                     <option th:each="v : ${engarrafados}" th:value="${v.id}"
                             th:text="${v.codigo} + ' · ' + ${v.nome} + ' · ' + ${v.numeroGarrafas} + ' garrafas'"></option>
@@ -29,6 +29,10 @@
             <div class="col-md-3">
                 <label class="form-label">Nº garrafas rotuladas</label>
                 <input type="number" min="0" class="form-control" th:field="*{numeroGarrafas}">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Onde está (contentores)</label>
+                <div class="border rounded p-2" id="rot-contentores"><span class="text-muted small">Escolha o vinho engarrafado.</span></div>
             </div>
 
             <div class="col-md-4">
@@ -103,5 +107,17 @@
 </div>
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:inline="javascript">
+    const contentoresPorEngarrafado = /*[[${contentoresPorEngarrafado}]]*/ {};
+    function mostrarContentores() {
+        const veg = document.getElementById('rot-veg').value;
+        const box = document.getElementById('rot-contentores');
+        const locais = veg ? contentoresPorEngarrafado[veg] : null;
+        if (!veg) { box.innerHTML = '<span class="text-muted small">Escolha o vinho engarrafado.</span>'; return; }
+        if (!locais || !locais.length) { box.innerHTML = '<span class="text-muted small">Sem contentores associados a este vinho.</span>'; return; }
+        box.innerHTML = locais.map(function (l) { return '<div class="small">• ' + l + '</div>'; }).join('');
+    }
+    document.addEventListener('DOMContentLoaded', mostrarContentores);
+</script>
 </body>
 </html>

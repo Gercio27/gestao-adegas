@@ -6,49 +6,54 @@
 
 <div class="container">
     <h3 class="mb-1" th:text="${engarrafamento.id == null} ? 'Novo engarrafamento' : 'Editar engarrafamento'">Engarrafamento</h3>
-    <p class="text-muted">Fase 6. Ao <strong>fechar</strong>, dá baixa do vinho a granel, das garrafas e das rolhas, e cria a ficha de vinho engarrafado.</p>
+    <p class="text-muted">Fase 6. Escolha a adega e o vinho; aparecem os depósitos desse vinho a granel. Distribua as garrafas pelos contentores. Ao <strong>fechar</strong>, dá baixa do vinho, garrafas e rolhas, cria a ficha de engarrafado e coloca-o nos contentores.</p>
 
     <div class="card shadow-sm"><div class="card-body">
-        <form th:action="@{/processos/engarrafamento}" th:object="${engarrafamento}" method="post" class="row g-3">
+        <form th:action="@{/processos/engarrafamento}" th:object="${engarrafamento}" method="post" class="row g-3" onsubmit="construirDistribuicao()">
             <input type="hidden" th:field="*{id}">
             <input type="hidden" th:field="*{codigo}">
+            <input type="hidden" name="distribuicaoInput" id="eg-distrib">
 
             <div class="col-md-3" th:if="${engarrafamento.codigo != null}">
                 <label class="form-label">Código</label>
                 <input class="form-control" th:value="*{codigo}" disabled>
             </div>
-            <div class="col-md-5">
-                <label class="form-label">Nome do vinho</label>
-                <input type="text" class="form-control" th:field="*{nomeVinho}" placeholder="Ex.: Talha Tinto 2026">
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">Lote</label>
-                <input type="text" class="form-control" th:field="*{lote}">
-            </div>
-            <div class="col-md-2">
-                <label class="form-label">Responsável</label>
-                <select class="form-select" th:field="*{responsavel}">
-                    <option th:value="${null}">—</option>
-                    <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"></option>
+
+            <div class="col-md-4">
+                <label class="form-label">Adega</label>
+                <select class="form-select" id="eg-adega" onchange="filtrar()">
+                    <option value="">— escolher adega —</option>
+                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
                 </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Vinho</label>
+                <select class="form-select" id="eg-vinho" onchange="filtrar()">
+                    <option value="">— escolher vinho —</option>
+                    <option th:each="v : ${vinhos}" th:value="${v.id}" th:text="${v.nome}"></option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Nome do vinho (automático)</label>
+                <input type="text" class="form-control" th:field="*{nomeVinho}" id="eg-nome" readonly>
             </div>
 
             <div class="col-md-6">
-                <label class="form-label">Vinho a granel *</label>
-                <select class="form-select" th:field="*{vinhoGranel}" required>
-                    <option th:value="${null}">—</option>
-                    <option th:each="m : ${vinhosGranel}" th:value="${m.id}"
-                            th:text="${m.codigo} + ' · ' + ${m.localizacao} + ' · ' + ${m.litros} + ' L'"></option>
+                <label class="form-label">Depósito (vinho a granel) *</label>
+                <select class="form-select" th:field="*{vinhoGranel}" id="eg-granel"
+                        th:attr="data-sel=${engarrafamento.vinhoGranel != null ? engarrafamento.vinhoGranel.id : ''}" required>
+                    <option value="">— escolher adega e vinho —</option>
+                    <option th:if="${engarrafamento.vinhoGranel != null}" th:value="${engarrafamento.vinhoGranel.id}"
+                            th:text="${engarrafamento.vinhoGranel.codigo + ' · ' + engarrafamento.vinhoGranel.localizacao + ' · ' + engarrafamento.vinhoGranel.litros + ' L'}"></option>
                 </select>
-                <div class="form-text" th:if="${vinhosGranel.isEmpty()}">Não há vinho a granel. Passe mostos a vinho na Fase 4.4.</div>
             </div>
             <div class="col-md-3">
                 <label class="form-label">Litros a utilizar *</label>
                 <input type="number" step="0.01" min="0" class="form-control" th:field="*{litrosUtilizados}" required>
             </div>
             <div class="col-md-3">
-                <label class="form-label">Nº de garrafas *</label>
-                <input type="number" min="1" class="form-control" th:field="*{numeroGarrafas}" required>
+                <label class="form-label">Lote</label>
+                <input type="text" class="form-control" th:field="*{lote}">
             </div>
 
             <div class="col-md-6">
@@ -60,7 +65,7 @@
                 </select>
                 <div class="form-text" th:if="${garrafas.isEmpty()}">Crie uma ficha de consumível do tipo Garrafa.</div>
             </div>
-            <div class="col-md-6">
+            <div class="col-md-4">
                 <label class="form-label">Rolhas (stock)</label>
                 <select class="form-select" th:field="*{rolha}">
                     <option th:value="${null}">— (sem rolha)</option>
@@ -68,16 +73,44 @@
                             th:text="${r.codigo} + ' · ' + ${r.descricao} + ' · stock ' + ${r.stock}"></option>
                 </select>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-2">
                 <label class="form-label">Nº de rolhas</label>
                 <input type="number" min="0" class="form-control" th:field="*{numeroRolhas}">
             </div>
 
-            <div class="col-md-4">
+            <!-- Distribuição por contentores -->
+            <div class="col-12"><hr class="my-1"></div>
+            <div class="col-12">
+                <label class="form-label">Contentores — quantas garrafas foram para cada um</label>
+                <div class="border rounded p-2" style="max-height:240px;overflow:auto;">
+                    <div th:if="${contentores.isEmpty()}" class="text-muted small">Sem contentores. Crie fichas em Fichas → Contentores de garrafas.</div>
+                    <div th:each="c : ${contentores}" class="row g-2 align-items-center mb-1">
+                        <div class="col-8 small" th:text="${c.label}"></div>
+                        <div class="col-4">
+                            <input type="number" min="0" class="form-control form-control-sm ctg-qty"
+                                   th:attr="data-cid=${c.id}" oninput="recalcTotal()" placeholder="0">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Nº total de garrafas *</label>
+                <input type="number" min="1" class="form-control" th:field="*{numeroGarrafas}" id="eg-total" required>
+                <div class="form-text">Preenchido a partir dos contentores (pode ajustar se não usar contentores).</div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Responsável</label>
+                <select class="form-select" th:field="*{responsavel}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"></option>
+                </select>
+            </div>
+
+            <div class="col-md-6">
                 <label class="form-label">Meios utilizados</label>
                 <input type="text" class="form-control" th:field="*{meios}">
             </div>
-            <div class="col-md-5">
+            <div class="col-12">
                 <label class="form-label">Métodos utilizados</label>
                 <input type="text" class="form-control" th:field="*{metodos}">
             </div>
@@ -95,5 +128,49 @@
 </div>
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:inline="javascript">
+    const granelDisponivel = /*[[${granelDisponivel}]]*/ [];
+    const vinhos = /*[[${vinhos}]]*/ [];
+
+    function filtrar() {
+        const adega = document.getElementById('eg-adega').value;
+        const vinho = document.getElementById('eg-vinho').value;
+        // Nome automático do vinho
+        const nome = document.getElementById('eg-nome');
+        const v = vinhos.find(function (x) { return String(x.id) === vinho; });
+        if (v) nome.value = v.nome;
+
+        // Depósitos (vinho a granel) da adega + vinho
+        const sel = document.getElementById('eg-granel');
+        const guardado = sel.dataset.sel || '';
+        let lista = granelDisponivel;
+        if (adega) lista = lista.filter(function (m) { return String(m.adegaId) === adega; });
+        if (vinho) lista = lista.filter(function (m) { return String(m.vinhoId) === vinho; });
+        let h = '<option value="">— escolher —</option>';
+        lista.forEach(function (m) { h += '<option value="' + m.id + '">' + m.label + '</option>'; });
+        sel.innerHTML = h;
+        if (guardado) sel.value = guardado;
+    }
+
+    function recalcTotal() {
+        let total = 0;
+        document.querySelectorAll('.ctg-qty').forEach(function (i) {
+            const n = parseInt(i.value, 10);
+            if (!isNaN(n) && n > 0) total += n;
+        });
+        if (total > 0) document.getElementById('eg-total').value = total;
+    }
+
+    function construirDistribuicao() {
+        const partes = [];
+        document.querySelectorAll('.ctg-qty').forEach(function (i) {
+            const n = parseInt(i.value, 10);
+            if (!isNaN(n) && n > 0) partes.push(i.dataset.cid + ':' + n);
+        });
+        document.getElementById('eg-distrib').value = partes.join(',');
+    }
+
+    document.addEventListener('DOMContentLoaded', filtrar);
+</script>
 </body>
 </html>

@@ -17,16 +17,15 @@
                 <label class="form-label">Código</label>
                 <input class="form-control" th:value="*{codigo}" disabled>
             </div>
-            <div class="col-md-6">
-                <label class="form-label">Vinho engarrafado (rotulado) *</label>
-                <select class="form-select" th:field="*{engarrafado}" required>
+            <div class="col-md-8">
+                <label class="form-label">Vinho disponível (por adega/armazém, rotulado) *</label>
+                <select class="form-select" th:field="*{contentorId}" required>
                     <option th:value="${null}">—</option>
-                    <option th:each="v : ${engarrafados}" th:value="${v.id}"
-                            th:text="${v.codigo} + ' · ' + ${v.nome} + ' · disponíveis: ' + ${v.disponiveis}"></option>
+                    <option th:each="c : ${contentoresDisponiveis}" th:value="${c.id}" th:text="${c.label}"></option>
                 </select>
-                <div class="form-text" th:if="${engarrafados.isEmpty()}">Não há vinhos rotulados. Faça a rotulagem (Fase 7).</div>
+                <div class="form-text" th:if="${contentoresDisponiveis.isEmpty()}">Não há garrafas rotuladas disponíveis. Faça a rotulagem (Fase 7).</div>
             </div>
-            <div class="col-md-3">
+            <div class="col-md-4">
                 <label class="form-label">Garrafas a entregar *</label>
                 <input type="number" min="1" class="form-control" th:field="*{quantidadeGarrafas}" required>
             </div>

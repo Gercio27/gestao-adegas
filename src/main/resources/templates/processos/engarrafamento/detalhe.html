@@ -44,6 +44,7 @@
                         <span th:text="${engarrafamento.numeroRolhas}"></span> ×
                         <span th:text="${engarrafamento.rolha != null ? engarrafamento.rolha.descricao : '—'}"></span></dd>
                     <dt class="col-sm-4">Lote</dt><dd class="col-sm-8" th:text="${engarrafamento.lote ?: '—'}"></dd>
+                    <dt class="col-sm-4">Contentores</dt><dd class="col-sm-8" th:text="${engarrafamento.contentoresDescricao ?: '—'}"></dd>
                     <dt class="col-sm-4">Responsável</dt><dd class="col-sm-8" th:text="${engarrafamento.responsavel != null ? engarrafamento.responsavel.nome : '—'}"></dd>
                     <dt class="col-sm-4">Início</dt><dd class="col-sm-8" th:text="${engarrafamento.dataHoraInicio != null ? #temporals.format(engarrafamento.dataHoraInicio,'dd-MM-yyyy HH:mm') : '—'}"></dd>
                     <dt class="col-sm-4">Meios</dt><dd class="col-sm-8" th:text="${engarrafamento.meios ?: '—'}"></dd>

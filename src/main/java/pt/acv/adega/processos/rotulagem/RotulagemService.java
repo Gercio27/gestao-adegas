@@ -4,6 +4,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pt.acv.adega.fichas.Consumivel;
 import pt.acv.adega.fichas.ConsumivelRepository;
+import pt.acv.adega.fichas.ContentorGarrafas;
+import pt.acv.adega.fichas.ContentorGarrafasRepository;
 import pt.acv.adega.processos.EstadoProcesso;
 import pt.acv.adega.produtos.VinhoEngarrafado;
 import pt.acv.adega.produtos.VinhoEngarrafadoRepository;
@@ -20,12 +22,14 @@ public class RotulagemService {
     private final ProcessoRotulagemRepository repo;
     private final ConsumivelRepository consumivelRepo;
     private final VinhoEngarrafadoRepository engarrafadoRepo;
+    private final ContentorGarrafasRepository contentorRepo;
 
     public RotulagemService(ProcessoRotulagemRepository repo, ConsumivelRepository consumivelRepo,
-                            VinhoEngarrafadoRepository engarrafadoRepo) {
+                            VinhoEngarrafadoRepository engarrafadoRepo, ContentorGarrafasRepository contentorRepo) {
         this.repo = repo;
         this.consumivelRepo = consumivelRepo;
         this.engarrafadoRepo = engarrafadoRepo;
+        this.contentorRepo = contentorRepo;
     }
 
     @Transactional
@@ -53,6 +57,12 @@ public class RotulagemService {
         veg.setRotulado(true);
         engarrafadoRepo.save(veg);
 
+        // Marca os contentores desse vinho como rotulados (ficam prontos para o comercial).
+        for (ContentorGarrafas c : contentorRepo.findByVinhoEngarrafadoId(veg.getId())) {
+            c.setRotulado(true);
+            contentorRepo.save(c);
+        }
+
         p.setEstado(EstadoProcesso.FECHADO);
         if (p.getDataHoraFim() == null) p.setDataHoraFim(LocalDateTime.now());
         p.setDataFecho(LocalDateTime.now());
@@ -71,7 +81,14 @@ public class RotulagemService {
 
         if (p.getEngarrafado() != null) {
             VinhoEngarrafado veg = engarrafadoRepo.findById(p.getEngarrafado().getId()).orElse(null);
-            if (veg != null) { veg.setRotulado(false); engarrafadoRepo.save(veg); }
+            if (veg != null) {
+                veg.setRotulado(false);
+                engarrafadoRepo.save(veg);
+                for (ContentorGarrafas c : contentorRepo.findByVinhoEngarrafadoId(veg.getId())) {
+                    c.setRotulado(false);
+                    contentorRepo.save(c);
+                }
+            }
         }
         p.setEstado(EstadoProcesso.ABERTO);
         p.setDataFecho(null);

@@ -49,6 +49,20 @@ public class ProcessoEngarrafamento extends Processo {
     @Column(length = 60)
     private String lote;
 
+    /** Distribuicao das garrafas por contentor: "contentorId:qtd;contentorId:qtd". */
+    @Column(length = 1000)
+    private String distribuicaoContentores;
+
+    /** Descricao legivel dos contentores usados (nome + garrafas). */
+    @Column(length = 1000)
+    private String contentoresDescricao;
+
+    public String getDistribuicaoContentores() { return distribuicaoContentores; }
+    public void setDistribuicaoContentores(String distribuicaoContentores) { this.distribuicaoContentores = distribuicaoContentores; }
+
+    public String getContentoresDescricao() { return contentoresDescricao; }
+    public void setContentoresDescricao(String contentoresDescricao) { this.contentoresDescricao = contentoresDescricao; }
+
     public String getNomeVinho() { return nomeVinho; }
     public void setNomeVinho(String nomeVinho) { this.nomeVinho = nomeVinho; }
 
