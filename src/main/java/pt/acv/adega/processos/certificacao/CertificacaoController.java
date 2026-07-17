@@ -11,6 +11,8 @@ import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.fichas.AdegaRepository;
 import pt.acv.adega.fichas.TrabalhadorRepository;
 import pt.acv.adega.planeamento.PlaneamentoVinho;
+import pt.acv.adega.processos.loteamento.Loteamento;
+import pt.acv.adega.processos.loteamento.LoteamentoRepository;
 import pt.acv.adega.processos.moagem.ProcessoMoagem;
 import pt.acv.adega.processos.moagem.ProcessoMoagemRepository;
 import pt.acv.adega.produtos.EstadoMosto;
@@ -32,12 +34,14 @@ public class CertificacaoController {
     private final VinhoEngarrafadoRepository engarrafadoRepo;
     private final AdegaRepository adegaRepo;
     private final ProcessoMoagemRepository moagemRepo;
+    private final LoteamentoRepository loteRepo;
     private final TrabalhadorRepository trabalhadorRepo;
     private final CodigoService codigoService;
 
     public CertificacaoController(ProcessoCertificacaoRepository repo, CertificacaoService service,
                                   MostoRepository mostoRepo, VinhoEngarrafadoRepository engarrafadoRepo,
                                   AdegaRepository adegaRepo, ProcessoMoagemRepository moagemRepo,
+                                  LoteamentoRepository loteRepo,
                                   TrabalhadorRepository trabalhadorRepo, CodigoService codigoService) {
         this.repo = repo;
         this.service = service;
@@ -45,6 +49,7 @@ public class CertificacaoController {
         this.engarrafadoRepo = engarrafadoRepo;
         this.adegaRepo = adegaRepo;
         this.moagemRepo = moagemRepo;
+        this.loteRepo = loteRepo;
         this.trabalhadorRepo = trabalhadorRepo;
         this.codigoService = codigoService;
     }
@@ -185,7 +190,17 @@ public class CertificacaoController {
         for (ProcessoMoagem mo : moagemRepo.findAll()) {
             if (mo.getPlano() != null) moagemPlano.put(mo.getId(), mo.getPlano());
         }
-        Map<Long, String> vinhoNome = new LinkedHashMap<>();
+        // Os vinhos dos lotes construidos (Fase 6) tambem se certificam: nao vem de
+        // uma moagem, vem do lote. Ficam com chave negativa (-idDoLote) para nao
+        // colidir com os ids dos vinhos planeados.
+        Map<String, Loteamento> lotePorCodigo = new HashMap<>();
+        for (Loteamento lt : loteRepo.findAll()) {
+            if (lt.getCodigo() != null) lotePorCodigo.put(lt.getCodigo(), lt);
+        }
+        // A escolha e por adega + vinho, e o vinho identifica-se pelo nome (que por
+        // regra nunca se repete, loteado ou nao). O nome pode vir do lote, do
+        // planeamento da moagem, ou do proprio mosto (ex.: entrada da Fase 5).
+        Map<String, String> vinhoNome = new LinkedHashMap<>();
         List<Map<String, Object>> granel = new ArrayList<>();
         for (Mosto m : mostoRepo.findByEstadoOrderByDataProducaoDesc(EstadoMosto.VINHO_GRANEL)) {
             if (m.isCertificado()) continue;
@@ -193,18 +208,34 @@ public class CertificacaoController {
             String local = "—";
             if (m.getTalha() != null && m.getTalha().getAdega() != null) { adegaId = m.getTalha().getAdega().getId(); local = "Talha " + m.getTalha().getIdentificacao(); }
             else if (m.getDeposito() != null && m.getDeposito().getAdega() != null) { adegaId = m.getDeposito().getAdega().getId(); local = "Depósito " + m.getDeposito().getIdentificacao(); }
+            if (adegaId == null) continue;
+
+            Loteamento lt = m.getLoteCodigo() != null ? lotePorCodigo.get(m.getLoteCodigo()) : null;
             PlaneamentoVinho w = m.getOrigemMoagemId() != null ? moagemPlano.get(m.getOrigemMoagemId()) : null;
-            if (adegaId == null || w == null) continue;
-            vinhoNome.putIfAbsent(w.getId(), w.getNomeVinho());
+            String nome;
+            String etiqueta;
+            if (lt != null) {
+                nome = lt.getNome();
+                etiqueta = lt.getNome() + " (lote " + lt.getCodigo() + ")";
+            } else if (w != null) {
+                nome = w.getNomeVinho();
+                etiqueta = w.getNomeVinho();
+            } else {
+                nome = m.getVinhoNome();
+                etiqueta = m.getVinhoNome();
+            }
+            if (nome == null || nome.isBlank()) continue;
+
+            vinhoNome.putIfAbsent(nome, etiqueta);
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("id", m.getId());
             row.put("adegaId", adegaId);
-            row.put("vinhoId", w.getId());
+            row.put("vinhoId", nome);
             row.put("label", m.getCodigo() + " · " + local + " · " + (m.getLitros() == null ? "0" : m.getLitros().toPlainString()) + " L");
             granel.add(row);
         }
         List<Map<String, Object>> vinhos = new ArrayList<>();
-        for (Map.Entry<Long, String> e : vinhoNome.entrySet()) {
+        for (Map.Entry<String, String> e : vinhoNome.entrySet()) {
             Map<String, Object> v = new LinkedHashMap<>();
             v.put("id", e.getKey());
             v.put("nome", e.getValue());

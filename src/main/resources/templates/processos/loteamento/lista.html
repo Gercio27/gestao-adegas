@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="pt-PT">
+<head th:replace="~{fragments/layout :: head('Loteamento dos vinhos')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0"><i class="bi bi-diagram-3"></i> Fase 6 — Loteamento dos vinhos</h3>
+        <a th:href="@{/processos/loteamento/planear}" class="btn text-white" style="background-color:#6b1f2a;">
+            <i class="bi bi-plus-lg"></i> 6.1 Planear lote
+        </a>
+    </div>
+    <p class="text-muted">
+        <strong>6.1 Planeamento</strong> — cria o vinho a construir e regista a quantidade que deve entrar de cada depósito (só intenção, não dá baixa).
+        <strong>6.2 Construção</strong> — corrige o planeado e executa o lote, de uma vez ou em várias construções.
+    </p>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Código do lote</th><th>Vinho</th><th>Adega</th><th>Planeado em</th>
+                    <th>Estado</th><th class="text-end">Ações</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="l : ${lotes}">
+                    <td><span class="codigo" th:text="${l.codigo}"></span></td>
+                    <td th:text="${l.nome}"></td>
+                    <td th:text="${l.adega != null ? l.adega.nome : '—'}"></td>
+                    <td th:text="${l.dataPlaneamento != null ? #temporals.format(l.dataPlaneamento, 'dd/MM/yyyy') : '—'}"></td>
+                    <td>
+                        <span th:if="${l.concluido}" class="badge bg-success">Concluído</span>
+                        <span th:unless="${l.concluido}" class="badge bg-warning text-dark">Em construção</span>
+                    </td>
+                    <td class="text-end">
+                        <a th:href="@{/processos/loteamento/{id}(id=${l.id})}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                <tr th:if="${lotes.isEmpty()}"><td colspan="6" class="text-center text-muted py-4">Sem lotes registados.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

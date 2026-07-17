@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="pt-PT">
+<head th:replace="~{fragments/layout :: head('Construção do lote')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+            <h3 class="mb-1">
+                <i class="bi bi-diagram-3"></i>
+                <span th:text="${lote.nome}">Vinho</span>
+                <span class="codigo ms-2" th:text="${lote.codigo}"></span>
+            </h3>
+            <p class="text-muted mb-0">
+                6.2 — Construção do lote ·
+                <span th:text="${lote.adega != null ? lote.adega.nome : 'sem adega'}"></span> ·
+                <span th:if="${lote.concluido}" class="badge bg-success">Concluído</span>
+                <span th:unless="${lote.concluido}" class="badge bg-warning text-dark">Em construção</span>
+            </p>
+        </div>
+        <a th:href="@{/processos/loteamento}" class="btn btn-outline-secondary btn-sm">Voltar</a>
+    </div>
+
+    <!-- ===== Plano (6.1) com correções ===== -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header bg-white">
+            <strong>Plano do lote</strong>
+            <span class="text-muted"> — pode corrigir; entretanto pode ter havido entradas, saídas ou transfegas
+                e os depósitos já não terem as quantidades de quando foi planeado.</span>
+        </div>
+        <form th:action="@{/processos/loteamento/{id}/linhas(id=${lote.id})}" method="post"
+              onsubmit="return prepararPlano();">
+            <input type="hidden" name="linhas" id="pl-linhas">
+            <div class="table-responsive">
+                <table class="table table-sm align-middle mb-0">
+                    <thead>
+                    <tr><th>Depósito / talha de origem</th><th class="text-end">Disponível hoje</th>
+                        <th style="width:190px" class="text-end">Litros planeados</th><th style="width:60px"></th></tr>
+                    </thead>
+                    <tbody id="pl-corpo">
+                    <tr th:each="l : ${linhas}" th:attr="data-mosto=${l.mostoOrigemId}">
+                        <td th:text="${l.origemDescricao}"></td>
+                        <td class="text-end">
+                            <span th:text="${l.disponivel} + ' L'"></span>
+                            <i th:if="${l.insuficiente}" class="bi bi-exclamation-triangle-fill text-warning ms-1"
+                               title="O depósito já não tem os litros planeados."></i>
+                        </td>
+                        <td class="text-end">
+                            <input type="number" step="0.01" min="0" class="form-control form-control-sm text-end pl-qtd"
+                                   th:value="${l.litrosPlaneados}" th:attr="data-mosto=${l.mostoOrigemId}"
+                                   th:disabled="${lote.concluido}">
+                        </td>
+                        <td class="text-end">
+                            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removerLinha(this)"
+                                    th:disabled="${lote.concluido}" title="Remover do plano">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div th:if="${linhas.isEmpty()}" class="text-center text-muted py-3">Sem linhas planeadas.</div>
+
+            <div class="card-footer bg-white" th:unless="${lote.concluido}">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-7">
+                        <label class="form-label mb-1 small text-muted">Acrescentar outro depósito ao plano</label>
+                        <select class="form-select form-select-sm" id="pl-nova-origem">
+                            <option value="">— escolher depósito —</option>
+                            <option th:each="o : ${origens}" th:value="${o.id}" th:text="${o.label}"></option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="button" class="btn btn-sm btn-outline-secondary w-100" onclick="adicionarLinha()">
+                            <i class="bi bi-plus-lg"></i> Acrescentar
+                        </button>
+                    </div>
+                    <div class="col-md-3 text-end">
+                        <button class="btn btn-sm text-white" style="background-color:#6b1f2a;" type="submit">
+                            Guardar correções
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- ===== Construção (6.2) ===== -->
+    <div class="card shadow-sm mb-3" th:unless="${lote.concluido}">
+        <div class="card-header bg-white">
+            <strong>Executar o lote</strong>
+            <span class="text-muted"> — diga o depósito de onde sai e o depósito onde entra. O lote pode ser
+                construído de uma só vez ou em várias construções.</span>
+        </div>
+        <div class="card-body">
+            <form th:action="@{/processos/loteamento/{id}/construir(id=${lote.id})}" method="post" class="row g-3">
+                <div class="col-md-5">
+                    <label class="form-label">Sai do depósito / talha *</label>
+                    <select class="form-select" name="mostoOrigemId" required>
+                        <option value="">— escolher origem —</option>
+                        <option th:each="o : ${origens}" th:value="${o.id}" th:text="${o.label}"></option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Entra no depósito / talha *</label>
+                    <select class="form-select" name="destinoRef" required>
+                        <option value="">— escolher destino —</option>
+                        <option th:each="r : ${recipientes}" th:value="${r.ref}" th:text="${r.label}"></option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Litros *</label>
+                    <input type="number" step="0.01" min="0.01" class="form-control" name="litros" required>
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button class="btn text-white w-100" style="background-color:#6b1f2a;" type="submit">Registar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== Construções feitas ===== -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header bg-white"><strong>Construções do lote</strong></div>
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead>
+                <tr><th style="width:60px">#</th><th>Sai de</th><th>Entra em</th>
+                    <th class="text-end">Litros</th><th>Data</th><th class="text-end">Ações</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="c : ${construcoes}">
+                    <td>
+                        <span class="badge bg-secondary"
+                              th:text="'Construção ' + ${c.numero}"></span>
+                    </td>
+                    <td th:text="${c.origemDescricao}"></td>
+                    <td th:text="${c.destinoDescricao}"></td>
+                    <td class="text-end" th:text="${c.litros} + ' L'"></td>
+                    <td th:text="${c.data != null ? #temporals.format(c.data, 'dd/MM/yyyy HH:mm') : '—'}"></td>
+                    <td class="text-end">
+                        <form sec:authorize="hasRole('ADMIN')" method="post"
+                              th:action="@{/processos/loteamento/construcao/{cid}/reverter(cid=${c.id})}"
+                              onsubmit="return confirm('Reverter esta construção? Os litros voltam ao depósito de origem.');">
+                            <button class="btn btn-sm btn-outline-danger" type="submit" title="Reverter">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${construcoes.isEmpty()}">
+                    <td colspan="6" class="text-center text-muted py-4">
+                        Ainda não há construções. O lote está planeado mas não foi executado.
+                    </td>
+                </tr>
+                </tbody>
+                </table>
+        </div>
+        <div class="card-footer bg-white d-flex justify-content-between">
+            <span class="text-muted">
+                Planeado: <strong th:text="${totalPlaneado} + ' L'"></strong> ·
+                Construído: <strong th:text="${totalConstruido} + ' L'"></strong>
+            </span>
+        </div>
+    </div>
+
+    <div class="d-flex gap-2">
+        <form th:unless="${lote.concluido}" method="post"
+              th:action="@{/processos/loteamento/{id}/concluir(id=${lote.id})}"
+              onsubmit="return confirm('Concluir o lote? Fica pronto para a Fase 7 — Certificação.');">
+            <button class="btn btn-success" type="submit"><i class="bi bi-check-lg"></i> Concluir lote</button>
+        </form>
+        <form sec:authorize="hasRole('ADMIN')" method="post"
+              th:action="@{/processos/loteamento/{id}/eliminar(id=${lote.id})}"
+              onsubmit="return confirm('Eliminar este lote?');">
+            <button class="btn btn-outline-danger" type="submit"><i class="bi bi-trash"></i> Eliminar lote</button>
+        </form>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:inline="javascript">
+    const origens = /*[[${origens}]]*/ [];
+
+    function adicionarLinha() {
+        const sel = document.getElementById('pl-nova-origem');
+        const id = sel.value;
+        if (!id) return;
+        const corpo = document.getElementById('pl-corpo');
+        if (corpo.querySelector('tr[data-mosto="' + id + '"]')) {
+            alert('Esse depósito já está no plano.');
+            return;
+        }
+        const o = origens.filter(function (x) { return String(x.id) === id; })[0];
+        const tr = document.createElement('tr');
+        tr.setAttribute('data-mosto', id);
+        tr.innerHTML = '<td>' + escapar(o ? o.label : id) + '</td>'
+            + '<td class="text-end text-muted">—</td>'
+            + '<td class="text-end"><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end pl-qtd" data-mosto="' + id + '" value="0"></td>'
+            + '<td class="text-end"><button type="button" class="btn btn-sm btn-outline-danger" onclick="removerLinha(this)"><i class="bi bi-x-lg"></i></button></td>';
+        corpo.appendChild(tr);
+        sel.value = '';
+    }
+
+    function removerLinha(btn) {
+        btn.closest('tr').remove();
+    }
+
+    function prepararPlano() {
+        const pares = [];
+        document.querySelectorAll('.pl-qtd').forEach(function (i) {
+            const v = parseFloat(i.value);
+            if (!isNaN(v) && v > 0) pares.push(i.dataset.mosto + ':' + v);
+        });
+        document.getElementById('pl-linhas').value = pares.join(',');
+        return true;
+    }
+
+    function escapar(t) {
+        const d = document.createElement('div');
+        d.textContent = t == null ? '' : t;
+        return d.innerHTML;
+    }
+</script>
+</body>
+</html>

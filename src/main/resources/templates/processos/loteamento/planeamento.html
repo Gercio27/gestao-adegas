@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-PT">
+<head th:replace="~{fragments/layout :: head('Planeamento dos lotes')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <h3 class="mb-1"><i class="bi bi-diagram-3"></i> 6.1 — Planeamento dos lotes</h3>
+    <p class="text-muted">
+        Escolha a adega e veja todos os vinhos com os depósitos em que estão — esta é a fase em que pode haver
+        misturas de vinho. Dê um nome ao vinho a construir (o código do lote é gerado automaticamente) e registe
+        a quantidade que deve entrar de cada depósito. <strong>Aqui ainda não dá baixa</strong> — fica só como intenção.
+    </p>
+
+    <form th:action="@{/processos/loteamento/planear}" method="post" onsubmit="return prepararSubmissao();">
+        <input type="hidden" name="linhas" id="lt-linhas">
+
+        <div class="card shadow-sm mb-3"><div class="card-body row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Adega *</label>
+                <select class="form-select" name="adegaId" id="lt-adega" onchange="mostrarDepositos()" required>
+                    <option value="">— escolher adega —</option>
+                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
+                </select>
+            </div>
+            <div class="col-md-8">
+                <label class="form-label">Nome do vinho a construir *</label>
+                <input type="text" class="form-control" name="nome" id="lt-nome" required
+                       placeholder="Ex.: Talha Reserva 2026">
+                <div class="form-text">
+                    O código do lote é gerado automaticamente. O nome tem de ser único — não pode repetir
+                    outro vinho a granel, loteado ou não.
+                </div>
+            </div>
+        </div></div>
+
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <strong>Vinhos e depósitos da adega</strong>
+                <span class="text-muted"> — indique os litros a entrar no lote</span>
+            </div>
+            <div class="card-body" id="lt-depositos">
+                <p class="text-muted mb-0">Escolha primeiro a adega.</p>
+            </div>
+            <div class="card-footer bg-white d-flex justify-content-between align-items-center">
+                <span>Total planeado: <strong id="lt-total">0</strong> L</span>
+                <div>
+                    <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar plano</button>
+                    <a th:href="@{/processos/loteamento}" class="btn btn-outline-secondary">Cancelar</a>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:inline="javascript">
+    const granelPorAdega = /*[[${granelPorAdega}]]*/ {};
+
+    function mostrarDepositos() {
+        const adega = document.getElementById('lt-adega').value;
+        const caixa = document.getElementById('lt-depositos');
+        const lista = (adega && granelPorAdega[adega]) ? granelPorAdega[adega] : [];
+        if (!adega) { caixa.innerHTML = '<p class="text-muted mb-0">Escolha primeiro a adega.</p>'; atualizarTotal(); return; }
+        if (lista.length === 0) {
+            caixa.innerHTML = '<p class="text-muted mb-0">Esta adega não tem vinho a granel disponível.</p>';
+            atualizarTotal();
+            return;
+        }
+        // Agrupa os depositos por vinho — o mesmo vinho pode estar em varios depositos.
+        const porVinho = {};
+        lista.forEach(function (m) {
+            const v = m.vinho || 'Vinho sem nome';
+            (porVinho[v] = porVinho[v] || []).push(m);
+        });
+        let h = '';
+        Object.keys(porVinho).forEach(function (vinho) {
+            h += '<div class="mb-3">';
+            h += '<h6 class="text-uppercase text-muted small mb-2">' + escapar(vinho) + '</h6>';
+            h += '<div class="table-responsive"><table class="table table-sm align-middle mb-0">';
+            h += '<thead><tr><th>Depósito / talha</th><th style="width:200px" class="text-end">Litros para o lote</th></tr></thead><tbody>';
+            porVinho[vinho].forEach(function (m) {
+                h += '<tr><td>' + escapar(m.label) + '</td>'
+                   + '<td class="text-end"><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end lt-qtd"'
+                   + ' data-mosto="' + m.id + '" oninput="atualizarTotal()" placeholder="0"></td></tr>';
+            });
+            h += '</tbody></table></div></div>';
+        });
+        caixa.innerHTML = h;
+        atualizarTotal();
+    }
+
+    function atualizarTotal() {
+        let total = 0;
+        document.querySelectorAll('.lt-qtd').forEach(function (i) {
+            const v = parseFloat(i.value);
+            if (!isNaN(v) && v > 0) total += v;
+        });
+        document.getElementById('lt-total').textContent = total.toFixed(2);
+    }
+
+    function prepararSubmissao() {
+        const pares = [];
+        document.querySelectorAll('.lt-qtd').forEach(function (i) {
+            const v = parseFloat(i.value);
+            if (!isNaN(v) && v > 0) pares.push(i.dataset.mosto + ':' + v);
+        });
+        if (pares.length === 0) {
+            alert('Indique os litros a entrar no lote em pelo menos um depósito.');
+            return false;
+        }
+        document.getElementById('lt-linhas').value = pares.join(',');
+        return true;
+    }
+
+    function escapar(t) {
+        const d = document.createElement('div');
+        d.textContent = t == null ? '' : t;
+        return d.innerHTML;
+    }
+
+    document.addEventListener('DOMContentLoaded', mostrarDepositos);
+</script>
+</body>
+</html>
