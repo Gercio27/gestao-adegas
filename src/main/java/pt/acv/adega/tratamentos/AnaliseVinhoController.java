@@ -78,6 +78,8 @@ public class AnaliseVinhoController {
                 return "redirect:/analises/nova";
             }
         }
+        // O resumo dos recipientes não pode exceder a coluna (evita erro ao guardar).
+        analise.setRecipientesDescricao(limitar(analise.getRecipientesDescricao(), 590));
         repo.save(analise);
         ra.addFlashAttribute("sucesso", "Análise registada: " + analise.getCodigo());
         return "redirect:/analises";
@@ -101,6 +103,11 @@ public class AnaliseVinhoController {
         repo.deleteById(id);
         ra.addFlashAttribute("sucesso", "Análise eliminada.");
         return "redirect:/analises";
+    }
+
+    private String limitar(String s, int max) {
+        if (s == null || s.length() <= max) return s;
+        return s.substring(0, max - 1) + "…";
     }
 
     private void preencherOpcoes(Model model) {

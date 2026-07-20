@@ -8,6 +8,7 @@ public enum MotivoSaidaContentor {
     PROVA("Prova"),
     RESERVA_ADEGA("Reserva da Adega"),
     PROMOCAO("Promoção"),
+    TRANSFERENCIA_ENTRE_ADEGAS("Transferência entre adegas"),
     OUTRAS("Outras");
 
     private final String descricao;

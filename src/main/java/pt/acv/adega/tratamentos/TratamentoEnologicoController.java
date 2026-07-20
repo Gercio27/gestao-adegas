@@ -54,9 +54,16 @@ public class TratamentoEnologicoController {
             TratamentoEnologico existente = repo.findById(tratamento.getId()).orElse(null);
             if (existente != null) tratamento.setCriadoPor(existente.getCriadoPor());
         }
+        // O resumo dos recipientes não pode exceder a coluna (evita erro ao guardar).
+        tratamento.setRecipientesDescricao(limitar(tratamento.getRecipientesDescricao(), 590));
         repo.save(tratamento);
         ra.addFlashAttribute("sucesso", "Tratamento registado: " + tratamento.getCodigo());
         return "redirect:/tratamentos";
+    }
+
+    private String limitar(String s, int max) {
+        if (s == null || s.length() <= max) return s;
+        return s.substring(0, max - 1) + "…";
     }
 
     @PostMapping("/{id}/eliminar")

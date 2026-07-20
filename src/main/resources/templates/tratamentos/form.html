@@ -33,6 +33,7 @@
                     <option value="">— escolher vinho —</option>
                 </select>
             </div>
+            <div class="col-12"><span id="sel-hint" class="text-danger small"></span></div>
 
             <div class="col-12">
                 <label class="form-label">Onde está (talhas/depósitos e quantidades)</label>
@@ -67,12 +68,22 @@
     }
     function esc(t) { const d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
 
+    function categoriaComDados(preferida) {
+        const tem = function (c) { return dadosPorCategoria[c] && dadosPorCategoria[c].adegas && dadosPorCategoria[c].adegas.length; };
+        if (tem(preferida)) return preferida;
+        for (const k in dadosPorCategoria) { if (tem(k)) return k; }
+        return preferida;
+    }
+
     function popularAdegas() {
         const d = dadosAtuais();
         const sel = document.getElementById('sel-adega');
         let h = '<option value="">— escolher adega —</option>';
         (d.adegas || []).forEach(function (a) { h += '<option value="' + a.id + '">' + esc(a.nome) + '</option>'; });
         sel.innerHTML = h;
+        const hint = document.getElementById('sel-hint');
+        if (hint) hint.textContent = (d.adegas && d.adegas.length)
+            ? '' : 'Sem vinhos nesta fase. Faça primeiro a moagem (mosto) ou tenha vinho a granel.';
         popularVinhos();
     }
     function popularVinhos() {
@@ -105,7 +116,11 @@
         }).join('; ');
     }
 
-    document.addEventListener('DOMContentLoaded', popularAdegas);
+    document.addEventListener('DOMContentLoaded', function () {
+        const cat = document.getElementById('cat');
+        cat.value = categoriaComDados(cat.value);
+        popularAdegas();
+    });
 </script>
 </body>
 </html>
