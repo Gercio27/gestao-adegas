@@ -9,4 +9,5 @@ public interface ProcessoMoagemRepository extends JpaRepository<ProcessoMoagem, 
     long countByEstado(EstadoProcesso estado);
     List<ProcessoMoagem> findAllByOrderByDataCriacaoDesc();
     List<ProcessoMoagem> findByCriadoPorOrderByDataCriacaoDesc(String criadoPor);
+    boolean existsByPlanoId(Long planoId);
 }

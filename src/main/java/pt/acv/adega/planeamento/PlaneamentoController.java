@@ -10,8 +10,10 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.fichas.Parcela;
 import pt.acv.adega.fichas.ParcelaRepository;
+import org.springframework.dao.DataIntegrityViolationException;
 import pt.acv.adega.processos.maturacao.ProcessoAnaliseMaturacao;
 import pt.acv.adega.processos.maturacao.ProcessoAnaliseMaturacaoRepository;
+import pt.acv.adega.processos.moagem.ProcessoMoagemRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -30,13 +32,16 @@ public class PlaneamentoController {
     private final PlaneamentoVinhoRepository repo;
     private final ProcessoAnaliseMaturacaoRepository maturacaoRepo;
     private final ParcelaRepository parcelaRepo;
+    private final ProcessoMoagemRepository moagemRepo;
     private final CodigoService codigoService;
 
     public PlaneamentoController(PlaneamentoVinhoRepository repo, ProcessoAnaliseMaturacaoRepository maturacaoRepo,
-                                 ParcelaRepository parcelaRepo, CodigoService codigoService) {
+                                 ParcelaRepository parcelaRepo, ProcessoMoagemRepository moagemRepo,
+                                 CodigoService codigoService) {
         this.repo = repo;
         this.maturacaoRepo = maturacaoRepo;
         this.parcelaRepo = parcelaRepo;
+        this.moagemRepo = moagemRepo;
         this.codigoService = codigoService;
     }
 
@@ -127,8 +132,20 @@ public class PlaneamentoController {
 
     @PostMapping("/{id}/eliminar")
     public String eliminar(@PathVariable Long id, RedirectAttributes ra) {
-        repo.deleteById(id);
-        ra.addFlashAttribute("sucesso", "Vinho eliminado do planeamento.");
+        // Um vinho já usado numa moagem não pode ser eliminado (ficaria a moagem
+        // sem vinho). Avisa em vez de rebentar com erro 500.
+        if (moagemRepo.existsByPlanoId(id)) {
+            ra.addFlashAttribute("erro", "Não é possível eliminar este vinho: já existe uma moagem que o utiliza. "
+                    + "Elimine (ou reabra e apague) essa moagem primeiro.");
+            return "redirect:/planeamento";
+        }
+        try {
+            repo.deleteById(id);
+            ra.addFlashAttribute("sucesso", "Vinho eliminado do planeamento.");
+        } catch (DataIntegrityViolationException e) {
+            ra.addFlashAttribute("erro", "Não é possível eliminar este vinho: tem vindimas ou outros registos associados. "
+                    + "Remova-os primeiro.");
+        }
         return "redirect:/planeamento";
     }
 
