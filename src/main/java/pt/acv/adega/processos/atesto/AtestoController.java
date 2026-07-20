@@ -173,6 +173,7 @@ public class AtestoController {
 
         Map<Long, String> vinhoNome = new LinkedHashMap<>();
         Map<Long, LinkedHashMap<String, Origem>> origAgg = new LinkedHashMap<>();
+        Map<Long, String> adegaNomes = new LinkedHashMap<>();
         for (Mosto m : fermentando) {
             PlaneamentoVinho w = m.getOrigemMoagemId() != null ? moagemPlano.get(m.getOrigemMoagemId()) : null;
             if (w == null) continue;
@@ -182,10 +183,12 @@ public class AtestoController {
                 ref = "TALHA:" + m.getTalha().getId();
                 ident = "Talha " + m.getTalha().getIdentificacao();
                 adegaId = m.getTalha().getAdega().getId();
+                adegaNomes.putIfAbsent(adegaId, m.getTalha().getAdega().getNome());
             } else if (m.getDeposito() != null && m.getDeposito().getAdega() != null) {
                 ref = "DEPOSITO:" + m.getDeposito().getId();
                 ident = "Depósito " + m.getDeposito().getIdentificacao();
                 adegaId = m.getDeposito().getAdega().getId();
+                adegaNomes.putIfAbsent(adegaId, m.getDeposito().getAdega().getNome());
             } else {
                 continue;
             }
@@ -194,6 +197,38 @@ public class AtestoController {
                     .computeIfAbsent(ref, k -> new Origem(ident, adegaId));
             o.litros = o.litros.add(m.getLitros() == null ? BigDecimal.ZERO : m.getLitros());
         }
+
+        // Vinhos disponíveis por adega (para escolher a adega primeiro).
+        Map<Long, LinkedHashMap<Long, String>> vinhosPorAdegaTmp = new LinkedHashMap<>();
+        for (Map.Entry<Long, LinkedHashMap<String, Origem>> e : origAgg.entrySet()) {
+            Long vid = e.getKey();
+            for (Origem o : e.getValue().values()) {
+                vinhosPorAdegaTmp.computeIfAbsent(o.adegaId, k -> new LinkedHashMap<>())
+                        .putIfAbsent(vid, vinhoNome.get(vid));
+            }
+        }
+        Map<Long, List<Map<String, Object>>> vinhosPorAdega = new LinkedHashMap<>();
+        for (Map.Entry<Long, LinkedHashMap<Long, String>> e : vinhosPorAdegaTmp.entrySet()) {
+            List<Map<String, Object>> lst = new ArrayList<>();
+            for (Map.Entry<Long, String> ve : e.getValue().entrySet()) {
+                Map<String, Object> mm = new LinkedHashMap<>();
+                mm.put("id", ve.getKey());
+                mm.put("nome", ve.getValue());
+                lst.add(mm);
+            }
+            vinhosPorAdega.put(e.getKey(), lst);
+        }
+        List<Map<String, Object>> adegas = new ArrayList<>();
+        adegaNomes.entrySet().stream()
+                .sorted(Map.Entry.comparingByValue(Comparator.nullsLast(String::compareToIgnoreCase)))
+                .forEach(e -> {
+                    Map<String, Object> a = new LinkedHashMap<>();
+                    a.put("id", e.getKey());
+                    a.put("nome", e.getValue());
+                    adegas.add(a);
+                });
+        model.addAttribute("adegas", adegas);
+        model.addAttribute("vinhosPorAdega", vinhosPorAdega);
 
         List<Map<String, Object>> vinhos = new ArrayList<>();
         for (Map.Entry<Long, String> e : vinhoNome.entrySet()) {

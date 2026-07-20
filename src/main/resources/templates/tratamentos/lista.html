@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Tratamentos enológicos')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0"><i class="bi bi-eyedropper"></i> Tratamentos enológicos</h3>
+        <a th:href="@{/tratamentos/nova}" class="btn text-white" style="background-color:#6b1f2a;">
+            <i class="bi bi-plus-lg"></i> Novo tratamento
+        </a>
+    </div>
+    <p class="text-muted small">Histórico de tratamentos por vinho (ordenado por vinho e data). Cada vinho pode ter vários registos ao longo do tempo.</p>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Código</th><th>Vinho</th><th>Fase</th><th>Adega</th><th>Onde estava</th>
+                    <th>Data</th><th>Tratamento aplicado</th><th class="text-end">Ações</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="t : ${tratamentos}">
+                    <td><span class="codigo" th:text="${t.codigo}"></span></td>
+                    <td class="fw-semibold" th:text="${t.vinhoNome ?: '—'}"></td>
+                    <td th:text="${t.categoria.descricao}"></td>
+                    <td th:text="${t.adega != null ? t.adega.nome : '—'}"></td>
+                    <td class="small" th:text="${t.recipientesDescricao ?: '—'}"></td>
+                    <td th:text="${t.dataTratamento != null ? #temporals.format(t.dataTratamento,'dd-MM-yyyy') : '—'}"></td>
+                    <td class="small" th:text="${t.descricao ?: '—'}"></td>
+                    <td class="text-end">
+                        <form th:action="@{/tratamentos/{id}/eliminar(id=${t.id})}" method="post" class="d-inline"
+                              onsubmit="return confirm('Eliminar este registo de tratamento?');">
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${tratamentos.isEmpty()}"><td colspan="8" class="text-center text-muted py-4">Sem tratamentos registados.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

@@ -23,13 +23,25 @@
             </div>
             <div class="col-md-4">
                 <label class="form-label">Formato de garrafa</label>
-                <select class="form-select" th:field="*{tipoGarrafa}">
-                    <option th:each="t : ${tiposGarrafa}" th:value="${t}" th:text="${t.descricao}"></option>
+                <select class="form-select" th:field="*{tipoGarrafa}" id="ctg-tipo" onchange="aoMudarTipo()">
+                    <option th:each="t : ${tiposGarrafa}" th:value="${t}" th:text="${t.descricao}"
+                            th:attr="data-max=${t.maximoGarrafas}"></option>
                 </select>
             </div>
             <div class="col-md-3">
                 <label class="form-label">Capacidade (nº garrafas)</label>
-                <input type="number" min="0" class="form-control" th:field="*{capacidadeGarrafas}">
+                <input type="number" min="0" class="form-control" th:field="*{capacidadeGarrafas}" id="ctg-cap">
+                <div class="form-text" id="ctg-cap-hint">Máximo fixo do formato.</div>
+            </div>
+            <div class="col-12">
+                <div class="alert alert-light border py-2 mb-0 small">
+                    <i class="bi bi-info-circle"></i>
+                    <strong>Máximo fixo por formato:</strong>
+                    <span th:each="t,s : ${tiposGarrafa}">
+                        <span th:text="${(s.first ? '' : ' · ') + t.descricao + ': ' + t.maximoGarrafas + ' garrafas'}"></span>
+                    </span>.
+                    É permitido ultrapassar — o sistema informa quanto falta ou quanto excede.
+                </div>
             </div>
             <div class="col-md-4">
                 <label class="form-label">Armazém</label>
@@ -57,13 +69,15 @@
             </div>
             <div class="col-md-3">
                 <label class="form-label">Garrafas atuais</label>
-                <input type="number" min="0" class="form-control" th:field="*{garrafasAtuais}">
+                <input type="number" min="0" class="form-control" th:field="*{garrafasAtuais}" id="ctg-atuais" oninput="atualizarFalta()">
             </div>
             <div class="col-md-4 d-flex align-items-end">
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" th:field="*{rotulado}" id="ctg-rot">
-                    <label class="form-check-label" for="ctg-rot">Já rotulado (pronto para o comercial)</label>
-                </div>
+                <div id="ctg-falta" class="small"></div>
+            </div>
+            <div class="col-12">
+                <span class="text-muted small"><i class="bi bi-tag"></i>
+                    As garrafas nos contentores ficam sempre <strong>por rotular</strong>. Passam a rotuladas
+                    (e seguem para o comercial) quando fechar a <strong>Rotulagem (Fase 7)</strong>.</span>
             </div>
 
             <div class="col-12">
@@ -75,5 +89,41 @@
 </div>
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:inline="javascript">
+    const contentorNovo = /*[[${contentor.id == null}]]*/ true;
+
+    function maxDoTipo() {
+        const sel = document.getElementById('ctg-tipo');
+        const opt = sel.options[sel.selectedIndex];
+        return opt && opt.dataset.max ? parseInt(opt.dataset.max, 10) : 0;
+    }
+
+    // Ao mudar o formato, propõe a capacidade máxima fixa (só em contentores novos
+    // ou quando a capacidade ainda não foi definida).
+    function aoMudarTipo() {
+        const cap = document.getElementById('ctg-cap');
+        const max = maxDoTipo();
+        if (contentorNovo || !cap.value || parseInt(cap.value, 10) <= 0) cap.value = max;
+        atualizarFalta();
+    }
+
+    function atualizarFalta() {
+        const cap = parseInt(document.getElementById('ctg-cap').value, 10) || 0;
+        const atuais = parseInt(document.getElementById('ctg-atuais').value, 10) || 0;
+        const box = document.getElementById('ctg-falta');
+        if (cap <= 0) { box.innerHTML = ''; return; }
+        if (atuais > cap) {
+            box.innerHTML = '<span class="text-danger fw-bold">Excede o máximo em ' + (atuais - cap) + ' garrafa(s)</span> <span class="text-muted">(permitido)</span>';
+        } else {
+            box.innerHTML = '<span class="text-success">Faltam ' + (cap - atuais) + ' garrafa(s) para o máximo</span>';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const cap = document.getElementById('ctg-cap');
+        if (contentorNovo && (!cap.value || parseInt(cap.value, 10) <= 0)) cap.value = maxDoTipo();
+        atualizarFalta();
+    });
+</script>
 </body>
 </html>

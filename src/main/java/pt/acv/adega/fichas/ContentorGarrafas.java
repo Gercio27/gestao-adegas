@@ -101,4 +101,28 @@ public class ContentorGarrafas extends BaseEntity {
         int livre = capacidadeGarrafas - garrafasAtuais;
         return Math.max(livre, 0);
     }
+
+    /** Máximo fixo do formato (borgonhesa/bordalesa) deste contentor. */
+    @Transient
+    public int getMaximoFormato() {
+        return tipoGarrafa != null ? tipoGarrafa.getMaximoGarrafas() : 0;
+    }
+
+    /** Quantas garrafas faltam para chegar ao máximo (0 se já está no máximo ou acima). */
+    @Transient
+    public int getFaltamParaMaximo() {
+        return Math.max(0, capacidadeGarrafas - garrafasAtuais);
+    }
+
+    /** True quando o contentor tem mais garrafas do que o seu máximo (permitido, mas avisado). */
+    @Transient
+    public boolean isAcimaDoMaximo() {
+        return capacidadeGarrafas > 0 && garrafasAtuais > capacidadeGarrafas;
+    }
+
+    /** Garrafas a mais para além do máximo (0 se dentro do máximo). */
+    @Transient
+    public int getExcedente() {
+        return Math.max(0, garrafasAtuais - capacidadeGarrafas);
+    }
 }

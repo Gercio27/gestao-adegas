@@ -1,14 +1,22 @@
 package pt.acv.adega.processos.certificacao;
 
 import jakarta.validation.Valid;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.fichas.AdegaRepository;
+import pt.acv.adega.fichas.ContentorGarrafas;
+import pt.acv.adega.fichas.ContentorGarrafasRepository;
 import pt.acv.adega.fichas.TrabalhadorRepository;
 import pt.acv.adega.planeamento.PlaneamentoVinho;
 import pt.acv.adega.processos.loteamento.Loteamento;
@@ -35,13 +43,14 @@ public class CertificacaoController {
     private final AdegaRepository adegaRepo;
     private final ProcessoMoagemRepository moagemRepo;
     private final LoteamentoRepository loteRepo;
+    private final ContentorGarrafasRepository contentorRepo;
     private final TrabalhadorRepository trabalhadorRepo;
     private final CodigoService codigoService;
 
     public CertificacaoController(ProcessoCertificacaoRepository repo, CertificacaoService service,
                                   MostoRepository mostoRepo, VinhoEngarrafadoRepository engarrafadoRepo,
                                   AdegaRepository adegaRepo, ProcessoMoagemRepository moagemRepo,
-                                  LoteamentoRepository loteRepo,
+                                  LoteamentoRepository loteRepo, ContentorGarrafasRepository contentorRepo,
                                   TrabalhadorRepository trabalhadorRepo, CodigoService codigoService) {
         this.repo = repo;
         this.service = service;
@@ -50,6 +59,7 @@ public class CertificacaoController {
         this.adegaRepo = adegaRepo;
         this.moagemRepo = moagemRepo;
         this.loteRepo = loteRepo;
+        this.contentorRepo = contentorRepo;
         this.trabalhadorRepo = trabalhadorRepo;
         this.codigoService = codigoService;
     }
@@ -92,31 +102,45 @@ public class CertificacaoController {
 
     @PostMapping
     public String guardar(@Valid @ModelAttribute("cert") ProcessoCertificacao cert, BindingResult result,
+                          @RequestParam(value = "certificadoFicheiro", required = false) MultipartFile certificadoFicheiro,
                           Authentication auth, Model model, RedirectAttributes ra) {
-        // Constroi a lista de itens (depósitos/lotes) e a amostra a partir da seleção.
         if (result.hasErrors()) {
             preencherOpcoes(model);
             return "processos/certificacao/form";
         }
         boolean granel = cert.getAlvo() == AlvoCertificacao.GRANEL;
-        if (cert.getItemIds() != null && !cert.getItemIds().isEmpty()) {
+        boolean selecaoFeita = false;
+
+        if (granel && cert.getItemIds() != null && !cert.getItemIds().isEmpty()) {
+            // A granel: depósitos/talhas escolhidos + amostra CVR/IVV.
             StringJoiner ids = new StringJoiner(",");
             StringJoiner desc = new StringJoiner("; ");
             for (Long itemId : cert.getItemIds()) {
                 boolean amostra = itemId.equals(cert.getAmostraId());
-                if (granel) {
-                    Mosto m = mostoRepo.findById(itemId).orElse(null);
-                    if (m != null) { ids.add(String.valueOf(itemId)); desc.add(m.getCodigo() + " · " + m.getLocalizacao() + (amostra ? " (amostra)" : "")); }
-                } else {
-                    VinhoEngarrafado v = engarrafadoRepo.findById(itemId).orElse(null);
-                    if (v != null) { ids.add(String.valueOf(itemId)); desc.add(v.getCodigo() + " · " + v.getNome() + (amostra ? " (amostra)" : "")); }
-                }
+                Mosto m = mostoRepo.findById(itemId).orElse(null);
+                if (m != null) { ids.add(String.valueOf(itemId)); desc.add(m.getCodigo() + " · " + m.getLocalizacao() + (amostra ? " (amostra)" : "")); }
             }
             cert.setItensIdsCsv(ids.length() > 0 ? ids.toString() : null);
             cert.setItensDescricao(desc.length() > 0 ? desc.toString() : null);
-            // A amostra fica guardada no campo do alvo (para o detalhe).
-            if (granel) { cert.setEngarrafado(null); cert.setVinhoGranel(cert.getAmostraId() != null ? mostoRepo.findById(cert.getAmostraId()).orElse(null) : null); }
-            else { cert.setVinhoGranel(null); cert.setEngarrafado(cert.getAmostraId() != null ? engarrafadoRepo.findById(cert.getAmostraId()).orElse(null) : null); }
+            cert.setEngarrafado(null);
+            cert.setContentorId(null);
+            cert.setContentorDescricao(null);
+            cert.setVinhoGranel(cert.getAmostraId() != null ? mostoRepo.findById(cert.getAmostraId()).orElse(null) : null);
+            selecaoFeita = ids.length() > 0;
+        } else if (!granel && cert.getContentorId() != null) {
+            // Engarrafado: as garrafas saem de um contentor; o vinho vem daí.
+            ContentorGarrafas c = contentorRepo.findById(cert.getContentorId()).orElse(null);
+            VinhoEngarrafado v = (c != null && c.getVinhoEngarrafadoId() != null)
+                    ? engarrafadoRepo.findById(c.getVinhoEngarrafadoId()).orElse(null) : null;
+            if (v != null) {
+                cert.setVinhoGranel(null);
+                cert.setEngarrafado(v);
+                cert.setItensIdsCsv(String.valueOf(v.getId()));
+                cert.setContentorDescricao(c.getNome() + " · " + c.getLocalizacao());
+                cert.setItensDescricao(v.getCodigo() + " · " + v.getNome()
+                        + " · " + cert.getGarrafasCertificacao() + " garrafa(s) p/ certificação (de " + c.getNome() + ")");
+                selecaoFeita = true;
+            }
         }
 
         if (cert.getId() == null) {
@@ -132,16 +156,49 @@ public class CertificacaoController {
             cert.setEstado(existente.getEstado());
             cert.setDataFecho(existente.getDataFecho());
             // Mantém a seleção anterior se nada foi submetido agora.
-            if (cert.getItemIds() == null || cert.getItemIds().isEmpty()) {
+            if (!selecaoFeita) {
                 cert.setItensIdsCsv(existente.getItensIdsCsv());
                 cert.setItensDescricao(existente.getItensDescricao());
                 cert.setVinhoGranel(existente.getVinhoGranel());
                 cert.setEngarrafado(existente.getEngarrafado());
+                cert.setContentorId(existente.getContentorId());
+                cert.setContentorDescricao(existente.getContentorDescricao());
+            }
+            // Mantém o PDF já guardado se não vier ficheiro novo.
+            cert.setCertificadoPdf(existente.getCertificadoPdf());
+            cert.setCertificadoPdfNome(existente.getCertificadoPdfNome());
+            cert.setCertificadoPdfTipo(existente.getCertificadoPdfTipo());
+        }
+
+        // Novo PDF (substitui o anterior, se houver).
+        if (certificadoFicheiro != null && !certificadoFicheiro.isEmpty()) {
+            try {
+                cert.setCertificadoPdf(certificadoFicheiro.getBytes());
+                cert.setCertificadoPdfNome(certificadoFicheiro.getOriginalFilename());
+                cert.setCertificadoPdfTipo(certificadoFicheiro.getContentType());
+            } catch (java.io.IOException e) {
+                ra.addFlashAttribute("erro", "Não foi possível ler o ficheiro do certificado.");
+                return "redirect:/processos/certificacao";
             }
         }
+
         repo.save(cert);
         ra.addFlashAttribute("sucesso", "Certificação guardada: " + cert.getCodigo());
         return "redirect:/processos/certificacao/" + cert.getId();
+    }
+
+    @GetMapping("/{id}/certificado")
+    public ResponseEntity<ByteArrayResource> descarregarCertificado(@PathVariable Long id, Authentication auth) {
+        ProcessoCertificacao p = repo.findById(id).orElse(null);
+        if (p == null || !podeAceder(p, auth) || !p.isTemPdf()) return ResponseEntity.notFound().build();
+        String nome = p.getCertificadoPdfNome() != null ? p.getCertificadoPdfNome() : ("certificado-" + p.getCodigo() + ".pdf");
+        MediaType tipo = p.getCertificadoPdfTipo() != null
+                ? MediaType.parseMediaType(p.getCertificadoPdfTipo()) : MediaType.APPLICATION_PDF;
+        return ResponseEntity.ok()
+                .contentType(tipo)
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.inline().filename(nome).build().toString())
+                .body(new ByteArrayResource(p.getCertificadoPdf()));
     }
 
     @PostMapping("/{id}/fechar")
@@ -244,16 +301,22 @@ public class CertificacaoController {
         model.addAttribute("vinhos", vinhos);
         model.addAttribute("granelDisponivel", granel);
 
-        // ENGARRAFADO: lotes ainda NÃO certificados.
-        List<Map<String, Object>> engs = new ArrayList<>();
-        for (VinhoEngarrafado v : engarrafadoRepo.findAllByOrderByDataProducaoDesc()) {
-            if (v.isCertificado()) continue;
+        // ENGARRAFADO: contentores com garrafas de vinho engarrafado ainda NÃO
+        // certificado — é de um contentor que saem as garrafas para certificação.
+        Map<Long, Boolean> engCertificado = new HashMap<>();
+        for (VinhoEngarrafado v : engarrafadoRepo.findAll()) engCertificado.put(v.getId(), v.isCertificado());
+        List<Map<String, Object>> contentores = new ArrayList<>();
+        for (ContentorGarrafas c : contentorRepo.findAllByOrderByNomeAsc()) {
+            if (c.getGarrafasAtuais() <= 0 || c.getVinhoEngarrafadoId() == null) continue;
+            if (Boolean.TRUE.equals(engCertificado.get(c.getVinhoEngarrafadoId()))) continue;
             Map<String, Object> row = new LinkedHashMap<>();
-            row.put("id", v.getId());
-            row.put("label", v.getCodigo() + " · " + v.getNome() + " · " + v.getNumeroGarrafas() + " garrafas");
-            engs.add(row);
+            row.put("id", c.getId());
+            row.put("garrafas", c.getGarrafasAtuais());
+            row.put("label", c.getNome() + " · " + (c.getVinhoNome() != null ? c.getVinhoNome() : "vinho")
+                    + " · " + c.getLocalizacao() + " · " + c.getGarrafasAtuais() + " garrafas");
+            contentores.add(row);
         }
-        model.addAttribute("engarrafadosDisponiveis", engs);
+        model.addAttribute("contentoresDisponiveis", contentores);
     }
 
     private boolean isAdmin(Authentication auth) {

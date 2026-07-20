@@ -32,6 +32,10 @@ public class ProcessoPassagemVinho extends Processo {
     @Transient
     private List<Long> mostoIds = new ArrayList<>();
 
+    /** Linhas da passagem: por cada mosto, litros efetivos e talha de destino. */
+    @OneToMany(mappedBy = "processo", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PassagemItem> itens = new ArrayList<>();
+
     public String getMostosDescricao() { return mostosDescricao; }
     public void setMostosDescricao(String mostosDescricao) { this.mostosDescricao = mostosDescricao; }
 
@@ -40,4 +44,7 @@ public class ProcessoPassagemVinho extends Processo {
 
     public List<Long> getMostoIds() { return mostoIds; }
     public void setMostoIds(List<Long> mostoIds) { this.mostoIds = mostoIds; }
+
+    public List<PassagemItem> getItens() { return itens; }
+    public void setItens(List<PassagemItem> itens) { this.itens = itens; }
 }

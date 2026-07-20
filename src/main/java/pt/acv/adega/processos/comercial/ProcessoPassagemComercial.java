@@ -44,6 +44,10 @@ public class ProcessoPassagemComercial extends Processo {
     @Column(length = 250)
     private String moradaDestino;
 
+    /** Nome de quem recebe/confere a entrega no destino (assina a nota). */
+    @Column(length = 160)
+    private String responsavelRececao;
+
     /** Numero da nota de entrega, atribuido no fecho (ex.: NE-000001). */
     @Column(length = 20)
     private String numeroNota;
@@ -59,6 +63,9 @@ public class ProcessoPassagemComercial extends Processo {
 
     public String getMoradaDestino() { return moradaDestino; }
     public void setMoradaDestino(String moradaDestino) { this.moradaDestino = moradaDestino; }
+
+    public String getResponsavelRececao() { return responsavelRececao; }
+    public void setResponsavelRececao(String responsavelRececao) { this.responsavelRececao = responsavelRececao; }
 
     public String getNumeroNota() { return numeroNota; }
     public void setNumeroNota(String numeroNota) { this.numeroNota = numeroNota; }

@@ -72,6 +72,53 @@ public class ProcessoCertificacao extends Processo {
     @Column(length = 60)
     private String numeroCertificado;
 
+    // ----- Engarrafado: de que contentor saem as garrafas para certificação -----
+
+    /** Contentor de onde saem as garrafas para certificação (alvo ENGARRAFADO). */
+    @Column(name = "contentor_id")
+    private Long contentorId;
+
+    /** Descrição legível do contentor (nome + local), para o resumo. */
+    @Column(length = 200)
+    private String contentorDescricao;
+
+    /** Quantas garrafas foram tiradas para certificação. */
+    @Column(nullable = false)
+    private int garrafasCertificacao = 0;
+
+    // ----- PDF do certificado (guardado na base de dados) -----
+
+    @Lob
+    @Column(name = "certificado_pdf")
+    private byte[] certificadoPdf;
+
+    @Column(length = 200)
+    private String certificadoPdfNome;
+
+    @Column(length = 100)
+    private String certificadoPdfTipo;
+
+    public Long getContentorId() { return contentorId; }
+    public void setContentorId(Long contentorId) { this.contentorId = contentorId; }
+
+    public String getContentorDescricao() { return contentorDescricao; }
+    public void setContentorDescricao(String contentorDescricao) { this.contentorDescricao = contentorDescricao; }
+
+    public int getGarrafasCertificacao() { return garrafasCertificacao; }
+    public void setGarrafasCertificacao(int garrafasCertificacao) { this.garrafasCertificacao = garrafasCertificacao; }
+
+    public byte[] getCertificadoPdf() { return certificadoPdf; }
+    public void setCertificadoPdf(byte[] certificadoPdf) { this.certificadoPdf = certificadoPdf; }
+
+    public String getCertificadoPdfNome() { return certificadoPdfNome; }
+    public void setCertificadoPdfNome(String certificadoPdfNome) { this.certificadoPdfNome = certificadoPdfNome; }
+
+    public String getCertificadoPdfTipo() { return certificadoPdfTipo; }
+    public void setCertificadoPdfTipo(String certificadoPdfTipo) { this.certificadoPdfTipo = certificadoPdfTipo; }
+
+    @Transient
+    public boolean isTemPdf() { return certificadoPdf != null && certificadoPdf.length > 0; }
+
     public AlvoCertificacao getAlvo() { return alvo; }
     public void setAlvo(AlvoCertificacao alvo) { this.alvo = alvo; }
 

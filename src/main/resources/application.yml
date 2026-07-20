@@ -12,6 +12,11 @@ spring:
     active: mysql
   thymeleaf:
     cache: false
+  servlet:
+    multipart:
+      # Upload de PDFs (certificados, análises).
+      max-file-size: 10MB
+      max-request-size: 12MB
 
 server:
   # Em alojamento na internet, a plataforma define a porta na variavel PORT.

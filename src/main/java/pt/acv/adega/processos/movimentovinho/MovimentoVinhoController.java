@@ -200,6 +200,17 @@ public class MovimentoVinhoController {
         model.addAttribute("vinhos", new ArrayList<>(nomes));
         model.addAttribute("mostosPorVinho", mostosPorVinho);
         model.addAttribute("recipientesPorAdega", recipientesPorAdega());
+
+        // Nomes de vinho já conhecidos no sistema (todos os processos), para o
+        // campo de ENTRADA os puxar em vez de serem escritos do zero.
+        TreeSet<String> conhecidos = new TreeSet<>(nomes);
+        for (Mosto m : mostoRepo.findAll()) {
+            if (m.getVinhoNome() != null && !m.getVinhoNome().isBlank()) conhecidos.add(m.getVinhoNome());
+        }
+        for (PlaneamentoVinho w : moagemPlano.values()) {
+            if (w.getNomeVinho() != null && !w.getNomeVinho().isBlank()) conhecidos.add(w.getNomeVinho());
+        }
+        model.addAttribute("nomesConhecidos", new ArrayList<>(conhecidos));
     }
 
     /** Nome do vinho: denormalizado no mosto ou, em falta, do planeamento de origem. */

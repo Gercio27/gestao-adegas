@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-PT">
+<head th:replace="~{fragments/layout :: head('Análise ao vinho')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-1">Nova análise ao vinho</h3>
+    <p class="text-muted">Transversal a qualquer fase. Escolha a adega e o vinho (mosto ou a granel); vê onde está e em que
+        quantidades. Faça o <strong>upload do PDF da análise</strong>. Pode registar várias ao longo do tempo.</p>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/analises}" th:object="${analise}" method="post" class="row g-3" enctype="multipart/form-data">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{vinhoNome}" id="vinhoNome">
+            <input type="hidden" th:field="*{recipientesDescricao}" id="recipientesDescricao">
+
+            <div class="col-md-4">
+                <label class="form-label">Fase do vinho *</label>
+                <select class="form-select" th:field="*{categoria}" id="cat" onchange="popularAdegas()">
+                    <option th:each="c : ${categorias}" th:value="${c}" th:text="${c.descricao}"></option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Adega *</label>
+                <select class="form-select" name="adega" id="sel-adega" onchange="popularVinhos()" required>
+                    <option value="">— escolher adega —</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Vinho *</label>
+                <select class="form-select" id="sel-vinho" onchange="mostrarRecipientes()" required>
+                    <option value="">— escolher vinho —</option>
+                </select>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Onde está (talhas/depósitos e quantidades)</label>
+                <div class="border rounded p-2" id="recip-box"><span class="text-muted small">Escolha adega e vinho.</span></div>
+            </div>
+
+            <div class="col-md-4">
+                <label class="form-label">Data da análise</label>
+                <input type="date" class="form-control" th:field="*{dataAnalise}">
+            </div>
+            <div class="col-md-8">
+                <label class="form-label">PDF da análise *</label>
+                <input type="file" class="form-control" name="analiseFicheiro" accept="application/pdf" required>
+            </div>
+            <div class="col-12">
+                <label class="form-label">Notas (opcional)</label>
+                <textarea class="form-control" th:field="*{descricao}" rows="2"
+                          placeholder="Ex.: análise físico-química de rotina; laboratório X…"></textarea>
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/analises}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:inline="javascript">
+    const dadosPorCategoria = /*[[${dadosPorCategoria}]]*/ {};
+
+    function dadosAtuais() {
+        const cat = document.getElementById('cat').value;
+        return dadosPorCategoria[cat] || { adegas: [], vinhosPorAdega: {}, recipientes: {} };
+    }
+    function esc(t) { const d = document.createElement('div'); d.textContent = t == null ? '' : t; return d.innerHTML; }
+
+    function popularAdegas() {
+        const d = dadosAtuais();
+        const sel = document.getElementById('sel-adega');
+        let h = '<option value="">— escolher adega —</option>';
+        (d.adegas || []).forEach(function (a) { h += '<option value="' + a.id + '">' + esc(a.nome) + '</option>'; });
+        sel.innerHTML = h;
+        popularVinhos();
+    }
+    function popularVinhos() {
+        const d = dadosAtuais();
+        const adega = document.getElementById('sel-adega').value;
+        const sel = document.getElementById('sel-vinho');
+        const lista = (adega && d.vinhosPorAdega[adega]) ? d.vinhosPorAdega[adega] : [];
+        let h = '<option value="">— escolher vinho —</option>';
+        lista.forEach(function (n) { h += '<option value="' + esc(n) + '">' + esc(n) + '</option>'; });
+        sel.innerHTML = h;
+        mostrarRecipientes();
+    }
+    function mostrarRecipientes() {
+        const d = dadosAtuais();
+        const adega = document.getElementById('sel-adega').value;
+        const vinho = document.getElementById('sel-vinho').value;
+        const box = document.getElementById('recip-box');
+        document.getElementById('vinhoNome').value = vinho || '';
+        const recs = (adega && vinho && d.recipientes[adega + '|' + vinho]) ? d.recipientes[adega + '|' + vinho] : [];
+        if (!recs.length) {
+            box.innerHTML = '<span class="text-muted small">Escolha adega e vinho.</span>';
+            document.getElementById('recipientesDescricao').value = '';
+            return;
+        }
+        box.innerHTML = '<ul class="mb-0">' + recs.map(function (r) {
+            return '<li>' + esc(r.local) + ' — ' + esc(r.litros) + ' L <span class="text-muted small">(' + esc(r.codigo) + ')</span></li>';
+        }).join('') + '</ul>';
+        document.getElementById('recipientesDescricao').value = recs.map(function (r) {
+            return r.local + ': ' + r.litros + ' L (' + r.codigo + ')';
+        }).join('; ');
+    }
+
+    document.addEventListener('DOMContentLoaded', popularAdegas);
+</script>
+</body>
+</html>

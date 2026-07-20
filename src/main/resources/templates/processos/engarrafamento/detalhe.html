@@ -7,6 +7,16 @@
 <div th:replace="~{fragments/layout :: mensagens}"></div>
 
 <div class="container">
+    <!-- Aviso de capacidade excedida: permite fechar mesmo assim (Fase 6). -->
+    <div th:if="${avisoCapacidade != null}" class="alert alert-warning d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-exclamation-triangle"></i> <span th:text="${avisoCapacidade}"></span></span>
+        <form th:if="${engarrafamento.aberto}" th:action="@{/processos/engarrafamento/{id}/fechar(id=${engarrafamento.id})}" method="post" class="d-inline"
+              onsubmit="return confirm('A capacidade será excedida. Fechar mesmo assim?');">
+            <input type="hidden" name="forcar" value="true">
+            <button class="btn btn-warning"><i class="bi bi-lock"></i> Fechar mesmo assim</button>
+        </form>
+    </div>
+
     <div class="d-flex justify-content-between align-items-center mb-3">
         <h3 class="mb-0">
             <i class="bi bi-droplet-half"></i>

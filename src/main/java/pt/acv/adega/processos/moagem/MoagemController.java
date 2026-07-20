@@ -219,11 +219,7 @@ public class MoagemController {
             if (semRecipiente && e.getQuantidadeMoidaKg() == null && e.getLitros() == null) continue;
             e.setId(null);
             resolverRecipiente(e);
-            if (e.getCasta() != null && e.getCasta().getId() != null) {
-                castaRepo.findById(e.getCasta().getId()).ifPresent(e::setCasta);
-            } else {
-                e.setCasta(null);
-            }
+            resolverCastas(e);
             e.setMoagem(m);
             m.getEnchimentos().add(e);
         }
@@ -246,6 +242,23 @@ public class MoagemController {
         if (capacidade == null) return false;
         BigDecimal v = volume == null ? BigDecimal.ZERO : volume;
         return v.compareTo(capacidade) >= 0;
+    }
+
+    /** Resolve os ids de casta vindos do multi-select para a lista de castas (e a principal). */
+    private void resolverCastas(Enchimento e) {
+        List<Casta> castas = new ArrayList<>();
+        List<Long> ids = e.getCastaIds();
+        // Compatibilidade: se vier a casta única (binding antigo), usa o id dela.
+        if ((ids == null || ids.isEmpty()) && e.getCasta() != null && e.getCasta().getId() != null) {
+            ids = List.of(e.getCasta().getId());
+        }
+        if (ids != null) {
+            for (Long cid : ids) {
+                if (cid != null) castaRepo.findById(cid).ifPresent(castas::add);
+            }
+        }
+        e.setCastas(castas);
+        e.setCasta(castas.isEmpty() ? null : castas.get(0));
     }
 
     private void resolverRecipiente(Enchimento e) {

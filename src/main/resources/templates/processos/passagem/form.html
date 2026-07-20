@@ -6,7 +6,9 @@
 
 <div class="container">
     <h3 class="mb-1" th:text="${passagem.id == null} ? 'Passagem a limpo (Vinho está Pronto) — novo registo' : 'Editar registo'">Passagem a limpo</h3>
-    <p class="text-muted">Fase 4.4 — Fermentação · Passagem a limpo. Selecione os mostos que ficaram prontos. Ao <strong>fechar</strong>, passam a <strong>vinho pronto a granel</strong>.</p>
+    <p class="text-muted">Fase 4.4 — Fermentação · Passagem a limpo. Escolha a adega e marque os mostos prontos.
+        Para cada um indique <strong>quantos litros passam efetivamente a limpo</strong> (a diferença é perda/borras)
+        e, se quiser, a <strong>talha de destino</strong> (da mesma adega). Ao <strong>fechar</strong>, passam a vinho pronto a granel.</p>
 
     <div class="card shadow-sm"><div class="card-body">
         <form th:action="@{/processos/passagem-vinho}" th:object="${passagem}" method="post" class="row g-3">
@@ -40,32 +42,28 @@
                     <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
                 </select>
             </div>
-            <div class="col-md-9">
-                <label class="form-label">Mostos em fermentação a passar a vinho (nesta adega)</label>
-                <div class="border rounded p-2" id="pv-mostos" style="max-height:220px;overflow:auto;">
+            <div class="col-12">
+                <label class="form-label">Mostos em fermentação (nesta adega)</label>
+                <div class="border rounded p-2" id="pv-mostos">
                     <span class="text-muted small">Escolha uma adega.</span>
                 </div>
                 <div class="mt-1" th:if="${passagem.mostosDescricao != null}">
-                    <span class="text-muted small">Já selecionados: </span>
+                    <span class="text-muted small">Já registados: </span>
                     <span class="small" th:text="${passagem.mostosDescricao}"></span>
                 </div>
             </div>
-            <div class="col-md-12">
-                <div class="row g-3">
-                <div class="row g-3">
-                    <div class="col-12">
-                        <label class="form-label">Meios utilizados</label>
-                        <input type="text" class="form-control" th:field="*{meios}">
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">Métodos utilizados</label>
-                        <input type="text" class="form-control" th:field="*{metodos}">
-                    </div>
-                    <div class="col-12">
-                        <label class="form-label">Observações</label>
-                        <textarea class="form-control" th:field="*{observacoes}" rows="2"></textarea>
-                    </div>
-                </div>
+
+            <div class="col-12">
+                <label class="form-label">Meios utilizados</label>
+                <input type="text" class="form-control" th:field="*{meios}">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Métodos utilizados</label>
+                <input type="text" class="form-control" th:field="*{metodos}">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Observações</label>
+                <textarea class="form-control" th:field="*{observacoes}" rows="2"></textarea>
             </div>
 
             <div class="col-12">
@@ -80,6 +78,18 @@
 <div th:replace="~{fragments/layout :: scripts}"></div>
 <script th:inline="javascript">
     const mostosPorAdega = /*[[${mostosPorAdega}]]*/ {};
+    const talhasPorAdega = /*[[${talhasPorAdega}]]*/ {};
+    // Linhas ja guardadas (ao editar): mostoId -> {litros, destino}.
+    const selecionados = /*[[${selecionados}]]*/ {};
+    const adegaSelecionada = /*[[${adegaSelecionada}]]*/ '';
+
+    function opcoesTalha(adega) {
+        let h = '<option value="0">Fica onde está</option>';
+        const ts = talhasPorAdega[adega] || [];
+        ts.forEach(function (t) { h += '<option value="' + t.id + '">' + escapar(t.label) + '</option>'; });
+        return h;
+    }
+
     function filtrarMostos() {
         const adega = document.getElementById('pv-adega').value;
         const box = document.getElementById('pv-mostos');
@@ -88,13 +98,51 @@
             box.innerHTML = '<span class="text-muted small">' + (adega ? 'Sem mostos em fermentação nesta adega.' : 'Escolha uma adega.') + '</span>';
             return;
         }
-        box.innerHTML = lista.map(function (m) {
-            return '<div class="form-check">'
-                + '<input class="form-check-input" type="checkbox" name="mostoIds" value="' + m.id + '" id="pvm' + m.id + '">'
-                + '<label class="form-check-label small" for="pvm' + m.id + '">' + m.label + '</label></div>';
-        }).join('');
+        const talhaOpts = opcoesTalha(adega);
+        let h = '<div class="row g-1 fw-bold small text-muted mb-1">'
+            + '<div class="col-md-6">Mosto</div><div class="col-md-2">Litros efetivos</div><div class="col-md-4">Vai para</div></div>';
+        lista.forEach(function (m) {
+            const sel = selecionados[m.id];
+            const on = !!sel;
+            const litros = on ? sel.litros : m.litros;
+            h += '<div class="row g-1 align-items-center mb-1">'
+                + '<div class="col-md-6"><div class="form-check mb-0">'
+                + '<input class="form-check-input pv-inc" type="checkbox" id="pvc' + m.id + '"' + (on ? ' checked' : '') + ' onchange="toggleRow(this)">'
+                + '<input type="hidden" name="itemMostoId" value="' + m.id + '"' + (on ? '' : ' disabled') + '>'
+                + '<label class="form-check-label small" for="pvc' + m.id + '">' + escapar(m.label) + '</label></div></div>'
+                + '<div class="col-md-2"><input type="number" step="0.01" min="0.01" name="itemLitros" value="' + litros + '" class="form-control form-control-sm"' + (on ? '' : ' disabled') + '></div>'
+                + '<div class="col-md-4"><select name="itemTalhaDestino" class="form-select form-select-sm"' + (on ? '' : ' disabled') + '>' + talhaOpts + '</select></div>'
+                + '</div>';
+        });
+        box.innerHTML = h;
+
+        // Repoe a talha de destino de cada linha ja guardada.
+        lista.forEach(function (m) {
+            const sel = selecionados[m.id];
+            if (!sel) return;
+            const chk = document.getElementById('pvc' + m.id);
+            const combo = chk.closest('.row').querySelector('select[name="itemTalhaDestino"]');
+            if (combo) combo.value = String(sel.destino);
+        });
     }
-    document.addEventListener('DOMContentLoaded', filtrarMostos);
+
+    function toggleRow(chk) {
+        const row = chk.closest('.row');
+        const on = chk.checked;
+        row.querySelectorAll('input[name="itemMostoId"], input[name="itemLitros"], select[name="itemTalhaDestino"]')
+            .forEach(function (el) { el.disabled = !on; });
+    }
+
+    function escapar(t) {
+        const d = document.createElement('div');
+        d.textContent = t == null ? '' : t;
+        return d.innerHTML;
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        if (adegaSelecionada) document.getElementById('pv-adega').value = adegaSelecionada;
+        filtrarMostos();
+    });
 </script>
 </body>
 </html>

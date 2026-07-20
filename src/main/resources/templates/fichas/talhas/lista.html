@@ -18,12 +18,12 @@
             <table class="table table-hover mb-0 align-middle">
                 <thead>
                 <tr><th>Código</th><th>Identificação</th><th>Adega</th><th class="text-end">Capac. (L)</th>
-                    <th class="text-end">Volume (L)</th><th>Estado</th><th>Propriedade</th><th class="text-end">Ações</th></tr>
+                    <th class="text-end">Volume (L)</th><th>Estado</th><th>Conteúdo</th><th>Propriedade</th><th class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
                 <tr th:each="t : ${talhas}">
                     <td><span class="codigo" th:text="${t.codigo}"></span></td>
-                    <td th:text="${t.identificacao}"></td>
+                    <td><a th:href="@{/fichas/talhas/{id}(id=${t.id})}" th:text="${t.identificacao}"></a></td>
                     <td th:text="${t.adega != null ? t.adega.nome : '—'}"></td>
                     <td class="text-end" th:text="${t.capacidadeLitros}"></td>
                     <td class="text-end" th:text="${t.volumeAtualLitros}"></td>
@@ -31,11 +31,15 @@
                         <span th:if="${t.vazia}" class="badge bg-secondary">Vazia</span>
                         <span th:unless="${t.vazia}" class="badge bg-success">Ocupada</span>
                     </td>
+                    <td class="small text-muted" style="max-width:280px;" th:text="${conteudoResumo.get(t.id) ?: '—'}"></td>
                     <td>
                         <span th:text="${t.propriedade.descricao}"></span>
                         <span th:if="${t.propriedade.name() == 'TERCEIRO'}" class="text-muted small" th:text="'(' + ${t.terceiro} + ')'"></span>
                     </td>
                     <td class="text-end">
+                        <a th:href="@{/fichas/talhas/{id}(id=${t.id})}" class="btn btn-sm btn-outline-primary" title="Ver conteúdo">
+                            <i class="bi bi-eye"></i>
+                        </a>
                         <a th:href="@{/fichas/talhas/{id}/etiqueta(id=${t.id})}" target="_blank" class="btn btn-sm btn-outline-dark" title="Etiqueta">
                             <i class="bi bi-printer"></i>
                         </a>
@@ -48,7 +52,7 @@
                         </form>
                     </td>
                 </tr>
-                <tr th:if="${talhas.isEmpty()}"><td colspan="8" class="text-center text-muted py-4">Sem talhas registadas.</td></tr>
+                <tr th:if="${talhas.isEmpty()}"><td colspan="9" class="text-center text-muted py-4">Sem talhas registadas.</td></tr>
                 </tbody>
             </table>
         </div>

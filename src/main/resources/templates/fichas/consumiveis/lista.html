@@ -17,7 +17,7 @@
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle">
                 <thead>
-                <tr><th>Código</th><th>Tipo</th><th>Descrição</th><th class="text-end">Capac. (ml)</th>
+                <tr><th>Código</th><th>Tipo</th><th>Descrição</th><th class="text-end">Capacidade</th>
                     <th class="text-end">Stock</th><th class="text-end">Mínimo</th><th>Propriedade</th><th class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
@@ -30,7 +30,7 @@
                             <i class="bi bi-exclamation-triangle"></i> baixo
                         </span>
                     </td>
-                    <td class="text-end" th:text="${c.capacidadeMl}"></td>
+                    <td class="text-end" th:text="${c.capacidadeMl == null ? '—' : (c.tipo.name() == 'CAIXA' ? c.capacidadeMl + ' garrafas' : c.capacidadeMl + ' ml')}"></td>
                     <td class="text-end fw-semibold" th:text="${c.stock}"></td>
                     <td class="text-end" th:text="${c.stockMinimo}"></td>
                     <td>

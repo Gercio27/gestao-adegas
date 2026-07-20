@@ -9,7 +9,8 @@
     <p class="text-muted">Fase 5. A certificação é <strong>por depósito</strong> (a granel) ou por <strong>lote engarrafado</strong> (só depois do engarrafamento). Ao <strong>fechar</strong> com <em>Aprovado</em>, os itens ficam certificados.</p>
 
     <div class="card shadow-sm"><div class="card-body">
-        <form th:action="@{/processos/certificacao}" th:object="${cert}" method="post" class="row g-3">
+        <form th:action="@{/processos/certificacao}" th:object="${cert}" method="post" class="row g-3"
+              enctype="multipart/form-data">
             <input type="hidden" th:field="*{id}">
             <input type="hidden" th:field="*{codigo}">
 
@@ -41,10 +42,19 @@
                 <div class="border rounded p-2" id="cert-granel-itens"><span class="text-muted small">Escolha a adega e o vinho.</span></div>
             </div>
 
-            <!-- ENGARRAFADO: lotes -->
-            <div class="col-12 grp-eng">
-                <label class="form-label">Lotes engarrafados por certificar (marque os que vai certificar; escolha a amostra)</label>
-                <div class="border rounded p-2" id="cert-eng-itens"><span class="text-muted small">A carregar…</span></div>
+            <!-- ENGARRAFADO: de que contentor saem as garrafas -->
+            <div class="col-md-8 grp-eng">
+                <label class="form-label">Contentor (de onde saem as garrafas para certificação)</label>
+                <select class="form-select" th:field="*{contentorId}">
+                    <option th:value="${null}">— escolher contentor —</option>
+                    <option th:each="c : ${contentoresDisponiveis}" th:value="${c.id}" th:text="${c.label}"></option>
+                </select>
+                <div class="form-text">Só aparecem contentores com garrafas de vinho ainda não certificado.</div>
+            </div>
+            <div class="col-md-4 grp-eng">
+                <label class="form-label">Garrafas para certificação</label>
+                <input type="number" min="0" class="form-control" th:field="*{garrafasCertificacao}">
+                <div class="form-text">Quantas garrafas foram tiradas do contentor.</div>
             </div>
 
             <div th:if="${cert.itensDescricao != null}" class="col-12">
@@ -89,6 +99,15 @@
                 <input type="text" class="form-control" th:field="*{observacoes}">
             </div>
 
+            <div class="col-md-6">
+                <label class="form-label">PDF do certificado</label>
+                <input type="file" class="form-control" name="certificadoFicheiro" accept="application/pdf">
+                <div class="form-text" th:if="${cert.temPdf}">
+                    Já carregado: <a th:href="@{/processos/certificacao/{id}/certificado(id=${cert.id})}" target="_blank"
+                                     th:text="${cert.certificadoPdfNome ?: 'ver PDF'}"></a>. Escolher novo substitui-o.
+                </div>
+            </div>
+
             <div class="col-12">
                 <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
                 <a th:href="@{/processos/certificacao}" class="btn btn-outline-secondary">Cancelar</a>
@@ -100,7 +119,6 @@
 <div th:replace="~{fragments/layout :: scripts}"></div>
 <script th:inline="javascript">
     const granelDisponivel = /*[[${granelDisponivel}]]*/ [];
-    const engarrafadosDisponiveis = /*[[${engarrafadosDisponiveis}]]*/ [];
 
     function linhaItem(id, label) {
         return '<div class="d-flex align-items-center gap-3 py-1">'
@@ -121,13 +139,6 @@
             : '<span class="text-muted small">Sem depósitos por certificar para este vinho nesta adega.</span>';
     }
 
-    function carregarEngarrafados() {
-        const box = document.getElementById('cert-eng-itens');
-        box.innerHTML = engarrafadosDisponiveis.length
-            ? engarrafadosDisponiveis.map(function (v) { return linhaItem(v.id, v.label); }).join('')
-            : '<span class="text-muted small">Sem lotes engarrafados por certificar. Engarrafe primeiro (Fase 6).</span>';
-    }
-
     function toggleAlvo() {
         const granel = (document.getElementById('cert-alvo').value === 'GRANEL');
         document.querySelectorAll('.grp-granel').forEach(function (e) { e.style.display = granel ? '' : 'none'; });
@@ -137,7 +148,6 @@
     document.addEventListener('DOMContentLoaded', function () {
         toggleAlvo();
         filtrarGranel();
-        carregarEngarrafados();
     });
 </script>
 </body>

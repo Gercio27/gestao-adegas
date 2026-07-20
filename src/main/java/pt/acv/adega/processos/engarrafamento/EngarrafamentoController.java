@@ -159,14 +159,20 @@ public class EngarrafamentoController {
     }
 
     @PostMapping("/{id}/fechar")
-    public String fechar(@PathVariable Long id, Authentication auth, RedirectAttributes ra) {
+    public String fechar(@PathVariable Long id, @RequestParam(defaultValue = "false") boolean forcar,
+                         Authentication auth, RedirectAttributes ra) {
         ProcessoEngarrafamento p = repo.findById(id).orElse(null);
         if (p == null || !podeAceder(p, auth)) { ra.addFlashAttribute("erro", "Sem acesso a este processo."); return "redirect:/processos/engarrafamento"; }
         try {
-            service.fechar(id);
+            service.fechar(id, forcar);
             ra.addFlashAttribute("sucesso", "Engarrafamento fechado. Baixa de vinho, garrafas e rolhas; vinho engarrafado criado e colocado nos contentores.");
         } catch (EngarrafamentoException ex) {
-            ra.addFlashAttribute("erro", ex.getMessage());
+            if (ex.isCapacidade()) {
+                // Só um aviso de capacidade: deixa o utilizador fechar mesmo assim.
+                ra.addFlashAttribute("avisoCapacidade", ex.getMessage());
+            } else {
+                ra.addFlashAttribute("erro", ex.getMessage());
+            }
         }
         return "redirect:/processos/engarrafamento/" + id;
     }
