@@ -68,9 +68,9 @@ spring:
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
-      # RESET pontual: 'create' recria as tabelas VAZIAS no arranque (apaga tudo).
-      # Reverter para 'update' assim que a base estiver limpa, senao apaga a cada
-      # arranque. Controlavel por variavel de ambiente DDL_AUTO no Railway.
-      ddl-auto: ${DDL_AUTO:create}
+      # Normal: 'update' mantem os dados entre arranques.
+      # Para limpar a base pontualmente: definir a variavel de ambiente
+      # DDL_AUTO=create no Railway, fazer redeploy, e depois voltar a DDL_AUTO=update.
+      ddl-auto: ${DDL_AUTO:update}
     # O dialeto e detetado automaticamente pelo Hibernate (MySQL 8+).
     open-in-view: true
