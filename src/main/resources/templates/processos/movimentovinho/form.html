@@ -36,7 +36,12 @@
 
             <div class="col-md-6" id="grpNome">
                 <label class="form-label">Nome do vinho</label>
-                <input type="text" class="form-control" th:field="*{nomeVinho}" id="mv-nome" placeholder="Nome do vinho">
+                <input type="text" class="form-control" th:field="*{nomeVinho}" id="mv-nome" placeholder="Nome do vinho"
+                       list="mv-nomes-conhecidos" autocomplete="off">
+                <datalist id="mv-nomes-conhecidos">
+                    <option th:each="n : ${nomesConhecidos}" th:value="${n}"></option>
+                </datalist>
+                <div class="form-text">Escolha um vinho existente ou escreva um novo (entrada externa).</div>
             </div>
 
             <!-- ORIGEM (SAÍDA / TRANSFEGA) -->

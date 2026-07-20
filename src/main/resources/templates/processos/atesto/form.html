@@ -14,10 +14,18 @@
             <input type="hidden" th:field="*{codigo}">
 
             <div class="col-md-4">
+                <label class="form-label">Adega *</label>
+                <select class="form-select" id="at-adega" onchange="popularVinhos()"
+                        th:attr="data-sel=${atesto.adega != null ? atesto.adega.id : ''}">
+                    <option value="">— escolher adega —</option>
+                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"
+                            th:selected="${atesto.adega != null and atesto.adega.id == a.id}"></option>
+                </select>
+            </div>
+            <div class="col-md-4">
                 <label class="form-label">Vinho (da moagem)</label>
                 <select class="form-select" id="at-vinho" onchange="popularOrigem()">
                     <option value="">— escolher vinho —</option>
-                    <option th:each="v : ${vinhos}" th:value="${v.id}" th:text="${v.nome}"></option>
                 </select>
             </div>
             <div class="col-md-4">
@@ -87,13 +95,30 @@
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
 <script th:inline="javascript">
+    const vinhosPorAdega = /*[[${vinhosPorAdega}]]*/ {};
     const origensPorVinho = /*[[${origensPorVinho}]]*/ {};
     const destinosPorAdega = /*[[${destinosPorAdega}]]*/ {};
 
+    function adegaSel() { return document.getElementById('at-adega').value; }
+
+    // Adega -> lista de vinhos dessa adega.
+    function popularVinhos() {
+        const adega = adegaSel();
+        const vinho = document.getElementById('at-vinho');
+        const lista = (adega && vinhosPorAdega[adega]) ? vinhosPorAdega[adega] : [];
+        let html = '<option value="">— escolher vinho —</option>';
+        lista.forEach(function (v) { html += '<option value="' + v.id + '">' + v.nome + '</option>'; });
+        vinho.innerHTML = html;
+        popularOrigem();
+    }
+
+    // Vinho (na adega escolhida) -> origens desse vinho nessa adega.
     function popularOrigem() {
+        const adega = adegaSel();
         const vinho = document.getElementById('at-vinho').value;
         const origem = document.querySelector('[name="origemRef"]');
-        const lista = (vinho && origensPorVinho[vinho]) ? origensPorVinho[vinho] : [];
+        let lista = (vinho && origensPorVinho[vinho]) ? origensPorVinho[vinho] : [];
+        if (adega) lista = lista.filter(function (o) { return String(o.adegaId) === adega; });
         let html = '<option value="">—</option>';
         lista.forEach(function (o) {
             html += '<option value="' + o.ref + '" data-adega="' + o.adegaId + '">' + o.label + '</option>';
@@ -102,11 +127,10 @@
         popularDestino();
     }
 
+    // Destino: recipientes da adega escolhida.
     function popularDestino() {
-        const origem = document.querySelector('[name="origemRef"]');
+        const adega = adegaSel();
         const destino = document.querySelector('[name="destinoRef"]');
-        const opt = origem.options[origem.selectedIndex];
-        const adega = (opt && opt.dataset.adega) ? opt.dataset.adega : '';
         const guardado = destino.dataset.sel || '';
         const lista = (adega && destinosPorAdega[adega]) ? destinosPorAdega[adega] : [];
         let html = '<option value="">—</option>';

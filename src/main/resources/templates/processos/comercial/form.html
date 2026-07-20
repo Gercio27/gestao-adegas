@@ -38,9 +38,13 @@
                 <label class="form-label">Morada de destino</label>
                 <input type="text" class="form-control" th:field="*{moradaDestino}">
             </div>
+            <div class="col-md-6">
+                <label class="form-label">Responsável pela receção (quem assina a nota)</label>
+                <input type="text" class="form-control" th:field="*{responsavelRececao}" placeholder="Nome de quem recebe a entrega">
+            </div>
 
             <div class="col-md-4">
-                <label class="form-label">Responsável</label>
+                <label class="form-label">Responsável (expedidor)</label>
                 <select class="form-select" th:field="*{responsavel}">
                     <option th:value="${null}">—</option>
                     <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"></option>

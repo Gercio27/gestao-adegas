@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Talha')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-start mb-3">
+        <div>
+            <h3 class="mb-1">
+                <i class="bi bi-database"></i>
+                Talha <span th:text="${talha.identificacao}">T-01</span>
+                <span class="codigo ms-2" th:text="${talha.codigo}"></span>
+            </h3>
+            <p class="text-muted mb-0">
+                <span th:text="${talha.adega != null ? talha.adega.nome : 'sem adega'}"></span> ·
+                <span th:text="${(talha.volumeAtualLitros != null ? talha.volumeAtualLitros : 0) + ' L'}"></span>
+                <span th:if="${talha.capacidadeLitros != null}" th:text="'de ' + ${talha.capacidadeLitros} + ' L'"></span> ·
+                <span th:if="${talha.vazia}" class="badge bg-secondary">Vazia</span>
+                <span th:unless="${talha.vazia}" class="badge bg-success">Ocupada</span>
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <a th:href="@{/fichas/talhas/{id}/editar(id=${talha.id})}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-pencil"></i> Editar ficha
+            </a>
+            <a th:href="@{/fichas/talhas}" class="btn btn-outline-secondary btn-sm">Voltar</a>
+        </div>
+    </div>
+
+    <!-- ===== Conteúdo atual ===== -->
+    <div class="card shadow-sm mb-3">
+        <div class="card-header bg-white"><strong>Conteúdo da talha</strong>
+            <span class="text-muted"> — o que está lá dentro (mosto ou vinho)</span></div>
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                <tr><th>Código</th><th>Tipo</th><th>Casta(s)</th><th class="text-end">Litros</th>
+                    <th>Vinho / Lote</th><th>Origem</th><th class="text-end">Ações</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="m : ${conteudos}">
+                    <td><span class="codigo" th:text="${m.codigo}"></span></td>
+                    <td>
+                        <span th:if="${m.estado.name() == 'VINHO_GRANEL'}" class="badge bg-danger-subtle text-danger-emphasis"
+                              th:text="${m.estado.descricao}"></span>
+                        <span th:unless="${m.estado.name() == 'VINHO_GRANEL'}" class="badge bg-warning-subtle text-warning-emphasis"
+                              th:text="${m.estado.descricao}"></span>
+                    </td>
+                    <td th:text="${m.castasDescricao}"></td>
+                    <td class="text-end" th:text="${m.litros} + ' L'"></td>
+                    <td>
+                        <span th:if="${m.vinhoNome != null}" th:text="${m.vinhoNome}"></span>
+                        <span th:if="${m.loteCodigo != null}" class="text-muted small" th:text="'· ' + ${m.loteCodigo}"></span>
+                        <span th:if="${m.vinhoNome == null and m.loteCodigo == null}" class="text-muted">—</span>
+                    </td>
+                    <td class="small text-muted" th:text="${m.origemDescricao ?: '—'}"></td>
+                    <td class="text-end">
+                        <form th:if="${m.origemMoagemId == null and m.origemMovimentoId == null}" method="post"
+                              th:action="@{/fichas/talhas/{id}/conteudo/{mid}/remover(id=${talha.id},mid=${m.id})}"
+                              onsubmit="return confirm('Remover este conteúdo da talha?');">
+                            <button class="btn btn-sm btn-outline-danger" type="submit" title="Remover conteúdo">
+                                <i class="bi bi-x-lg"></i>
+                            </button>
+                        </form>
+                        <span th:unless="${m.origemMoagemId == null and m.origemMovimentoId == null}"
+                              class="text-muted small" title="Veio de um processo — reverta o processo para remover">
+                            <i class="bi bi-lock"></i>
+                        </span>
+                    </td>
+                </tr>
+                <tr th:if="${conteudos.isEmpty()}">
+                    <td colspan="7" class="text-center text-muted py-4">A talha está vazia.</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- ===== Inserir conteúdo manualmente ===== -->
+    <div class="card shadow-sm">
+        <div class="card-header bg-white"><strong>Inserir conteúdo manualmente</strong>
+            <span class="text-muted"> — registar à mão o que a talha tem (mosto ou vinho)</span></div>
+        <div class="card-body">
+            <form th:action="@{/fichas/talhas/{id}/conteudo(id=${talha.id})}" method="post" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Tipo *</label>
+                    <select class="form-select" name="estado" required>
+                        <option th:each="e : ${estados}" th:value="${e}" th:text="${e.descricao}"></option>
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Casta(s)</label>
+                    <select multiple size="3" class="form-select" name="castaIds"
+                            title="Segure Ctrl (ou Cmd) para escolher mais que uma casta">
+                        <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Litros *</label>
+                    <input type="number" step="0.01" min="0.01" class="form-control" name="litros" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Nome do vinho <span class="text-muted small">(se vinho)</span></label>
+                    <input type="text" class="form-control" name="vinhoNome" placeholder="opcional">
+                </div>
+                <div class="col-12">
+                    <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">
+                        <i class="bi bi-plus-lg"></i> Inserir
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

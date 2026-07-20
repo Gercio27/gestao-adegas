@@ -18,7 +18,7 @@
             </div>
             <div class="col-md-4">
                 <label class="form-label">Tipo *</label>
-                <select class="form-select" th:field="*{tipo}">
+                <select class="form-select" th:field="*{tipo}" id="cs-tipo" onchange="ajustarCapacidade()">
                     <option th:each="t : ${tipos}" th:value="${t}" th:text="${t.descricao}"></option>
                 </select>
             </div>
@@ -28,9 +28,9 @@
                 <div class="text-danger small" th:if="${#fields.hasErrors('descricao')}" th:errors="*{descricao}"></div>
             </div>
             <div class="col-md-3">
-                <label class="form-label">Capacidade (ml)</label>
-                <input type="number" min="0" class="form-control" th:field="*{capacidadeMl}" placeholder="750">
-                <div class="form-text">Para garrafas.</div>
+                <label class="form-label" id="cs-cap-label">Capacidade (ml)</label>
+                <input type="number" min="0" class="form-control" th:field="*{capacidadeMl}" id="cs-cap" placeholder="750">
+                <div class="form-text" id="cs-cap-hint">Para garrafas.</div>
             </div>
             <div class="col-md-3">
                 <label class="form-label">Stock</label>
@@ -69,8 +69,16 @@
     function toggleTerceiro(sel) {
         document.getElementById('grpTerceiro').style.display = (sel.value === 'TERCEIRO') ? '' : 'none';
     }
+    // Para a Caixa, a "capacidade" é o nº de garrafas que a caixa leva (não ml).
+    function ajustarCapacidade() {
+        const caixa = document.getElementById('cs-tipo').value === 'CAIXA';
+        document.getElementById('cs-cap-label').textContent = caixa ? 'Nº de garrafas por caixa' : 'Capacidade (ml)';
+        document.getElementById('cs-cap-hint').textContent = caixa ? 'Garrafas que a caixa leva.' : 'Para garrafas.';
+        document.getElementById('cs-cap').placeholder = caixa ? '6' : '750';
+    }
     document.addEventListener('DOMContentLoaded', function () {
         toggleTerceiro(document.querySelector('[name=propriedade]'));
+        ajustarCapacidade();
     });
 </script>
 </body>

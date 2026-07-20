@@ -34,6 +34,16 @@
             <dt class="col-sm-3">Alvo</dt><dd class="col-sm-9" th:text="${cert.alvo.descricao}"></dd>
             <dt class="col-sm-3">Itens certificados</dt><dd class="col-sm-9" th:text="${cert.itensDescricao ?: cert.alvoDescricao}"></dd>
             <dt class="col-sm-3">Amostra CVR/IVV</dt><dd class="col-sm-9" th:text="${cert.alvoDescricao}"></dd>
+            <th:block th:if="${cert.alvo.name() == 'ENGARRAFADO'}">
+                <dt class="col-sm-3">Saíram do contentor</dt><dd class="col-sm-9" th:text="${cert.contentorDescricao ?: '—'}"></dd>
+                <dt class="col-sm-3">Garrafas p/ certificação</dt><dd class="col-sm-9" th:text="${cert.garrafasCertificacao}"></dd>
+            </th:block>
+            <dt class="col-sm-3">PDF do certificado</dt>
+            <dd class="col-sm-9">
+                <a th:if="${cert.temPdf}" th:href="@{/processos/certificacao/{id}/certificado(id=${cert.id})}" target="_blank">
+                    <i class="bi bi-file-earmark-pdf"></i> <span th:text="${cert.certificadoPdfNome ?: 'ver PDF'}"></span></a>
+                <span th:unless="${cert.temPdf}" class="text-muted">— (sem ficheiro)</span>
+            </dd>
             <dt class="col-sm-3">Entidade</dt><dd class="col-sm-9" th:text="${cert.entidade ?: '—'}"></dd>
             <dt class="col-sm-3">Data do pedido</dt><dd class="col-sm-9" th:text="${cert.dataPedido != null ? #temporals.format(cert.dataPedido,'dd-MM-yyyy') : '—'}"></dd>
             <dt class="col-sm-3">Nº certificado</dt><dd class="col-sm-9" th:text="${cert.numeroCertificado ?: '—'}"></dd>

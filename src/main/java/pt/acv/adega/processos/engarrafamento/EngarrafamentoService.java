@@ -9,7 +9,9 @@ import pt.acv.adega.produtos.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -45,6 +47,11 @@ public class EngarrafamentoService {
 
     @Transactional
     public void fechar(Long id) {
+        fechar(id, false);
+    }
+
+    @Transactional
+    public void fechar(Long id, boolean forcar) {
         ProcessoEngarrafamento p = repo.findById(id)
                 .orElseThrow(() -> new EngarrafamentoException("Engarrafamento não encontrado."));
         if (p.getEstado() == EstadoProcesso.FECHADO) throw new EngarrafamentoException("O engarrafamento já está fechado.");
@@ -110,16 +117,29 @@ public class EngarrafamentoService {
         engarrafadoRepo.save(veg);
 
         // Colocar as garrafas nos contentores indicados (se houver distribuicao).
-        for (Map.Entry<Long, Integer> e : parseDistribuicao(p.getDistribuicaoContentores()).entrySet()) {
+        // A capacidade PODE ser excedida — mas só depois de o utilizador confirmar
+        // (forcar=true). Sem confirmação, avisa e não fecha.
+        Map<Long, Integer> distribuicao = parseDistribuicao(p.getDistribuicaoContentores());
+        if (!forcar) {
+            List<String> avisos = new ArrayList<>();
+            for (Map.Entry<Long, Integer> e : distribuicao.entrySet()) {
+                ContentorGarrafas c = contentorRepo.findById(e.getKey()).orElse(null);
+                if (c == null) continue;
+                int novoTotal = c.getGarrafasAtuais() + e.getValue();
+                if (c.getCapacidadeGarrafas() > 0 && novoTotal > c.getCapacidadeGarrafas()) {
+                    avisos.add(String.format("%s excede o máximo em %d garrafa(s) (máx. %d, ficaria com %d)",
+                            c.getNome(), novoTotal - c.getCapacidadeGarrafas(), c.getCapacidadeGarrafas(), novoTotal));
+                }
+            }
+            if (!avisos.isEmpty()) {
+                throw new EngarrafamentoException(
+                        "Capacidade excedida: " + String.join("; ", avisos) + ". Pode fechar mesmo assim.", true);
+            }
+        }
+        for (Map.Entry<Long, Integer> e : distribuicao.entrySet()) {
             ContentorGarrafas c = contentorRepo.findById(e.getKey()).orElse(null);
             if (c == null) continue;
-            int novoTotal = c.getGarrafasAtuais() + e.getValue();
-            if (c.getCapacidadeGarrafas() > 0 && novoTotal > c.getCapacidadeGarrafas()) {
-                throw new EngarrafamentoException(String.format(
-                        "Contentor %s: capacidade excedida. Cabem %d, tem %d, a colocar %d.",
-                        c.getNome(), c.getCapacidadeGarrafas(), c.getGarrafasAtuais(), e.getValue()));
-            }
-            c.setGarrafasAtuais(novoTotal);
+            c.setGarrafasAtuais(c.getGarrafasAtuais() + e.getValue());
             c.setVinhoEngarrafadoId(veg.getId());
             c.setVinhoNome(veg.getNome());
             c.setRotulado(false);

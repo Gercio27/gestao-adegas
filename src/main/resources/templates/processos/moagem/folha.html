@@ -63,7 +63,7 @@
 
                 <div class="small fw-bold mb-1">Enchimentos — talha/depósito, casta, Kg moídos e litros de mosto</div>
                 <table class="table table-sm mb-0" style="max-width:760px;">
-                    <thead><tr><th style="width:36px;">#</th><th>Talha / Depósito</th><th>Casta</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th></tr></thead>
+                    <thead><tr><th style="width:36px;">#</th><th>Talha / Depósito</th><th>Casta</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th><th class="text-end">Álcool prov. (%)</th></tr></thead>
                     <tbody>
                     <tr th:each="i : ${#numbers.sequence(0,2)}">
                         <td class="text-muted" th:text="${i + 1}"></td>
@@ -75,8 +75,8 @@
                             </select>
                         </td>
                         <td>
-                            <select class="form-select form-select-sm" th:name="'enchimentos[' + ${i} + '].casta'">
-                                <option value="">—</option>
+                            <select multiple size="3" class="form-select form-select-sm" th:name="'enchimentos[' + ${i} + '].castaIds'"
+                                    title="Segure Ctrl (ou Cmd) para escolher mais que uma casta">
                                 <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
                             </select>
                         </td>
@@ -84,6 +84,8 @@
                                    th:name="'enchimentos[' + ${i} + '].quantidadeMoidaKg'"></td>
                         <td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end ench-litros"
                                    th:name="'enchimentos[' + ${i} + '].litros'"></td>
+                        <td><input type="number" step="0.01" min="0" max="30" class="form-control form-control-sm text-end"
+                                   th:name="'enchimentos[' + ${i} + '].alcoolProvavel'"></td>
                     </tr>
                     </tbody>
                 </table>
@@ -130,14 +132,15 @@
 
             <!-- Enchimentos registados -->
             <table class="table table-sm mb-2" th:if="${!mo.enchimentos.isEmpty()}" style="max-width:760px;">
-                <thead><tr><th style="width:36px;">#</th><th>Recipiente</th><th>Casta</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th><th></th></tr></thead>
+                <thead><tr><th style="width:36px;">#</th><th>Recipiente</th><th>Casta</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th><th class="text-end">Álcool prov.</th><th></th></tr></thead>
                 <tbody>
                 <tr th:each="e,s : ${mo.enchimentos}">
                     <td class="text-muted" th:text="${s.count}"></td>
                     <td th:text="${e.recipienteDescricao}"></td>
-                    <td th:text="${e.casta != null ? e.casta.nome : '—'}"></td>
+                    <td th:text="${e.castasDescricao}"></td>
                     <td class="text-end" th:text="${e.quantidadeMoidaKg != null ? e.quantidadeMoidaKg + ' kg' : '—'}"></td>
                     <td class="text-end" th:text="${e.litros != null ? e.litros + ' L' : '—'}"></td>
+                    <td class="text-end" th:text="${e.alcoolProvavel != null ? e.alcoolProvavel + ' %' : '—'}"></td>
                     <td class="text-end">
                         <form th:if="${mo.aberto}" th:action="@{/processos/moagem/enchimento/{eid}/eliminar(eid=${e.id})}" method="post"
                               class="d-inline" onsubmit="return confirm('Remover este enchimento?');">
@@ -153,7 +156,7 @@
                 <form th:action="@{/processos/moagem/{id}/enchimentos(id=${mo.id})}" method="post" class="mb-2">
                     <div class="small fw-bold mb-1">Acrescentar enchimento(s)</div>
                     <table class="table table-sm mb-0" style="max-width:760px;">
-                        <thead><tr><th style="width:36px;">#</th><th>Talha / Depósito</th><th>Casta</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th></tr></thead>
+                        <thead><tr><th style="width:36px;">#</th><th>Talha / Depósito</th><th>Casta</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th><th class="text-end">Álcool prov. (%)</th></tr></thead>
                         <tbody>
                         <tr th:each="i : ${#numbers.sequence(0,2)}">
                             <td class="text-muted" th:text="${i + 1}"></td>
@@ -165,8 +168,8 @@
                                 </select>
                             </td>
                             <td>
-                                <select class="form-select form-select-sm" th:name="'enchimentos[' + ${i} + '].casta'">
-                                    <option value="">—</option>
+                                <select multiple size="3" class="form-select form-select-sm" th:name="'enchimentos[' + ${i} + '].castaIds'"
+                                        title="Segure Ctrl (ou Cmd) para escolher mais que uma casta">
                                     <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
                                 </select>
                             </td>
@@ -193,13 +196,15 @@
             <div th:unless="${mo.aberto}">
                 <div class="small fw-bold mb-1">Mostos gerados</div>
                 <table class="table table-sm mb-2" style="max-width:720px;">
-                    <thead><tr><th>Mosto</th><th>Recipiente</th><th class="text-end">Litros</th><th>Casta</th></tr></thead>
+                    <thead><tr><th>Mosto</th><th>Vinho</th><th>Recipiente</th><th class="text-end">Litros</th><th>Casta</th><th class="text-end">Álcool prov.</th></tr></thead>
                     <tbody>
                     <tr th:each="mos : ${mostosPorMoagem.get(mo.id)}">
                         <td class="codigo small" th:text="${mos.codigo}"></td>
+                        <td class="small" th:text="${mos.vinhoNome ?: '—'}"></td>
                         <td th:text="${mos.talha != null ? 'Talha ' + mos.talha.identificacao : (mos.deposito != null ? 'Depósito ' + mos.deposito.identificacao : '—')}"></td>
                         <td class="text-end" th:text="${mos.litros != null ? mos.litros + ' L' : '—'}"></td>
-                        <td th:text="${mos.casta != null ? mos.casta.nome : '—'}"></td>
+                        <td th:text="${mos.castasDescricao}"></td>
+                        <td class="text-end" th:text="${mos.alcoolProvavel != null ? mos.alcoolProvavel + ' %' : '—'}"></td>
                     </tr>
                     </tbody>
                 </table>

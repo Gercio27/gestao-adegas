@@ -39,7 +39,8 @@
             <dt class="col-sm-3">Garrafas entregues</dt><dd class="col-sm-9" th:text="${comercial.quantidadeGarrafas}"></dd>
             <dt class="col-sm-3">Destinatário</dt><dd class="col-sm-9" th:text="${comercial.destinatario ?: '—'}"></dd>
             <dt class="col-sm-3">Morada</dt><dd class="col-sm-9" th:text="${comercial.moradaDestino ?: '—'}"></dd>
-            <dt class="col-sm-3">Responsável</dt><dd class="col-sm-9" th:text="${comercial.responsavel != null ? comercial.responsavel.nome : '—'}"></dd>
+            <dt class="col-sm-3">Responsável pela receção</dt><dd class="col-sm-9" th:text="${comercial.responsavelRececao ?: '—'}"></dd>
+            <dt class="col-sm-3">Responsável (expedidor)</dt><dd class="col-sm-9" th:text="${comercial.responsavel != null ? comercial.responsavel.nome : '—'}"></dd>
             <dt class="col-sm-3">Início</dt><dd class="col-sm-9" th:text="${comercial.dataHoraInicio != null ? #temporals.format(comercial.dataHoraInicio,'dd-MM-yyyy HH:mm') : '—'}"></dd>
             <dt class="col-sm-3">Observações</dt><dd class="col-sm-9" th:text="${comercial.observacoes ?: '—'}"></dd>
         </dl>

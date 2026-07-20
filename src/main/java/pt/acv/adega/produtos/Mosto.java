@@ -8,6 +8,9 @@ import pt.acv.adega.fichas.Talha;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Ficha de Mosto (produto 2.1). NAO e criada manualmente: resulta do processo
@@ -24,9 +27,17 @@ public class Mosto extends BaseEntity {
     @Column(precision = 12, scale = 2, nullable = false)
     private BigDecimal litros = BigDecimal.ZERO;
 
+    /** Casta principal (a primeira do lote); ver {@link #castas} para o conjunto. */
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "casta_id")
     private Casta casta;
+
+    /** Todas as castas do mosto/vinho (pode ser um lote de várias castas). */
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "mosto_casta",
+            joinColumns = @JoinColumn(name = "mosto_id"),
+            inverseJoinColumns = @JoinColumn(name = "casta_id"))
+    private List<Casta> castas = new ArrayList<>();
 
     /** Localizacao: um mosto esta numa talha OU num deposito/cuba. */
     @ManyToOne(fetch = FetchType.EAGER)
@@ -70,6 +81,13 @@ public class Mosto extends BaseEntity {
     public String getVinhoNome() { return vinhoNome; }
     public void setVinhoNome(String vinhoNome) { this.vinhoNome = vinhoNome; }
 
+    /** Álcool provável (% vol.) vindo da moagem (por enchimento). */
+    @Column(name = "alcool_provavel", precision = 5, scale = 2)
+    private BigDecimal alcoolProvavel;
+
+    public BigDecimal getAlcoolProvavel() { return alcoolProvavel; }
+    public void setAlcoolProvavel(BigDecimal alcoolProvavel) { this.alcoolProvavel = alcoolProvavel; }
+
     /** Certificacao (Fase 5.5) do vinho a granel. */
     @Column(nullable = false)
     private boolean certificado = false;
@@ -90,6 +108,18 @@ public class Mosto extends BaseEntity {
 
     public Casta getCasta() { return casta; }
     public void setCasta(Casta casta) { this.casta = casta; }
+
+    public List<Casta> getCastas() { return castas; }
+    public void setCastas(List<Casta> castas) { this.castas = castas; }
+
+    /** Nomes das castas juntos; cai na casta principal se a lista estiver vazia. */
+    @Transient
+    public String getCastasDescricao() {
+        if (castas != null && !castas.isEmpty()) {
+            return castas.stream().map(Casta::getNome).collect(Collectors.joining(", "));
+        }
+        return casta != null ? casta.getNome() : "—";
+    }
 
     public Talha getTalha() { return talha; }
     public void setTalha(Talha talha) { this.talha = talha; }

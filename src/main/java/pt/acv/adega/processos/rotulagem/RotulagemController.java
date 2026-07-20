@@ -111,7 +111,7 @@ public class RotulagemController {
         if (p == null || !podeAceder(p, auth)) { ra.addFlashAttribute("erro", "Sem acesso a este processo."); return "redirect:/processos/rotulagem"; }
         try {
             service.fechar(id);
-            ra.addFlashAttribute("sucesso", "Rotulagem fechada. Baixa de rótulos/cápsulas/caixas; vinho marcado como rotulado.");
+            ra.addFlashAttribute("sucesso", "Rotulagem fechada. Baixa de rótulos/cápsulas/caixas; garrafas rotuladas e enviadas para o comercial.");
         } catch (RotulagemException ex) {
             ra.addFlashAttribute("erro", ex.getMessage());
         }

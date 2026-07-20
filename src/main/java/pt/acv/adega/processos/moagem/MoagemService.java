@@ -85,14 +85,20 @@ public class MoagemService {
 
         // 2) Efetivar: criar mostos e somar volumes.
         String origem = descreverOrigem(m);
+        String nomeVinho = m.getPlano() != null ? m.getPlano().getNomeVinho() : null;
         for (Enchimento e : linhas) {
             Mosto mosto = new Mosto();
             mosto.setCodigo(codigoService.proximoCodigo(Mosto.PREFIXO));
             mosto.setLitros(e.getLitros());
             mosto.setCasta(e.getCasta());
+            mosto.setCastas(new java.util.ArrayList<>(e.getCastas()));
             mosto.setEstado(EstadoMosto.EM_FERMENTACAO);
             mosto.setOrigemDescricao(origem);
             mosto.setOrigemMoagemId(m.getId());
+            // Grava o nome do vinho na ficha do mosto para que as fases seguintes
+            // o mostrem sem terem de o ir buscar ao planeamento da moagem.
+            mosto.setVinhoNome(nomeVinho);
+            mosto.setAlcoolProvavel(e.getAlcoolProvavel());
             mosto.setDataProducao(LocalDateTime.now());
 
             if (e.getTalha() != null) {

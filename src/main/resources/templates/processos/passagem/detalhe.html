@@ -32,7 +32,6 @@
 
     <div class="card shadow-sm"><div class="card-body">
         <dl class="row mb-0">
-            <dt class="col-sm-3">Mostos convertidos</dt><dd class="col-sm-9" th:text="${passagem.mostosDescricao ?: '—'}"></dd>
             <dt class="col-sm-3">Responsável</dt><dd class="col-sm-9" th:text="${passagem.responsavel != null ? passagem.responsavel.nome : '—'}"></dd>
             <dt class="col-sm-3">Início</dt><dd class="col-sm-9" th:text="${passagem.dataHoraInicio != null ? #temporals.format(passagem.dataHoraInicio,'dd-MM-yyyy HH:mm') : '—'}"></dd>
             <dt class="col-sm-3">Fim</dt><dd class="col-sm-9" th:text="${passagem.dataHoraFim != null ? #temporals.format(passagem.dataHoraFim,'dd-MM-yyyy HH:mm') : '—'}"></dd>
@@ -41,6 +40,35 @@
             <dt class="col-sm-3">Observações</dt><dd class="col-sm-9" th:text="${passagem.observacoes ?: '—'}"></dd>
             <dt class="col-sm-3">Aberto por</dt><dd class="col-sm-9"><span th:text="${passagem.criadoPor}"></span> · <span th:text="${#temporals.format(passagem.dataCriacao,'dd-MM-yyyy HH:mm')}"></span></dd>
         </dl>
+    </div></div>
+
+    <div class="card shadow-sm mt-3"><div class="card-body">
+        <h6 class="card-title">Mostos a passar a limpo</h6>
+        <p class="text-muted small" th:if="${passagem.itens.isEmpty()}">Nenhuma linha registada. Edite o registo para escolher os mostos.</p>
+        <div class="table-responsive" th:unless="${passagem.itens.isEmpty()}">
+            <table class="table table-sm align-middle mb-0">
+                <thead><tr>
+                    <th>Mosto / destino</th>
+                    <th class="text-end">Originais</th>
+                    <th class="text-end">Efetivos</th>
+                    <th class="text-end">Perda (borras)</th>
+                </tr></thead>
+                <tbody>
+                <tr th:each="it : ${passagem.itens}">
+                    <td class="small" th:text="${it.descricao}"></td>
+                    <td class="text-end small" th:text="${it.litrosOriginais != null ? it.litrosOriginais + ' L' : '—'}"></td>
+                    <td class="text-end small" th:text="${it.litrosEfetivos != null ? it.litrosEfetivos + ' L' : '—'}"></td>
+                    <td class="text-end small">
+                        <span th:if="${it.litrosOriginais != null and it.litrosEfetivos != null}"
+                              th:text="${it.litrosOriginais.subtract(it.litrosEfetivos) + ' L'}"></span>
+                        <span th:unless="${it.litrosOriginais != null and it.litrosEfetivos != null}" class="text-muted">—</span>
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="text-muted small mb-0 mt-2" th:if="${passagem.aberto}">
+            Os litros originais e a perda só ficam apurados depois de <strong>fechar</strong> o processo.</p>
     </div></div>
 
     <div class="mt-3">

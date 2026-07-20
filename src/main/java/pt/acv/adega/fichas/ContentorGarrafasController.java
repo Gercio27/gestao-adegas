@@ -57,6 +57,10 @@ public class ContentorGarrafasController {
         if (c.getId() == null) {
             c.setCodigo(codigoService.proximoCodigo(ContentorGarrafas.PREFIXO));
         }
+        // Sem capacidade indicada, assume o máximo fixo do formato.
+        if (c.getCapacidadeGarrafas() <= 0 && c.getTipoGarrafa() != null) {
+            c.setCapacidadeGarrafas(c.getTipoGarrafa().getMaximoGarrafas());
+        }
         repo.save(c);
         ra.addFlashAttribute("sucesso", "Contentor guardado: " + c.getCodigo());
         return "redirect:/fichas/contentores";

@@ -17,8 +17,8 @@
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle">
                 <thead>
-                <tr><th>Código</th><th>Nome</th><th>Formato</th><th class="text-end">Capac.</th>
-                    <th>Local</th><th>Vinho (conteúdo)</th><th class="text-end">Garrafas</th><th>Rotulado</th><th class="text-end">Ações</th></tr>
+                <tr><th>Código</th><th>Nome</th><th>Formato</th><th class="text-end">Máx.</th>
+                    <th>Local</th><th>Vinho (conteúdo)</th><th class="text-end">Garrafas</th><th>Face ao máximo</th><th>Rotulado</th><th class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
                 <tr th:each="c : ${contentores}">
@@ -29,9 +29,15 @@
                     <td th:text="${c.localizacao}"></td>
                     <td th:text="${c.vinhoNome ?: '—'}"></td>
                     <td class="text-end" th:text="${c.garrafasAtuais}"></td>
+                    <td class="small">
+                        <span th:if="${c.acimaDoMaximo}" class="text-danger fw-bold"
+                              th:text="'Excede em ' + ${c.excedente}"></span>
+                        <span th:unless="${c.acimaDoMaximo}" class="text-muted"
+                              th:text="'Faltam ' + ${c.faltamParaMaximo}"></span>
+                    </td>
                     <td>
-                        <span th:if="${c.garrafasAtuais > 0 and c.rotulado}" class="badge bg-success">Sim</span>
-                        <span th:if="${c.garrafasAtuais > 0 and !c.rotulado}" class="badge bg-warning text-dark">Não</span>
+                        <span th:if="${c.garrafasAtuais > 0 and c.rotulado}" class="badge bg-success">Rotulado</span>
+                        <span th:if="${c.garrafasAtuais > 0 and !c.rotulado}" class="badge bg-warning text-dark">Por rotular</span>
                         <span th:if="${c.garrafasAtuais <= 0}" class="badge bg-secondary">Vazio</span>
                     </td>
                     <td class="text-end">
@@ -44,7 +50,7 @@
                         </form>
                     </td>
                 </tr>
-                <tr th:if="${contentores.isEmpty()}"><td colspan="9" class="text-center text-muted py-4">Sem contentores registados.</td></tr>
+                <tr th:if="${contentores.isEmpty()}"><td colspan="10" class="text-center text-muted py-4">Sem contentores registados.</td></tr>
                 </tbody>
             </table>
         </div>
