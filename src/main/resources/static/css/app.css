@@ -104,3 +104,34 @@ body {
 
 /* Cabeçalhos de página */
 h3 { color: #3a2c29; font-weight: 600; }
+
+/* =====================================================================
+   Responsivo / telemóvel
+   ===================================================================== */
+
+/* Evita que um elemento largo faça a página inteira deslizar na horizontal. */
+body { overflow-x: hidden; }
+
+/* Códigos longos (monospace) não empurram o layout. */
+.codigo { overflow-wrap: anywhere; }
+
+@media (max-width: 767.98px) {
+    /* Qualquer tabela desliza na horizontal em vez de rebentar o ecrã
+       (cobre também as tabelas que não estão dentro de .table-responsive). */
+    table.table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    /* As larguras fixas (ex.: max-width:760px) deixam de limitar em ecrãs pequenos. */
+    table.table[style*="max-width"] { max-width: 100% !important; }
+}
+
+@media (max-width: 575.98px) {
+    /* Menos margem lateral para aproveitar o ecrã do telemóvel. */
+    .container, .container-fluid { padding-left: .6rem; padding-right: .6rem; }
+    .px-4 { padding-left: .6rem !important; padding-right: .6rem !important; }
+    h3 { font-size: 1.25rem; }
+    /* Botões de ação em linha passam a ocupar bem o espaço e não transbordam. */
+    .card-body .btn { margin-bottom: .25rem; }
+}
