@@ -59,6 +59,20 @@ public class ProcessoAtesto extends Processo {
     @Column(name = "vinho_nome", length = 160)
     private String vinhoNome;
 
+    /**
+     * Que fichas de mosto foram mexidas ao fechar, para o reabrir saber
+     * desfazer: de onde saiu o vinho, para onde foi, e se essa do destino foi
+     * criada por este atesto.
+     */
+    @Column(name = "mosto_origem_id")
+    private Long mostoOrigemId;
+
+    @Column(name = "mosto_destino_id")
+    private Long mostoDestinoId;
+
+    @Column(nullable = false)
+    private boolean destinoCriado = false;
+
     /** Referencias vindas do formulario ("TALHA:id"/"DEPOSITO:id"). Nao persistem. */
     @Transient
     private String origemRef;
@@ -112,6 +126,15 @@ public class ProcessoAtesto extends Processo {
         if (depositoDestino != null) return "Depósito " + depositoDestino.getIdentificacao();
         return "—";
     }
+
+    public Long getMostoOrigemId() { return mostoOrigemId; }
+    public void setMostoOrigemId(Long mostoOrigemId) { this.mostoOrigemId = mostoOrigemId; }
+
+    public Long getMostoDestinoId() { return mostoDestinoId; }
+    public void setMostoDestinoId(Long mostoDestinoId) { this.mostoDestinoId = mostoDestinoId; }
+
+    public boolean isDestinoCriado() { return destinoCriado; }
+    public void setDestinoCriado(boolean destinoCriado) { this.destinoCriado = destinoCriado; }
 
     public Long getVinhoId() { return vinhoId; }
     public void setVinhoId(Long vinhoId) { this.vinhoId = vinhoId; }

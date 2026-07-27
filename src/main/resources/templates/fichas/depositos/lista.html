@@ -18,7 +18,7 @@
             <table class="table table-hover mb-0 align-middle">
                 <thead>
                 <tr><th>Código</th><th>Identificação</th><th>Tipo</th><th>Local</th><th class="text-end">Capac. (L)</th>
-                    <th class="text-end">Volume (L)</th><th>Estado</th><th>Propriedade</th><th class="text-end">Ações</th></tr>
+                    <th class="text-end">Volume (L)</th><th class="text-end">Disponível (L)</th><th>Conteúdo — vinho que lá está</th><th>Estado</th><th>Propriedade</th><th class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
                 <tr th:each="d : ${depositos}">
@@ -28,6 +28,13 @@
                     <td th:text="${d.localizacao}"></td>
                     <td class="text-end" th:text="${d.capacidadeLitros}"></td>
                     <td class="text-end" th:text="${d.volumeAtualLitros}"></td>
+                    <td class="text-end" th:text="${d.disponivelLitros != null ? d.disponivelLitros : '—'}"></td>
+                    <td class="small" style="max-width:320px;">
+                        <span th:if="${conteudoResumo.get(d.id) != null}" th:text="${conteudoResumo.get(d.id)}"></span>
+                        <span th:if="${conteudoResumo.get(d.id) == null and !d.vazia}" class="text-warning-emphasis"
+                              th:text="'Tem ' + ${d.volumeAtualLitros} + ' L sem vinho identificado'"></span>
+                        <span th:if="${conteudoResumo.get(d.id) == null and d.vazia}" class="text-muted">—</span>
+                    </td>
                     <td>
                         <span th:if="${d.vazia}" class="badge bg-secondary">Vazio</span>
                         <span th:unless="${d.vazia}" class="badge bg-success">Ocupado</span>
@@ -49,7 +56,7 @@
                         </form>
                     </td>
                 </tr>
-                <tr th:if="${depositos.isEmpty()}"><td colspan="9" class="text-center text-muted py-4">Sem depósitos registados.</td></tr>
+                <tr th:if="${depositos.isEmpty()}"><td colspan="11" class="text-center text-muted py-4">Sem depósitos registados.</td></tr>
                 </tbody>
             </table>
         </div>

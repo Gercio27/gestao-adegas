@@ -92,11 +92,15 @@ public class TalhaController {
         }
         model.addAttribute("talha", t);
         preencherOpcoes(model);
+        // O que já lá está — para o formulário não pedir o vinho outra vez.
+        model.addAttribute("conteudo", mostoRepo.findByTalhaId(id));
         return "fichas/talhas/form";
     }
 
     @PostMapping
     public String guardar(@Valid @ModelAttribute("talha") Talha t, BindingResult result,
+                          @RequestParam(value = "vinhoNome", required = false) String vinhoNome,
+                          @RequestParam(value = "estadoConteudo", required = false) EstadoMosto estadoConteudo,
                           Model model, RedirectAttributes ra) {
         if (result.hasErrors()) {
             preencherOpcoes(model);
@@ -106,8 +110,32 @@ public class TalhaController {
             t.setCodigo(codigoService.proximoCodigo(Talha.PREFIXO));
         }
         repo.save(t);
-        ra.addFlashAttribute("sucesso", "Talha guardada: " + t.getCodigo());
+        String extra = registarConteudoInicial(t, vinhoNome, estadoConteudo);
+        ra.addFlashAttribute("sucesso", "Talha guardada: " + t.getCodigo() + extra);
         return "redirect:/fichas/talhas";
+    }
+
+    /**
+     * Stock inicial: se a talha ja vem com litros e ainda nao tem nenhuma ficha
+     * de mosto, cria a do vinho que la' esta. Sem isto a tabela mostrava a
+     * talha ocupada mas sem dizer com o que.
+     */
+    private String registarConteudoInicial(Talha t, String vinhoNome, EstadoMosto estado) {
+        BigDecimal litros = t.getVolumeAtualLitros();
+        if (litros == null || litros.signum() <= 0) return "";
+        if (!mostoRepo.findByTalhaId(t.getId()).isEmpty()) return "";
+        if (vinhoNome == null || vinhoNome.isBlank()) return "";
+
+        Mosto m = new Mosto();
+        m.setCodigo(codigoService.proximoCodigo(Mosto.PREFIXO));
+        m.setLitros(litros);
+        m.setEstado(estado != null ? estado : EstadoMosto.VINHO_GRANEL);
+        m.setVinhoNome(vinhoNome.trim());
+        m.setTalha(t);
+        m.setDataProducao(LocalDateTime.now());
+        m.setOrigemDescricao("Stock inicial da talha " + t.getIdentificacao());
+        mostoRepo.save(m);
+        return " · conteúdo registado: " + m.getCodigo() + " (" + vinhoNome.trim() + ", " + litros.toPlainString() + " L)";
     }
 
     /** Inserir manualmente conteudo (mosto ou vinho) numa talha. Cria uma ficha de Mosto e soma o volume. */
@@ -196,15 +224,22 @@ public class TalhaController {
     private void preencherOpcoes(Model model) {
         model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
         model.addAttribute("propriedades", Propriedade.values());
+        model.addAttribute("estados", EstadoMosto.values());
     }
 
-    /** Texto curto do que esta dentro (ex.: "Vinho pronto a granel · 500 L (Antão Vaz)"). */
+    /**
+     * Texto curto do que esta dentro. O NOME DO VINHO vem a' frente - e' o que
+     * interessa ver de relance na tabela; o estado e as castas ficam a seguir.
+     * Ex.: "Talha Branco 2026 — 500 L · em fermentação (Antão Vaz)".
+     */
     private String resumir(List<Mosto> dentro) {
         List<String> partes = new ArrayList<>();
         for (Mosto m : dentro) {
             String lit = m.getLitros() == null ? "0" : m.getLitros().toPlainString();
             String castas = m.getCastasDescricao();
-            partes.add(m.getEstado().getDescricao() + " · " + lit + " L"
+            String nome = m.getVinhoNome() != null && !m.getVinhoNome().isBlank()
+                    ? m.getVinhoNome() : "(vinho sem nome)";
+            partes.add(nome + " — " + lit + " L · " + m.getEstado().getDescricao()
                     + (castas != null && !"—".equals(castas) ? " (" + castas + ")" : ""));
         }
         return String.join(" · ", partes);

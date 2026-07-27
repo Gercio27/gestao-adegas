@@ -18,7 +18,7 @@
             <table class="table table-hover mb-0 align-middle">
                 <thead>
                 <tr><th>Código</th><th>Identificação</th><th>Adega</th><th class="text-end">Capac. (L)</th>
-                    <th class="text-end">Volume (L)</th><th>Estado</th><th>Conteúdo</th><th>Propriedade</th><th class="text-end">Ações</th></tr>
+                    <th class="text-end">Volume (L)</th><th class="text-end">Disponível (L)</th><th>Conteúdo — vinho que lá está</th><th>Estado</th><th>Propriedade</th><th class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
                 <tr th:each="t : ${talhas}">
@@ -27,11 +27,17 @@
                     <td th:text="${t.adega != null ? t.adega.nome : '—'}"></td>
                     <td class="text-end" th:text="${t.capacidadeLitros}"></td>
                     <td class="text-end" th:text="${t.volumeAtualLitros}"></td>
+                    <td class="text-end" th:text="${t.disponivelLitros != null ? t.disponivelLitros : '—'}"></td>
+                    <td class="small" style="max-width:320px;">
+                        <span th:if="${conteudoResumo.get(t.id) != null}" th:text="${conteudoResumo.get(t.id)}"></span>
+                        <span th:if="${conteudoResumo.get(t.id) == null and !t.vazia}" class="text-warning-emphasis"
+                              th:text="'Tem ' + ${t.volumeAtualLitros} + ' L sem vinho identificado'"></span>
+                        <span th:if="${conteudoResumo.get(t.id) == null and t.vazia}" class="text-muted">—</span>
+                    </td>
                     <td>
                         <span th:if="${t.vazia}" class="badge bg-secondary">Vazia</span>
                         <span th:unless="${t.vazia}" class="badge bg-success">Ocupada</span>
                     </td>
-                    <td class="small text-muted" style="max-width:280px;" th:text="${conteudoResumo.get(t.id) ?: '—'}"></td>
                     <td>
                         <span th:text="${t.propriedade.descricao}"></span>
                         <span th:if="${t.propriedade.name() == 'TERCEIRO'}" class="text-muted small" th:text="'(' + ${t.terceiro} + ')'"></span>
@@ -52,7 +58,7 @@
                         </form>
                     </td>
                 </tr>
-                <tr th:if="${talhas.isEmpty()}"><td colspan="9" class="text-center text-muted py-4">Sem talhas registadas.</td></tr>
+                <tr th:if="${talhas.isEmpty()}"><td colspan="10" class="text-center text-muted py-4">Sem talhas registadas.</td></tr>
                 </tbody>
             </table>
         </div>

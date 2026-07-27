@@ -99,4 +99,13 @@ public class Deposito extends BaseEntity {
     public String getLocalTipo() {
         return armazem != null ? "ARMAZEM" : "ADEGA";
     }
+
+    /** Litros que ainda cabem (capacidade - volume atual). Vazio se nao houver capacidade definida. */
+    @Transient
+    public java.math.BigDecimal getDisponivelLitros() {
+        if (capacidadeLitros == null) return null;
+        java.math.BigDecimal v = volumeAtualLitros == null ? java.math.BigDecimal.ZERO : volumeAtualLitros;
+        java.math.BigDecimal livre = capacidadeLitros.subtract(v);
+        return livre.signum() < 0 ? java.math.BigDecimal.ZERO : livre;
+    }
 }

@@ -12,6 +12,10 @@ import pt.acv.adega.produtos.Mosto;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 @Controller
 @RequestMapping("/fichas/depositos")
@@ -50,8 +54,30 @@ public class DepositoController {
 
     @GetMapping
     public String listar(Model model) {
-        model.addAttribute("depositos", repo.findAllByOrderByIdentificacaoAsc());
+        List<Deposito> depositos = repo.findAllByOrderByIdentificacaoAsc();
+        model.addAttribute("depositos", depositos);
+        // O que está dentro de cada um, com o nome do vinho à frente.
+        Map<Long, String> conteudoResumo = new LinkedHashMap<>();
+        for (Deposito d : depositos) {
+            List<Mosto> dentro = mostoRepo.findByDepositoId(d.getId());
+            if (!dentro.isEmpty()) conteudoResumo.put(d.getId(), resumir(dentro));
+        }
+        model.addAttribute("conteudoResumo", conteudoResumo);
         return "fichas/depositos/lista";
+    }
+
+    /** Texto curto do que esta dentro, com o NOME DO VINHO a' frente. */
+    private String resumir(List<Mosto> dentro) {
+        List<String> partes = new ArrayList<>();
+        for (Mosto m : dentro) {
+            String lit = m.getLitros() == null ? "0" : m.getLitros().toPlainString();
+            String castas = m.getCastasDescricao();
+            String nome = m.getVinhoNome() != null && !m.getVinhoNome().isBlank()
+                    ? m.getVinhoNome() : "(vinho sem nome)";
+            partes.add(nome + " — " + lit + " L · " + m.getEstado().getDescricao()
+                    + (castas != null && !"—".equals(castas) ? " (" + castas + ")" : ""));
+        }
+        return String.join(" · ", partes);
     }
 
     @GetMapping("/novo")
