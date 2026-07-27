@@ -51,44 +51,34 @@
                     </div>
                 </div>
 
-                <div class="small fw-bold mb-1">Vindimas disponíveis (deste vinho, nesta adega)</div>
-                <div class="table-responsive mb-2">
-                    <table class="table table-sm mb-0" style="max-width:640px;">
-                        <thead><tr><th style="width:40px;"></th><th>Parcela (casta)</th><th class="text-end">Vindimado</th></tr></thead>
+                <div class="small fw-bold mb-1">Vindimas a moer (deste vinho, nesta adega)</div>
+                <div class="table-responsive mb-3">
+                    <table class="table table-sm mb-0" style="max-width:760px;">
+                        <thead><tr><th style="width:40px;"></th><th>Parcela (casta)</th><th class="text-end">Vindimado</th>
+                            <th class="text-end">Já moído</th><th class="text-end">Por moer</th></tr></thead>
                         <tbody id="vindimasBody">
-                        <tr><td colspan="3" class="text-muted small py-2">Escolha a adega e o vinho.</td></tr>
+                        <tr><td colspan="5" class="text-muted small py-2">Escolha a adega e o vinho.</td></tr>
                         </tbody>
                     </table>
+                    <div class="form-text">O <strong>Por moer</strong> desce à medida que reparte os Kg pelas talhas, em baixo.</div>
                 </div>
 
-                <div class="small fw-bold mb-1">Enchimentos — talha/depósito, casta, Kg moídos e litros de mosto</div>
-                <table class="table table-sm mb-0" style="max-width:760px;">
-                    <thead><tr><th style="width:36px;">#</th><th>Talha / Depósito</th><th>Casta</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th><th class="text-end">Álcool prov. (%)</th></tr></thead>
-                    <tbody>
-                    <tr th:each="i : ${#numbers.sequence(0,2)}">
-                        <td class="text-muted" th:text="${i + 1}"></td>
-                        <td>
-                            <select class="form-select form-select-sm" th:name="'enchimentos[' + ${i} + '].recipienteRef'">
-                                <option value="">—</option>
-                                <option th:each="r : ${recipientes}" th:value="${r.ref}" th:text="${r.label}"
-                                        th:style="${r.cheia} ? 'color:#b00020;font-weight:600;'"></option>
-                            </select>
-                        </td>
-                        <td>
-                            <select multiple size="3" class="form-select form-select-sm" th:name="'enchimentos[' + ${i} + '].castaIds'"
-                                    title="Segure Ctrl (ou Cmd) para escolher mais que uma casta">
-                                <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
-                            </select>
-                        </td>
-                        <td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end ench-kg"
-                                   th:name="'enchimentos[' + ${i} + '].quantidadeMoidaKg'"></td>
-                        <td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end ench-litros"
-                                   th:name="'enchimentos[' + ${i} + '].litros'"></td>
-                        <td><input type="number" step="0.01" min="0" max="30" class="form-control form-control-sm text-end"
-                                   th:name="'enchimentos[' + ${i} + '].alcoolProvavel'"></td>
-                    </tr>
-                    </tbody>
-                </table>
+                <div class="d-flex justify-content-between align-items-center mb-1" style="max-width:1000px;">
+                    <div class="small fw-bold">Enchimentos — quanto se moi de cada vindima em cada talha/depósito</div>
+                    <button class="btn btn-sm btn-outline-secondary py-0" type="button" onclick="juntarLinha('novo')">
+                        <i class="bi bi-plus-lg"></i> Mais uma talha
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm mb-0" style="max-width:1000px;" id="tabelaNovo">
+                        <thead><tr><th style="width:32px;">#</th><th style="min-width:210px;">Talha / Depósito</th>
+                            <th style="min-width:260px;">Kg por vindima</th><th>Casta</th>
+                            <th class="text-end" style="width:100px;">Moído (Kg)</th>
+                            <th class="text-end" style="width:110px;">Mosto (L)</th>
+                            <th class="text-end" style="width:110px;">Álcool prov. (%)</th></tr></thead>
+                        <tbody id="corpoNovo"></tbody>
+                    </table>
+                </div>
 
                 <button class="btn btn-sm text-white mt-2" style="background-color:#6b1f2a;" type="submit">
                     <i class="bi bi-check-lg"></i> Criar moagem
@@ -131,12 +121,13 @@
             </div>
 
             <!-- Enchimentos registados -->
-            <table class="table table-sm mb-2" th:if="${!mo.enchimentos.isEmpty()}" style="max-width:760px;">
-                <thead><tr><th style="width:36px;">#</th><th>Recipiente</th><th>Casta</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th><th class="text-end">Álcool prov.</th><th></th></tr></thead>
+            <table class="table table-sm mb-2" th:if="${!mo.enchimentos.isEmpty()}" style="max-width:900px;">
+                <thead><tr><th style="width:36px;">#</th><th>Recipiente</th><th>De que vindimas</th><th>Casta</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th><th class="text-end">Álcool prov.</th><th></th></tr></thead>
                 <tbody>
                 <tr th:each="e,s : ${mo.enchimentos}">
                     <td class="text-muted" th:text="${s.count}"></td>
                     <td th:text="${e.recipienteDescricao}"></td>
+                    <td class="small" th:text="${e.origensDescricao}"></td>
                     <td th:text="${e.castasDescricao}"></td>
                     <td class="text-end" th:text="${e.quantidadeMoidaKg != null ? e.quantidadeMoidaKg + ' kg' : '—'}"></td>
                     <td class="text-end" th:text="${e.litros != null ? e.litros + ' L' : '—'}"></td>
@@ -154,32 +145,23 @@
             <!-- ABERTA: acrescentar enchimentos + fechar -->
             <div th:if="${mo.aberto}">
                 <form th:action="@{/processos/moagem/{id}/enchimentos(id=${mo.id})}" method="post" class="mb-2">
-                    <div class="small fw-bold mb-1">Acrescentar enchimento(s)</div>
-                    <table class="table table-sm mb-0" style="max-width:760px;">
-                        <thead><tr><th style="width:36px;">#</th><th>Talha / Depósito</th><th>Casta</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th><th class="text-end">Álcool prov. (%)</th></tr></thead>
-                        <tbody>
-                        <tr th:each="i : ${#numbers.sequence(0,2)}">
-                            <td class="text-muted" th:text="${i + 1}"></td>
-                            <td>
-                                <select class="form-select form-select-sm" th:name="'enchimentos[' + ${i} + '].recipienteRef'">
-                                    <option value="">—</option>
-                                    <option th:each="r : ${recipientes}" th:value="${r.ref}" th:text="${r.label}"
-                                            th:style="${r.cheia} ? 'color:#b00020;font-weight:600;'"></option>
-                                </select>
-                            </td>
-                            <td>
-                                <select multiple size="3" class="form-select form-select-sm" th:name="'enchimentos[' + ${i} + '].castaIds'"
-                                        title="Segure Ctrl (ou Cmd) para escolher mais que uma casta">
-                                    <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
-                                </select>
-                            </td>
-                            <td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end ench-kg"
-                                       th:name="'enchimentos[' + ${i} + '].quantidadeMoidaKg'"></td>
-                            <td><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end ench-litros"
-                                       th:name="'enchimentos[' + ${i} + '].litros'"></td>
-                        </tr>
-                        </tbody>
-                    </table>
+                    <div class="d-flex justify-content-between align-items-center mb-1" style="max-width:1000px;">
+                        <div class="small fw-bold">Acrescentar enchimento(s)</div>
+                        <button class="btn btn-sm btn-outline-secondary py-0" type="button"
+                                th:attr="onclick='juntarLinha(\'' + ${mo.id} + '\')'">
+                            <i class="bi bi-plus-lg"></i> Mais uma talha
+                        </button>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-sm mb-0" style="max-width:1000px;" th:id="'tabela' + ${mo.id}">
+                            <thead><tr><th style="width:32px;">#</th><th style="min-width:210px;">Talha / Depósito</th>
+                                <th style="min-width:260px;">Kg por vindima</th><th>Casta</th>
+                                <th class="text-end" style="width:100px;">Moído (Kg)</th>
+                                <th class="text-end" style="width:110px;">Mosto (L)</th>
+                                <th class="text-end" style="width:110px;">Álcool prov. (%)</th></tr></thead>
+                            <tbody th:id="'corpo' + ${mo.id}"></tbody>
+                        </table>
+                    </div>
                     <button class="btn btn-sm btn-outline-secondary mt-2" type="submit"><i class="bi bi-plus-lg"></i> Guardar enchimentos</button>
                 </form>
                 <form th:if="${!mo.enchimentos.isEmpty()}" th:action="@{/processos/moagem/{id}/fechar(id=${mo.id})}" method="post"
@@ -220,46 +202,176 @@
 <div th:replace="~{fragments/layout :: scripts}"></div>
 <script th:inline="javascript">
     const vindimasDisponiveis = /*[[${vindimasDisponiveis}]]*/ [];
+    const vindimasPorMoagem = /*[[${vindimasPorMoagem}]]*/ {};
+    const recipientesOpcoes = /*[[${recipientes}]]*/ [];
+
+    /**
+     * As vindimas que estão em jogo em cada bloco. 'novo' = formulário de nova
+     * moagem (depende da adega/vinho escolhidos); os outros são o id da moagem.
+     */
+    function vindimasDoBloco(bloco) {
+        if (bloco === 'novo') {
+            const adega = document.getElementById('mo-adega').value;
+            const vinho = document.getElementById('mo-vinho').value;
+            if (!adega || !vinho) return [];
+            return vindimasDisponiveis.filter(function (v) {
+                return String(v.adegaId) === adega && String(v.planoId) === vinho;
+            }).filter(function (v) {
+                const cb = document.querySelector('#vindimasBody input[value="' + v.id + '"]');
+                return !cb || cb.checked;   // só as que ficaram marcadas
+            });
+        }
+        return vindimasPorMoagem[bloco] || [];
+    }
+
+    function opcoesRecipiente() {
+        return '<option value="">—</option>' + recipientesOpcoes.map(function (r) {
+            const estilo = r.cheia ? ' style="color:#b00020;font-weight:600;"' : '';
+            return '<option value="' + r.ref + '"' + estilo + '>' + r.label + '</option>';
+        }).join('');
+    }
+
+    /** Acrescenta uma linha de enchimento (uma talha) ao bloco indicado. */
+    function juntarLinha(bloco) {
+        const corpo = document.getElementById('corpo' + (bloco === 'novo' ? 'Novo' : bloco));
+        if (!corpo) return;
+        const i = corpo.querySelectorAll('tr').length;
+        const vindimas = vindimasDoBloco(bloco);
+
+        const kgPorVindima = vindimas.length
+            ? vindimas.map(function (v, j) {
+                return '<div class="d-flex align-items-center gap-1 mb-1">'
+                    + '<input type="hidden" name="enchimentos[' + i + '].origens[' + j + '].linhaId" value="' + v.id + '">'
+                    + '<span class="small text-truncate" style="min-width:120px;" title="' + v.label + '">' + v.label + '</span>'
+                    + '<input type="number" step="0.01" min="0" class="form-control form-control-sm text-end kg-vindima"'
+                    + ' style="max-width:100px;" data-bloco="' + bloco + '" data-vindima="' + v.id + '"'
+                    + ' data-casta="' + (v.casta || '') + '"'
+                    + ' name="enchimentos[' + i + '].origens[' + j + '].quantidadeKg" placeholder="kg">'
+                    + '</div>';
+            }).join('')
+            : '<span class="text-muted small">Escolha primeiro a adega e o vinho.</span>';
+
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+              '<td class="text-muted align-top pt-2">' + (i + 1) + '</td>'
+            + '<td class="align-top"><select class="form-select form-select-sm" name="enchimentos[' + i + '].recipienteRef">'
+            + opcoesRecipiente() + '</select></td>'
+            + '<td class="align-top">' + kgPorVindima + '</td>'
+            + '<td class="align-top small text-muted ench-casta">—</td>'
+            + '<td class="align-top"><input type="number" step="0.01" min="0" readonly'
+            + ' class="form-control form-control-sm text-end ench-kg bg-light"'
+            + ' name="enchimentos[' + i + '].quantidadeMoidaKg"></td>'
+            + '<td class="align-top"><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end ench-litros"'
+            + ' name="enchimentos[' + i + '].litros"></td>'
+            + '<td class="align-top"><input type="number" step="0.01" min="0" max="30" class="form-control form-control-sm text-end"'
+            + ' name="enchimentos[' + i + '].alcoolProvavel"></td>';
+        corpo.appendChild(tr);
+    }
+
+    /** Recria as linhas de um bloco (usado quando mudam as vindimas escolhidas). */
+    function reconstruirLinhas(bloco, quantas) {
+        const corpo = document.getElementById('corpo' + (bloco === 'novo' ? 'Novo' : bloco));
+        if (!corpo) return;
+        const n = quantas || Math.max(1, corpo.querySelectorAll('tr').length);
+        corpo.innerHTML = '';
+        for (let k = 0; k < n; k++) juntarLinha(bloco);
+        atualizarSaldos();
+    }
 
     function filtrarVindimas() {
         const adega = document.getElementById('mo-adega').value;
         const vinho = document.getElementById('mo-vinho').value;
         const corpo = document.getElementById('vindimasBody');
         if (!adega || !vinho) {
-            corpo.innerHTML = '<tr><td colspan="3" class="text-muted small py-2">Escolha a adega e o vinho.</td></tr>';
+            corpo.innerHTML = '<tr><td colspan="5" class="text-muted small py-2">Escolha a adega e o vinho.</td></tr>';
+            reconstruirLinhas('novo', 1);
             return;
         }
         const lista = vindimasDisponiveis.filter(function (v) {
             return String(v.adegaId) === adega && String(v.planoId) === vinho;
         });
         if (!lista.length) {
-            corpo.innerHTML = '<tr><td colspan="3" class="text-muted small py-2">Sem vindimas deste vinho nesta adega.</td></tr>';
+            corpo.innerHTML = '<tr><td colspan="5" class="text-muted small py-2">Sem vindimas deste vinho nesta adega.</td></tr>';
+            reconstruirLinhas('novo', 1);
             return;
         }
         corpo.innerHTML = lista.map(function (v) {
             return '<tr>'
-                + '<td class="text-center"><input type="checkbox" class="form-check-input" name="vindimaIds" value="' + v.id + '" checked></td>'
+                + '<td class="text-center"><input type="checkbox" class="form-check-input vindima-check" name="vindimaIds" value="' + v.id + '" checked></td>'
                 + '<td>' + v.label + '</td>'
                 + '<td class="text-end">' + v.vindimado + ' kg</td>'
+                + '<td class="text-end text-muted">' + v.moido + ' kg</td>'
+                + '<td class="text-end fw-bold saldo-vindima" data-vindima="' + v.id + '" data-disponivel="' + v.disponivel + '">'
+                + v.disponivel + ' kg</td>'
                 + '</tr>';
         }).join('');
+        reconstruirLinhas('novo', 1);
     }
 
-    // Sugere litros = Kg × 60% (editável) em qualquer linha de enchimento.
-    document.addEventListener('input', function (e) {
-        if (e.target.classList.contains('ench-kg')) {
-            const tr = e.target.closest('tr');
-            const litros = tr.querySelector('.ench-litros');
-            if (litros && litros.dataset.tocado !== '1') {
-                const kg = parseFloat(e.target.value);
-                litros.value = isNaN(kg) ? '' : (kg * 0.60).toFixed(2);
+    /**
+     * Recalcula, sem gravar nada: o total moído de cada linha, a casta que vem
+     * das vindimas usadas e o saldo por moer de cada vindima. É isto que faz o
+     * "por moer" descer assim que se escrevem os Kg.
+     */
+    function atualizarSaldos() {
+        // 1) Por linha: soma dos Kg e castas envolvidas.
+        document.querySelectorAll('tbody[id^="corpo"] tr').forEach(function (tr) {
+            let total = 0;
+            const castas = [];
+            tr.querySelectorAll('.kg-vindima').forEach(function (inp) {
+                const kg = parseFloat(inp.value);
+                if (!isNaN(kg) && kg > 0) {
+                    total += kg;
+                    const c = inp.dataset.casta;
+                    if (c && castas.indexOf(c) === -1) castas.push(c);
+                }
+            });
+            const kgTotal = tr.querySelector('.ench-kg');
+            if (kgTotal) {
+                const antes = kgTotal.value;
+                kgTotal.value = total > 0 ? total.toFixed(2) : '';
+                // Sugere litros = Kg × 60%, enquanto o utilizador não os escrever.
+                const litros = tr.querySelector('.ench-litros');
+                if (litros && litros.dataset.tocado !== '1' && antes !== kgTotal.value) {
+                    litros.value = total > 0 ? (total * 0.60).toFixed(2) : '';
+                }
             }
-        } else if (e.target.classList.contains('ench-litros')) {
-            e.target.dataset.tocado = '1';
-        }
+            const celulaCasta = tr.querySelector('.ench-casta');
+            if (celulaCasta) celulaCasta.textContent = castas.length ? castas.join(', ') : '—';
+        });
+
+        // 2) Por vindima: saldo = disponível no servidor - o que está escrito agora.
+        document.querySelectorAll('.saldo-vindima').forEach(function (celula) {
+            const id = celula.dataset.vindima;
+            const disponivel = parseFloat(celula.dataset.disponivel) || 0;
+            let usado = 0;
+            document.querySelectorAll('.kg-vindima[data-vindima="' + id + '"]').forEach(function (inp) {
+                const kg = parseFloat(inp.value);
+                if (!isNaN(kg)) usado += kg;
+            });
+            const resta = disponivel - usado;
+            celula.textContent = resta.toFixed(2) + ' kg';
+            celula.classList.toggle('text-danger', resta < 0);
+            celula.classList.toggle('text-success', resta >= 0 && usado > 0);
+        });
+    }
+
+    document.addEventListener('input', function (e) {
+        if (e.target.classList.contains('kg-vindima')) atualizarSaldos();
+        else if (e.target.classList.contains('ench-litros')) e.target.dataset.tocado = '1';
     });
 
-    document.addEventListener('DOMContentLoaded', filtrarVindimas);
+    // Ligar/desligar uma vindima refaz as caixas de Kg das talhas.
+    document.addEventListener('change', function (e) {
+        if (e.target.classList.contains('vindima-check')) reconstruirLinhas('novo');
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+        filtrarVindimas();
+        // Uma linha inicial em cada moagem aberta.
+        Object.keys(vindimasPorMoagem).forEach(function (id) { reconstruirLinhas(id, 1); });
+        atualizarSaldos();
+    });
 </script>
 </body>
 </html>

@@ -64,8 +64,17 @@ public class Enchimento {
     private List<Casta> castas = new ArrayList<>();
 
     /**
-     * Ids das castas vindos do formulario (multi-select). Nao persiste; sao
-     * resolvidos para {@link #castas} no controlador.
+     * De que vindimas veio a uva deste enchimento e quantos Kg de cada. E' o
+     * que permite moer varias vindimas ao mesmo tempo e repartir os Kg por
+     * talha. A casta e o total moido saem daqui.
+     */
+    @OneToMany(mappedBy = "enchimento", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @OrderBy("id")
+    private List<EnchimentoVindima> origens = new ArrayList<>();
+
+    /**
+     * Ids das castas vindos do multi-select. So' usado quando o enchimento nao
+     * indica vindimas; com vindimas, a casta e' puxada da parcela de cada uma.
      */
     @Transient
     private List<Long> castaIds = new ArrayList<>();
@@ -106,6 +115,28 @@ public class Enchimento {
 
     public List<Long> getCastaIds() { return castaIds; }
     public void setCastaIds(List<Long> castaIds) { this.castaIds = castaIds; }
+
+    public List<EnchimentoVindima> getOrigens() { return origens; }
+    public void setOrigens(List<EnchimentoVindima> origens) { this.origens = origens; }
+
+    /** Soma dos Kg das vindimas deste enchimento (0 se nao houver vindimas indicadas). */
+    @Transient
+    public BigDecimal getTotalOrigensKg() {
+        if (origens == null) return BigDecimal.ZERO;
+        return origens.stream()
+                .map(o -> o.getQuantidadeKg() == null ? BigDecimal.ZERO : o.getQuantidadeKg())
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /** Detalhe legivel "Parcela A: 300 kg · Parcela B: 200 kg". */
+    @Transient
+    public String getOrigensDescricao() {
+        if (origens == null || origens.isEmpty()) return "—";
+        return origens.stream()
+                .filter(o -> o.getQuantidadeKg() != null && o.getQuantidadeKg().signum() > 0)
+                .map(o -> o.getVindimaDescricao() + ": " + o.getQuantidadeKg().toPlainString() + " kg")
+                .collect(Collectors.joining(" · "));
+    }
 
     /** Nomes das castas juntos (ex.: "Antão Vaz, Perrum"); cai na casta principal se a lista estiver vazia. */
     @Transient

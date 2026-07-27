@@ -37,6 +37,7 @@ public class MoagemController {
     private final LinhaPlaneamentoParcelaRepository linhaRepo;
     private final PlaneamentoVinhoRepository planeamentoRepo;
     private final EnchimentoRepository enchimentoRepo;
+    private final EnchimentoVindimaRepository enchimentoVindimaRepo;
     private final MostoRepository mostoRepo;
     private final CodigoService codigoService;
 
@@ -45,6 +46,7 @@ public class MoagemController {
                             CastaRepository castaRepo, AdegaRepository adegaRepo,
                             TrabalhadorRepository trabalhadorRepo, LinhaPlaneamentoParcelaRepository linhaRepo,
                             PlaneamentoVinhoRepository planeamentoRepo, EnchimentoRepository enchimentoRepo,
+                            EnchimentoVindimaRepository enchimentoVindimaRepo,
                             MostoRepository mostoRepo, CodigoService codigoService) {
         this.repo = repo;
         this.moagemService = moagemService;
@@ -56,6 +58,7 @@ public class MoagemController {
         this.linhaRepo = linhaRepo;
         this.planeamentoRepo = planeamentoRepo;
         this.enchimentoRepo = enchimentoRepo;
+        this.enchimentoVindimaRepo = enchimentoVindimaRepo;
         this.mostoRepo = mostoRepo;
         this.codigoService = codigoService;
     }
@@ -63,6 +66,9 @@ public class MoagemController {
     @GetMapping
     public String folha(Model model) {
         // Vindimas disponíveis (para o seletor por adega + vinho, filtrado no cliente).
+        // Cada uma leva já o saldo por moer: o que foi vindimado menos o que
+        // outras moagens (mesmo abertas) já lhe tiraram.
+        Map<Long, BigDecimal> usado = kgUsadoPorVindima();
         List<Map<String, Object>> vindimas = new ArrayList<>();
         for (PlaneamentoVinho p : planeamentoRepo.findAllByOrderByNomeVinhoAsc()) {
             for (LinhaPlaneamentoParcela l : p.getLinhas()) {
@@ -71,12 +77,17 @@ public class MoagemController {
                         ? (l.getParcela().getNome() != null ? l.getParcela().getNome() : l.getParcela().getIdentificacao())
                         : "?";
                 String casta = (l.getParcela() != null && l.getParcela().getCasta() != null) ? l.getParcela().getCasta().getNome() : "—";
+                BigDecimal moido = usado.getOrDefault(l.getId(), BigDecimal.ZERO);
+                BigDecimal disponivel = l.getTotalVindimadoKg().subtract(moido);
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", l.getId());
                 m.put("adegaId", l.getAdegaEntrega().getId());
                 m.put("planoId", p.getId());
                 m.put("label", parc + " (" + casta + ")");
+                m.put("casta", casta);
                 m.put("vindimado", l.getTotalVindimadoKg().toPlainString());
+                m.put("moido", moido.toPlainString());
+                m.put("disponivel", disponivel.toPlainString());
                 vindimas.add(m);
             }
         }
@@ -94,6 +105,26 @@ public class MoagemController {
             if (!mo.isAberto()) mostosPorMoagem.put(mo.getId(), mostoRepo.findByOrigemMoagemId(mo.getId()));
         }
         model.addAttribute("mostosPorMoagem", mostosPorMoagem);
+
+        // Vindimas de cada moagem aberta, com o saldo por moer — para o
+        // formulário de acrescentar enchimentos repartir os Kg por vindima.
+        Map<Long, List<Map<String, Object>>> vindimasPorMoagem = new HashMap<>();
+        for (ProcessoMoagem mo : moagens) {
+            if (!mo.isAberto()) continue;
+            List<Map<String, Object>> linhas = new ArrayList<>();
+            for (LinhaPlaneamentoParcela l : mo.getVindimas()) {
+                BigDecimal moido = usado.getOrDefault(l.getId(), BigDecimal.ZERO);
+                Map<String, Object> v = new LinkedHashMap<>();
+                v.put("id", l.getId());
+                v.put("label", l.getEtiqueta());
+                v.put("casta", l.getParcela() != null && l.getParcela().getCasta() != null
+                        ? l.getParcela().getCasta().getNome() : "—");
+                v.put("disponivel", l.getTotalVindimadoKg().subtract(moido).toPlainString());
+                linhas.add(v);
+            }
+            vindimasPorMoagem.put(mo.getId(), linhas);
+        }
+        model.addAttribute("vindimasPorMoagem", vindimasPorMoagem);
         return "processos/moagem/folha";
     }
 
@@ -117,7 +148,12 @@ public class MoagemController {
                 linhaRepo.findById(lid).ifPresent(m.getVindimas()::add);
             }
         }
-        appendEnchimentos(m, form.getEnchimentos());
+        String erro = appendEnchimentos(m, form.getEnchimentos());
+        if (erro != null) {
+            // Nada foi gravado — a moagem ainda nem existe na base de dados.
+            ra.addFlashAttribute("erro", erro);
+            return "redirect:/processos/moagem";
+        }
         repo.save(m);
         ra.addFlashAttribute("sucesso", "Moagem criada: " + m.getCodigo());
         return "redirect:/processos/moagem";
@@ -131,7 +167,8 @@ public class MoagemController {
         if (m == null || !podeAceder(m, auth)) { ra.addFlashAttribute("erro", "Sem acesso a esta moagem."); return "redirect:/processos/moagem"; }
         if (!m.isAberto()) { ra.addFlashAttribute("erro", "Moagem fechada — reabra antes de alterar."); return "redirect:/processos/moagem"; }
         if (form.getResponsavel() != null) m.setResponsavel(form.getResponsavel());
-        appendEnchimentos(m, form.getEnchimentos());
+        String erro = appendEnchimentos(m, form.getEnchimentos());
+        if (erro != null) { ra.addFlashAttribute("erro", erro); return "redirect:/processos/moagem"; }
         repo.save(m);
         ra.addFlashAttribute("sucesso", "Enchimentos guardados.");
         return "redirect:/processos/moagem";
@@ -211,18 +248,85 @@ public class MoagemController {
 
     // ----- auxiliares -----
 
-    private void appendEnchimentos(ProcessoMoagem m, List<Enchimento> lista) {
-        if (lista == null) return;
+    /**
+     * Acrescenta os enchimentos vindos do formulário. Devolve uma mensagem de
+     * erro se algum deles quiser moer mais Kg do que a vindima ainda tem — não
+     * grava nada nesse caso (o método é chamado dentro de @Transactional).
+     */
+    private String appendEnchimentos(ProcessoMoagem m, List<Enchimento> lista) {
+        if (lista == null) return null;
+        // Saldo por vindima já comprometido noutras moagens.
+        Map<Long, BigDecimal> usado = kgUsadoPorVindima();
+        List<Enchimento> aceites = new ArrayList<>();
         for (Enchimento e : lista) {
             if (e == null) continue;
+            resolverOrigens(e);
             boolean semRecipiente = e.getRecipienteRef() == null || e.getRecipienteRef().isBlank();
-            if (semRecipiente && e.getQuantidadeMoidaKg() == null && e.getLitros() == null) continue;
+            boolean semNada = e.getQuantidadeMoidaKg() == null && e.getLitros() == null
+                    && e.getTotalOrigensKg().signum() == 0;
+            if (semRecipiente && semNada) continue;
             e.setId(null);
             resolverRecipiente(e);
             resolverCastas(e);
+            // Com vindimas indicadas, os Kg moídos são a soma delas.
+            if (!e.getOrigens().isEmpty()) e.setQuantidadeMoidaKg(e.getTotalOrigensKg());
+
+            String erro = validarSaldos(e, usado);
+            if (erro != null) return erro;   // ainda não se tocou na moagem
+            aceites.add(e);
+        }
+        // Só depois de tudo validado é que se mexe na moagem.
+        for (Enchimento e : aceites) {
             e.setMoagem(m);
             m.getEnchimentos().add(e);
         }
+        return null;
+    }
+
+    /** Confirma que cada vindima ainda tem Kg suficientes e vai descontando. */
+    private String validarSaldos(Enchimento e, Map<Long, BigDecimal> usado) {
+        for (EnchimentoVindima o : e.getOrigens()) {
+            if (o.getLinha() == null || o.getQuantidadeKg() == null || o.getQuantidadeKg().signum() <= 0) continue;
+            Long lid = o.getLinha().getId();
+            BigDecimal total = o.getLinha().getTotalVindimadoKg();
+            BigDecimal jaUsado = usado.getOrDefault(lid, BigDecimal.ZERO);
+            BigDecimal disponivel = total.subtract(jaUsado);
+            if (o.getQuantidadeKg().compareTo(disponivel) > 0) {
+                return String.format("%s só tem %s kg por moer — não pode moer %s kg.",
+                        o.getLinha().getEtiqueta(), disponivel.toPlainString(), o.getQuantidadeKg().toPlainString());
+            }
+            usado.put(lid, jaUsado.add(o.getQuantidadeKg()));
+        }
+        return null;
+    }
+
+    /** Resolve os ids de vindima do formulário e deita fora as linhas sem Kg. */
+    private void resolverOrigens(Enchimento e) {
+        List<EnchimentoVindima> validas = new ArrayList<>();
+        if (e.getOrigens() != null) {
+            for (EnchimentoVindima o : e.getOrigens()) {
+                if (o == null || o.getQuantidadeKg() == null || o.getQuantidadeKg().signum() <= 0) continue;
+                Long lid = o.getLinhaId();
+                if (lid == null) continue;
+                LinhaPlaneamentoParcela linha = linhaRepo.findById(lid).orElse(null);
+                if (linha == null) continue;
+                o.setId(null);
+                o.setLinha(linha);
+                o.setEnchimento(e);
+                validas.add(o);
+            }
+        }
+        e.setOrigens(validas);
+    }
+
+    /** Kg já atribuídos a moagens, por vindima (inclui as moagens ainda abertas). */
+    private Map<Long, BigDecimal> kgUsadoPorVindima() {
+        Map<Long, BigDecimal> out = new HashMap<>();
+        for (Object[] linha : enchimentoVindimaRepo.totaisPorVindima()) {
+            if (linha[0] == null) continue;
+            out.put((Long) linha[0], linha[1] == null ? BigDecimal.ZERO : (BigDecimal) linha[1]);
+        }
+        return out;
     }
 
     private List<RecipienteOpcao> recipienteOpcoes() {
@@ -244,9 +348,22 @@ public class MoagemController {
         return v.compareTo(capacidade) >= 0;
     }
 
-    /** Resolve os ids de casta vindos do multi-select para a lista de castas (e a principal). */
+    /**
+     * Define as castas do enchimento. Com vindimas indicadas, a casta vem da
+     * parcela de cada vindima — não é escolhida à mão. Só quando não há
+     * vindimas (ex.: moagens antigas) é que se usa o multi-select.
+     */
     private void resolverCastas(Enchimento e) {
         List<Casta> castas = new ArrayList<>();
+        if (!e.getOrigens().isEmpty()) {
+            for (EnchimentoVindima o : e.getOrigens()) {
+                Casta c = o.getCasta();
+                if (c != null && castas.stream().noneMatch(x -> x.getId().equals(c.getId()))) castas.add(c);
+            }
+            e.setCastas(castas);
+            e.setCasta(castas.isEmpty() ? null : castas.get(0));
+            return;
+        }
         List<Long> ids = e.getCastaIds();
         // Compatibilidade: se vier a casta única (binding antigo), usa o id dela.
         if ((ids == null || ids.isEmpty()) && e.getCasta() != null && e.getCasta().getId() != null) {
