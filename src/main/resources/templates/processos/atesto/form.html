@@ -24,9 +24,11 @@
             </div>
             <div class="col-md-4">
                 <label class="form-label">Vinho (da moagem)</label>
-                <select class="form-select" id="at-vinho" onchange="popularOrigem()">
+                <!-- name="vinhoId": o vinho fica gravado no atesto. -->
+                <select class="form-select" id="at-vinho" name="vinhoId" onchange="popularOrigem()">
                     <option value="">— escolher vinho —</option>
                 </select>
+                <div class="form-text" id="at-ajuda-vinho"></div>
             </div>
             <div class="col-md-4">
                 <label class="form-label">Responsável</label>
@@ -98,6 +100,7 @@
     const vinhosPorAdega = /*[[${vinhosPorAdega}]]*/ {};
     const origensPorVinho = /*[[${origensPorVinho}]]*/ {};
     const destinosPorAdega = /*[[${destinosPorAdega}]]*/ {};
+    const vinhoGuardado = /*[[${atesto.vinhoId}]]*/ null;
 
     function adegaSel() { return document.getElementById('at-adega').value; }
 
@@ -105,10 +108,14 @@
     function popularVinhos() {
         const adega = adegaSel();
         const vinho = document.getElementById('at-vinho');
+        const anterior = vinho.value || (vinhoGuardado ? String(vinhoGuardado) : '');
         const lista = (adega && vinhosPorAdega[adega]) ? vinhosPorAdega[adega] : [];
         let html = '<option value="">— escolher vinho —</option>';
         lista.forEach(function (v) { html += '<option value="' + v.id + '">' + v.nome + '</option>'; });
         vinho.innerHTML = html;
+        if (anterior) vinho.value = anterior;   // repõe o vinho guardado, se ainda existir aqui
+        document.getElementById('at-ajuda-vinho').textContent = lista.length
+            ? '' : (adega ? 'Esta adega não tem vinho da moagem em fermentação.' : 'Escolha primeiro a adega.');
         popularOrigem();
     }
 
@@ -117,6 +124,7 @@
         const adega = adegaSel();
         const vinho = document.getElementById('at-vinho').value;
         const origem = document.querySelector('[name="origemRef"]');
+        const guardado = origem.dataset.sel || '';
         let lista = (vinho && origensPorVinho[vinho]) ? origensPorVinho[vinho] : [];
         if (adega) lista = lista.filter(function (o) { return String(o.adegaId) === adega; });
         let html = '<option value="">—</option>';
@@ -124,6 +132,8 @@
             html += '<option value="' + o.ref + '" data-adega="' + o.adegaId + '">' + o.label + '</option>';
         });
         origem.innerHTML = html;
+        // Repõe a origem guardada (edição); só a limpa depois de a ter reposto.
+        if (guardado) { origem.value = guardado; if (origem.value === guardado) origem.dataset.sel = ''; }
         popularDestino();
     }
 
@@ -139,8 +149,16 @@
             html += '<option value="' + r.ref + '"' + estilo + '>' + r.label + '</option>';
         });
         destino.innerHTML = html;
-        if (guardado) { destino.value = guardado; destino.dataset.sel = ''; }
+        if (guardado) { destino.value = guardado; if (destino.value === guardado) destino.dataset.sel = ''; }
     }
+
+    // Sem isto, ao editar um atesto os seletores ficavam vazios: nada era
+    // preenchido no arranque e o vinho/origem guardados desapareciam.
+    document.addEventListener('DOMContentLoaded', function () {
+        const sel = document.getElementById('at-adega');
+        if (!sel.value && sel.dataset.sel) sel.value = sel.dataset.sel;
+        popularVinhos();
+    });
 </script>
 </body>
 </html>

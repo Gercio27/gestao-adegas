@@ -10,6 +10,7 @@ import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.fichas.*;
 import pt.acv.adega.planeamento.PlaneamentoVinho;
+import pt.acv.adega.planeamento.PlaneamentoVinhoRepository;
 import pt.acv.adega.processos.moagem.ProcessoMoagem;
 import pt.acv.adega.processos.moagem.ProcessoMoagemRepository;
 import pt.acv.adega.produtos.EstadoMosto;
@@ -31,14 +32,15 @@ public class AtestoController {
     private final DepositoRepository depositoRepo;
     private final MostoRepository mostoRepo;
     private final ProcessoMoagemRepository moagemRepo;
+    private final PlaneamentoVinhoRepository planeamentoRepo;
     private final TrabalhadorRepository trabalhadorRepo;
     private final CodigoService codigoService;
 
     public AtestoController(ProcessoAtestoRepository repo, AtestoService atestoService,
                             RecipienteService recipienteService, TalhaRepository talhaRepo,
                             DepositoRepository depositoRepo, MostoRepository mostoRepo,
-                            ProcessoMoagemRepository moagemRepo, TrabalhadorRepository trabalhadorRepo,
-                            CodigoService codigoService) {
+                            ProcessoMoagemRepository moagemRepo, PlaneamentoVinhoRepository planeamentoRepo,
+                            TrabalhadorRepository trabalhadorRepo, CodigoService codigoService) {
         this.repo = repo;
         this.atestoService = atestoService;
         this.recipienteService = recipienteService;
@@ -46,6 +48,7 @@ public class AtestoController {
         this.depositoRepo = depositoRepo;
         this.mostoRepo = mostoRepo;
         this.moagemRepo = moagemRepo;
+        this.planeamentoRepo = planeamentoRepo;
         this.trabalhadorRepo = trabalhadorRepo;
         this.codigoService = codigoService;
     }
@@ -93,6 +96,8 @@ public class AtestoController {
         // Adega do atesto = adega do recipiente de origem.
         if (atesto.getTalhaOrigem() != null) atesto.setAdega(atesto.getTalhaOrigem().getAdega());
         else if (atesto.getDepositoOrigem() != null) atesto.setAdega(atesto.getDepositoOrigem().getAdega());
+        // Guarda o nome do vinho escolhido, para a ficha o mostrar e a edição o repor.
+        resolverVinho(atesto);
         if (result.hasErrors()) {
             preencherOpcoes(model);
             return "processos/atesto/form";
@@ -151,6 +156,33 @@ public class AtestoController {
     }
 
     // ----- auxiliares -----
+
+    /**
+     * Preenche o nome do vinho a partir do id escolhido no formulário. Se o id
+     * não vier (ex.: um atesto antigo), tenta descobri-lo pelo mosto que está
+     * no recipiente de origem, para a ficha não ficar sem vinho.
+     */
+    private void resolverVinho(ProcessoAtesto a) {
+        if (a.getVinhoId() != null) {
+            planeamentoRepo.findById(a.getVinhoId())
+                    .ifPresent(w -> a.setVinhoNome(w.getNomeVinho()));
+            if (a.getVinhoNome() != null) return;
+        }
+        List<Mosto> naOrigem = a.getTalhaOrigem() != null
+                ? mostoRepo.findByTalhaId(a.getTalhaOrigem().getId())
+                : (a.getDepositoOrigem() != null ? mostoRepo.findByDepositoId(a.getDepositoOrigem().getId()) : List.of());
+        for (Mosto m : naOrigem) {
+            if (m.getVinhoNome() != null && !m.getVinhoNome().isBlank()) { a.setVinhoNome(m.getVinhoNome()); return; }
+            if (m.getOrigemMoagemId() != null) {
+                ProcessoMoagem mo = moagemRepo.findById(m.getOrigemMoagemId()).orElse(null);
+                if (mo != null && mo.getPlano() != null) {
+                    a.setVinhoId(mo.getPlano().getId());
+                    a.setVinhoNome(mo.getPlano().getNomeVinho());
+                    return;
+                }
+            }
+        }
+    }
 
     private void resolverRecipientes(ProcessoAtesto a) {
         RecipienteService.Recipiente o = recipienteService.resolver(a.getOrigemRef());

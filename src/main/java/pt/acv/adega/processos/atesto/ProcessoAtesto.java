@@ -48,6 +48,17 @@ public class ProcessoAtesto extends Processo {
     @Column(precision = 12, scale = 2)
     private BigDecimal litros;
 
+    /**
+     * Vinho atestado, vindo do planeamento da moagem. Fica gravado para o
+     * atesto se poder reabrir no sitio certo e para aparecer na ficha/recibo -
+     * sem isto o vinho perdia-se assim que o processo era guardado.
+     */
+    @Column(name = "vinho_id")
+    private Long vinhoId;
+
+    @Column(name = "vinho_nome", length = 160)
+    private String vinhoNome;
+
     /** Referencias vindas do formulario ("TALHA:id"/"DEPOSITO:id"). Nao persistem. */
     @Transient
     private String origemRef;
@@ -101,4 +112,10 @@ public class ProcessoAtesto extends Processo {
         if (depositoDestino != null) return "Depósito " + depositoDestino.getIdentificacao();
         return "—";
     }
+
+    public Long getVinhoId() { return vinhoId; }
+    public void setVinhoId(Long vinhoId) { this.vinhoId = vinhoId; }
+
+    public String getVinhoNome() { return vinhoNome; }
+    public void setVinhoNome(String vinhoNome) { this.vinhoNome = vinhoNome; }
 }

@@ -27,8 +27,21 @@
                   onsubmit="return confirm('Reabrir? Os volumes serão repostos.');">
                 <button class="btn btn-outline-warning"><i class="bi bi-unlock"></i> Reabrir</button>
             </form>
+            <!-- Só se pode eliminar com o atesto aberto (fechado, reabra primeiro para repor os volumes). -->
+            <form th:if="${atesto.aberto}" th:action="@{/processos/atesto/{id}/eliminar(id=${atesto.id})}"
+                  method="post" class="d-inline"
+                  onsubmit="return confirm('Eliminar este atesto? Não é possível voltar atrás.');">
+                <button class="btn btn-outline-danger"><i class="bi bi-trash"></i> Eliminar</button>
+            </form>
         </div>
     </div>
+
+    <div class="card shadow-sm mb-3"><div class="card-body py-2">
+        <span class="text-muted small">Vinho</span>
+        <span class="fs-5 fw-semibold ms-2" th:text="${atesto.vinhoNome ?: '—'}"></span>
+        <span class="text-muted small ms-3" th:if="${atesto.adega != null}"
+              th:text="'· ' + ${atesto.adega.nome}"></span>
+    </div></div>
 
     <div class="card shadow-sm mb-3"><div class="card-body">
         <div class="row text-center align-items-center">
