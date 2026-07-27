@@ -42,8 +42,13 @@ public class PassagemService {
         this.codigoService = codigoService;
     }
 
+    /**
+     * Fecha o processo e devolve os avisos que houver. Passar mais litros do
+     * que os registados no mosto e' permitido - a medicao real manda - e fica
+     * so' o aviso.
+     */
     @Transactional
-    public void fechar(Long id) {
+    public String fechar(Long id) {
         ProcessoPassagemVinho p = repo.findById(id)
                 .orElseThrow(() -> new PassagemException("Processo não encontrado."));
         if (p.getEstado() == EstadoProcesso.FECHADO) throw new PassagemException("O processo já está fechado.");
@@ -52,6 +57,7 @@ public class PassagemService {
         if (itens.isEmpty()) throw new PassagemException("Selecione pelo menos um mosto para passar a vinho a granel.");
 
         int convertidos = 0;
+        List<String> avisos = new java.util.ArrayList<>();
         for (PassagemItem it : itens) {
             Mosto m = mostoRepo.findById(it.getMostoId()).orElse(null);
             if (m == null || m.getEstado() == EstadoMosto.VINHO_GRANEL) continue;
@@ -60,9 +66,9 @@ public class PassagemService {
             BigDecimal efet = it.getLitrosEfetivos() != null ? it.getLitrosEfetivos() : orig;
             if (efet.signum() <= 0) throw new PassagemException("Os litros efetivos têm de ser > 0 (mosto " + m.getCodigo() + ").");
             if (efet.compareTo(orig) > 0) {
-                throw new PassagemException(String.format(
-                        "Mosto %s: os litros efetivos (%s L) não podem ser maiores que os %s L do mosto.",
-                        m.getCodigo(), efet.toPlainString(), orig.toPlainString()));
+                avisos.add(String.format("Mosto %s: passou %s L, mais %s L do que os %s L registados.",
+                        m.getCodigo(), efet.toPlainString(),
+                        efet.subtract(orig).toPlainString(), orig.toPlainString()));
             }
 
             // Snapshot da origem, para reverter.
@@ -86,7 +92,8 @@ public class PassagemService {
             } else {
                 Talha destino = talhaRepo.findById(destinoId)
                         .orElseThrow(() -> new PassagemException("Talha de destino não encontrada."));
-                exigirCapacidade(destino, efet);
+                String excesso = avisoCapacidade(destino, efet);
+                if (excesso != null) avisos.add(excesso);
                 // Tira da origem os litros que saem (tudo, se a sobra for perda).
                 ajustarRecipiente(m, guardarSobra ? efet.negate() : orig.negate());
                 // ...e poe os litros efetivos na talha de destino.
@@ -132,6 +139,7 @@ public class PassagemService {
         if (p.getDataHoraFim() == null) p.setDataHoraFim(LocalDateTime.now());
         p.setDataFecho(LocalDateTime.now());
         repo.save(p);
+        return avisos.isEmpty() ? null : String.join(" ", avisos);
     }
 
     @Transactional
@@ -191,14 +199,14 @@ public class PassagemService {
         repo.save(p);
     }
 
-    private void exigirCapacidade(Talha t, BigDecimal litros) {
+    /** Aviso de capacidade do destino (null se couber). Nao bloqueia. */
+    private String avisoCapacidade(Talha t, BigDecimal litros) {
         BigDecimal vol = v(t.getVolumeAtualLitros());
         BigDecimal cap = t.getCapacidadeLitros();
-        if (cap != null && vol.add(litros).compareTo(cap) > 0) {
-            throw new PassagemException(String.format(
-                    "Talha %s: capacidade excedida. Capacidade %s L, tem %s L, a entrar %s L.",
-                    t.getIdentificacao(), cap.toPlainString(), vol.toPlainString(), litros.toPlainString()));
-        }
+        if (cap == null || vol.add(litros).compareTo(cap) <= 0) return null;
+        return String.format("Talha %s: fica com %s L, acima da capacidade de %s L (%s L a mais).",
+                t.getIdentificacao(), vol.add(litros).toPlainString(), cap.toPlainString(),
+                vol.add(litros).subtract(cap).toPlainString());
     }
 
     /** Soma delta ao volume do recipiente onde o mosto se encontra (talha ou deposito). */

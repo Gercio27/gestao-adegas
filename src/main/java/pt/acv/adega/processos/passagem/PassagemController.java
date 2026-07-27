@@ -172,8 +172,9 @@ public class PassagemController {
         ProcessoPassagemVinho p = repo.findById(id).orElse(null);
         if (p == null || !podeAceder(p, auth)) { ra.addFlashAttribute("erro", "Sem acesso a este processo."); return "redirect:/processos/passagem-vinho"; }
         try {
-            passagemService.fechar(id);
+            String aviso = passagemService.fechar(id);
             ra.addFlashAttribute("sucesso", "Fechado. Os mostos passaram a vinho pronto a granel.");
+            if (aviso != null) ra.addFlashAttribute("aviso", aviso);
         } catch (PassagemException ex) {
             ra.addFlashAttribute("erro", ex.getMessage());
         }

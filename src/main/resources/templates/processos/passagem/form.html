@@ -153,7 +153,13 @@
             const efet = parseFloat(inp.value) || 0;
             const sobra = total - efet;
             const vazia = row.querySelector('.pv-vazia');
-            if (sobra <= 0) { txt.textContent = ''; return; }
+            if (sobra < 0) {
+                // Permitido: a medição real manda. Fica só o aviso.
+                txt.textContent = 'mais ' + Math.abs(sobra).toFixed(2) + ' L do que o registado';
+                txt.classList.add('text-danger');
+                return;
+            }
+            if (sobra === 0) { txt.textContent = ''; txt.classList.remove('text-danger'); return; }
             txt.textContent = (vazia && vazia.checked)
                 ? 'perde ' + sobra.toFixed(2) + ' L'
                 : 'ficam ' + sobra.toFixed(2) + ' L por passar';
