@@ -15,6 +15,8 @@ import java.math.BigDecimal;
  * ENTRADA: cria vinho a granel num recipiente (externo, emite DA).
  * SAIDA: da baixa de vinho a granel existente (emite DA).
  * TRANSFEGA: move litros de um recipiente para outro dentro do mesmo vinho.
+ * INTRA_EMP: saida intra-empresa - transfere vinho/mosto a granel (camiao) ou
+ *   garrafas (contentores) entre adegas/armazens da empresa, com D.A. anexado.
  */
 @Entity
 @Table(name = "processo_movimento_vinho")
@@ -70,6 +72,54 @@ public class ProcessoMovimentoVinho extends Processo {
     @Column(nullable = false)
     private boolean destinoCriado = false;
 
+    // ===== SAIDA_INTRA-EMPRESA (transferencia entre adegas/armazens) =====
+
+    /** "GRANEL" (mosto/vinho a granel em talha/deposito) ou "ENGARRAFADO" (garrafas em contentor). */
+    @Column(length = 12)
+    private String produtoTipo;
+
+    /** ENGARRAFADO: contentor de origem e de destino. */
+    @Column(name = "contentor_origem_id")
+    private Long contentorOrigemId;
+
+    @Column(name = "contentor_destino_id")
+    private Long contentorDestinoId;
+
+    /** ENGARRAFADO: nº de garrafas a transferir (ou o contentor completo). */
+    private Integer garrafas;
+
+    @Column(nullable = false)
+    private boolean contentorCompleto = false;
+
+    /** GRANEL: matricula do camiao (transporte). */
+    @Column(length = 20)
+    private String matriculaCamiao;
+
+    @Column(length = 160)
+    private String responsavelEntrega;
+
+    @Column(length = 160)
+    private String responsavelRececao;
+
+    /** Descricoes legiveis da origem e do destino (adega/armazem + recipiente). */
+    @Column(length = 250)
+    private String origemLocalDescricao;
+
+    @Column(length = 250)
+    private String destinoLocalDescricao;
+
+    /** PDF externo do Documento de Acompanhamento (D.A.), guardado na base de dados. */
+    @Lob
+    @Column(name = "da_pdf")
+    private byte[] daPdf;
+
+    @Column(length = 200)
+    private String daPdfNome;
+
+    @Column(length = 100)
+    private String daPdfTipo;
+
+    /** Selecao do recipiente de destino no formulario ("TALHA:id" / "DEPOSITO:id"). Nao persiste. */
     @Transient
     private String destinoRef;
 
@@ -122,5 +172,55 @@ public class ProcessoMovimentoVinho extends Processo {
         if (talhaDestino != null) return "Talha " + talhaDestino.getIdentificacao();
         if (depositoDestino != null) return "Depósito " + depositoDestino.getIdentificacao();
         return "—";
+    }
+
+    // ----- getters/setters intra-empresa -----
+
+    public String getProdutoTipo() { return produtoTipo; }
+    public void setProdutoTipo(String produtoTipo) { this.produtoTipo = produtoTipo; }
+
+    public Long getContentorOrigemId() { return contentorOrigemId; }
+    public void setContentorOrigemId(Long contentorOrigemId) { this.contentorOrigemId = contentorOrigemId; }
+
+    public Long getContentorDestinoId() { return contentorDestinoId; }
+    public void setContentorDestinoId(Long contentorDestinoId) { this.contentorDestinoId = contentorDestinoId; }
+
+    public Integer getGarrafas() { return garrafas; }
+    public void setGarrafas(Integer garrafas) { this.garrafas = garrafas; }
+
+    public boolean isContentorCompleto() { return contentorCompleto; }
+    public void setContentorCompleto(boolean contentorCompleto) { this.contentorCompleto = contentorCompleto; }
+
+    public String getMatriculaCamiao() { return matriculaCamiao; }
+    public void setMatriculaCamiao(String matriculaCamiao) { this.matriculaCamiao = matriculaCamiao; }
+
+    public String getResponsavelEntrega() { return responsavelEntrega; }
+    public void setResponsavelEntrega(String responsavelEntrega) { this.responsavelEntrega = responsavelEntrega; }
+
+    public String getResponsavelRececao() { return responsavelRececao; }
+    public void setResponsavelRececao(String responsavelRececao) { this.responsavelRececao = responsavelRececao; }
+
+    public String getOrigemLocalDescricao() { return origemLocalDescricao; }
+    public void setOrigemLocalDescricao(String origemLocalDescricao) { this.origemLocalDescricao = origemLocalDescricao; }
+
+    public String getDestinoLocalDescricao() { return destinoLocalDescricao; }
+    public void setDestinoLocalDescricao(String destinoLocalDescricao) { this.destinoLocalDescricao = destinoLocalDescricao; }
+
+    public byte[] getDaPdf() { return daPdf; }
+    public void setDaPdf(byte[] daPdf) { this.daPdf = daPdf; }
+
+    public String getDaPdfNome() { return daPdfNome; }
+    public void setDaPdfNome(String daPdfNome) { this.daPdfNome = daPdfNome; }
+
+    public String getDaPdfTipo() { return daPdfTipo; }
+    public void setDaPdfTipo(String daPdfTipo) { this.daPdfTipo = daPdfTipo; }
+
+    @Transient
+    public boolean isTemDaPdf() { return daPdf != null && daPdf.length > 0; }
+
+    /** True quando o movimento e' uma saida intra-empresa de vinho engarrafado. */
+    @Transient
+    public boolean isEngarrafado() {
+        return tipo == TipoMovimentoVinho.INTRA_EMP && "ENGARRAFADO".equals(produtoTipo);
     }
 }

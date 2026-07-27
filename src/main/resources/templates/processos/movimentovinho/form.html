@@ -5,11 +5,15 @@
 <nav th:replace="~{fragments/layout :: navbar}"></nav>
 
 <div class="container">
-    <h3 class="mb-1" th:text="${mov.id == null} ? 'Novo movimento de vinho a granel' : 'Editar movimento'">Movimento</h3>
-    <p class="text-muted">Fase 5. Escolha a adega e o vinho; aparecem os depósitos/talhas com esse vinho. <strong>Transfega</strong> = mover litros de um recipiente para outro no mesmo vinho. Ao <strong>fechar</strong>, aplica (e emite DA nas entradas/saídas).</p>
+    <h3 class="mb-1" th:text="${mov.id == null} ? 'Novo movimento de vinho' : 'Editar movimento'">Movimento</h3>
+    <p class="text-muted">Fase 5. Escolha a adega e o vinho; aparecem os depósitos/talhas com esse vinho.
+        <strong>Transfega</strong> = mover litros de um recipiente para outro no mesmo vinho.
+        <strong>Saída Intra-Empresa</strong> = transferir vinho/mosto entre adegas ou armazéns da empresa.
+        Ao <strong>fechar</strong>, aplica (e emite DA nas entradas/saídas).</p>
 
     <div class="card shadow-sm"><div class="card-body">
-        <form th:action="@{/processos/movimento-vinho}" th:object="${mov}" method="post" class="row g-3">
+        <form th:action="@{/processos/movimento-vinho}" th:object="${mov}" method="post" class="row g-3"
+              enctype="multipart/form-data">
             <input type="hidden" th:field="*{id}">
             <input type="hidden" th:field="*{codigo}">
 
@@ -19,8 +23,27 @@
                     <option th:each="t : ${tipos}" th:value="${t}" th:text="${t.descricao}"></option>
                 </select>
             </div>
-            <div class="col-md-4">
-                <label class="form-label">Adega</label>
+
+            <!-- ================= SAÍDA INTRA-EMPRESA: o que se transfere ================= -->
+            <div class="col-md-8" id="grpProduto">
+                <label class="form-label">O que vai ser transferido *</label>
+                <div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" id="pt-granel" value="GRANEL"
+                               th:field="*{produtoTipo}" onchange="atualizar()">
+                        <label class="form-check-label" for="pt-granel">Mosto / vinho a granel (talhas e depósitos)</label>
+                    </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" id="pt-eng" value="ENGARRAFADO"
+                               th:field="*{produtoTipo}" onchange="atualizar()">
+                        <label class="form-check-label" for="pt-eng">Engarrafado (garrafas em contentores)</label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ================= GRANEL: adega/vinho/origem ================= -->
+            <div class="col-md-4" id="grpAdega">
+                <label class="form-label"><span id="lblAdega">Adega</span></label>
                 <select class="form-select" id="mv-adega" onchange="atualizar()">
                     <option value="">— escolher adega —</option>
                     <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
@@ -32,6 +55,7 @@
                     <option value="">— escolher vinho —</option>
                     <option th:each="v : ${vinhos}" th:value="${v}" th:text="${v}"></option>
                 </select>
+                <div class="form-text" id="ajudaVinho">Vinhos existentes na adega escolhida.</div>
             </div>
 
             <div class="col-md-6" id="grpNome">
@@ -44,7 +68,7 @@
                 <div class="form-text">Escolha um vinho existente ou escreva um novo (entrada externa).</div>
             </div>
 
-            <!-- ORIGEM (SAÍDA / TRANSFEGA) -->
+            <!-- ORIGEM (SAÍDA / TRANSFEGA / INTRA-EMPRESA a granel) -->
             <div class="col-md-8" id="grpOrigem">
                 <label class="form-label">Depósito/talha de origem (com este vinho)</label>
                 <select class="form-select" th:field="*{mostoOrigem}" th:attr="data-sel=${mov.mostoOrigem != null ? mov.mostoOrigem.id : ''}">
@@ -54,9 +78,16 @@
                 </select>
             </div>
 
-            <!-- DESTINO (ENTRADA / TRANSFEGA) -->
+            <!-- DESTINO (ENTRADA / TRANSFEGA / INTRA-EMPRESA a granel) -->
+            <div class="col-md-4" id="grpAdegaDestino">
+                <label class="form-label">Adega de destino *</label>
+                <select class="form-select" id="mv-adega-destino" onchange="filtrarDestino()">
+                    <option value="">— escolher adega —</option>
+                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
+                </select>
+            </div>
             <div class="col-md-8" id="grpDestino">
-                <label class="form-label">Recipiente de destino (na adega)</label>
+                <label class="form-label"><span id="lblDestino">Recipiente de destino (na adega)</span></label>
                 <select class="form-select" th:field="*{destinoRef}" th:attr="data-sel=*{destinoRef}">
                     <option value="">—</option>
                     <option th:if="${mov.destinoRef != null and !#strings.isEmpty(mov.destinoRef)}"
@@ -73,9 +104,107 @@
                 </select>
             </div>
 
-            <div class="col-md-4">
+            <div class="col-md-4" id="grpLitros">
                 <label class="form-label">Litros *</label>
-                <input type="number" step="0.01" min="0" class="form-control" th:field="*{litros}" required>
+                <input type="number" step="0.01" min="0" class="form-control" th:field="*{litros}" id="mv-litros">
+            </div>
+
+            <div class="col-md-4" id="grpMatricula">
+                <label class="form-label">Matrícula do camião *</label>
+                <input type="text" class="form-control" th:field="*{matriculaCamiao}" placeholder="AA-00-BB"
+                       maxlength="20" style="text-transform:uppercase;">
+                <div class="form-text">O granel sai em depósito de camião.</div>
+            </div>
+
+            <!-- ================= ENGARRAFADO: contentores ================= -->
+            <div class="col-md-4" id="grpLocalOrigemEng">
+                <label class="form-label">Armazém/adega de saída *</label>
+                <select class="form-select" id="eng-local-origem" onchange="atualizar()">
+                    <option value="">— escolher local —</option>
+                    <option th:each="l : ${locaisOrigemEng}" th:value="${l.ref}" th:text="${l.nome}"></option>
+                </select>
+            </div>
+            <div class="col-md-4" id="grpVinhoEng">
+                <label class="form-label">Vinho a transferir *</label>
+                <select class="form-select" id="eng-vinho" onchange="filtrarContentorOrigem()">
+                    <option value="">— escolher vinho —</option>
+                </select>
+                <div class="form-text">Vinhos com garrafas nesse local.</div>
+            </div>
+            <div class="col-md-4" id="grpContOrigem">
+                <label class="form-label">Contentor onde está *</label>
+                <select class="form-select" th:field="*{contentorOrigemId}" id="eng-cont-origem"
+                        th:attr="data-sel=*{contentorOrigemId}" onchange="onContentorOrigem()">
+                    <option value="">—</option>
+                    <option th:if="${mov.contentorOrigemId != null}" th:value="*{contentorOrigemId}"
+                            th:text="${mov.origemLocalDescricao ?: 'contentor escolhido'}"></option>
+                </select>
+            </div>
+
+            <div class="col-md-4" id="grpGarrafas">
+                <label class="form-label">Garrafas a transferir *</label>
+                <input type="number" min="1" step="1" class="form-control" th:field="*{garrafas}" id="eng-garrafas">
+                <div class="form-text" id="ajudaGarrafas">Podem sair só algumas garrafas ou o contentor completo.</div>
+            </div>
+            <!-- Sem 'd-flex': essa classe traz !important e venceria o display:none do JS. -->
+            <div class="col-md-4" id="grpCompleto">
+                <div class="form-check mt-4">
+                    <input class="form-check-input" type="checkbox" th:field="*{contentorCompleto}" id="eng-completo"
+                           onchange="onCompleto()">
+                    <label class="form-check-label" for="eng-completo">Sai o contentor completo (dá baixa de tudo)</label>
+                </div>
+            </div>
+
+            <div class="col-md-4" id="grpLocalDestinoEng">
+                <label class="form-label">Armazém/adega de destino *</label>
+                <select class="form-select" id="eng-local-destino" onchange="filtrarContentorDestino()">
+                    <option value="">— escolher local —</option>
+                    <option th:each="l : ${locaisDestinoEng}" th:value="${l.ref}" th:text="${l.nome}"></option>
+                </select>
+            </div>
+            <div class="col-md-8" id="grpContDestino">
+                <label class="form-label">Contentor de destino *</label>
+                <select class="form-select" th:field="*{contentorDestinoId}" id="eng-cont-destino"
+                        th:attr="data-sel=*{contentorDestinoId}">
+                    <option value="">—</option>
+                    <option th:if="${mov.contentorDestinoId != null}" th:value="*{contentorDestinoId}"
+                            th:text="${mov.destinoLocalDescricao ?: 'contentor escolhido'}"></option>
+                </select>
+                <div class="form-text">Só aparecem contentores vazios ou já com este vinho.</div>
+            </div>
+
+            <!-- ================= Entrega / receção / D.A. ================= -->
+            <div class="col-md-4" id="grpRespEntrega">
+                <label class="form-label">Responsável da entrega *</label>
+                <input type="text" class="form-control" th:field="*{responsavelEntrega}" list="mv-trabalhadores"
+                       autocomplete="off">
+            </div>
+            <div class="col-md-4" id="grpRespRececao">
+                <label class="form-label">Responsável da receção *</label>
+                <input type="text" class="form-control" th:field="*{responsavelRececao}" list="mv-trabalhadores"
+                       autocomplete="off">
+            </div>
+            <datalist id="mv-trabalhadores">
+                <option th:each="t : ${trabalhadores}" th:value="${t.nome}"></option>
+            </datalist>
+
+            <div class="col-md-4" id="grpNumeroDA">
+                <label class="form-label">Nº do D.A.</label>
+                <input type="text" class="form-control" th:field="*{numeroDA}" maxlength="20" placeholder="Ex.: DA-2026-014">
+                <div class="form-text">Documento de Acompanhamento emitido fora do sistema.</div>
+            </div>
+            <div class="col-md-8" id="grpDaPdf">
+                <label class="form-label">Anexar PDF do D.A.</label>
+                <input type="file" class="form-control" name="daFicheiro" accept="application/pdf,.pdf">
+                <div class="form-text">
+                    <span th:if="${mov.temDaPdf}">
+                        Já tem anexo:
+                        <a th:href="@{/processos/movimento-vinho/{id}/da(id=${mov.id})}" target="_blank"
+                           th:text="${mov.daPdfNome ?: 'ver PDF'}">PDF</a>.
+                        Escolher outro ficheiro substitui-o.
+                    </span>
+                    <span th:unless="${mov.temDaPdf}">O D.A. é obrigatório guardar — anexe aqui o PDF (máx. 10 MB).</span>
+                </div>
             </div>
 
             <div class="col-md-6" id="grpContraparte">
@@ -95,7 +224,7 @@
                 </select>
             </div>
             <div class="col-md-4">
-                <label class="form-label">Início</label>
+                <label class="form-label"><span id="lblData">Início</span></label>
                 <input type="datetime-local" class="form-control" th:field="*{dataHoraInicio}">
             </div>
             <div class="col-md-4">
@@ -115,22 +244,83 @@
 <script th:inline="javascript">
     const mostosPorVinho = /*[[${mostosPorVinho}]]*/ {};
     const recipientesPorAdega = /*[[${recipientesPorAdega}]]*/ {};
+    const contOrigemPorLocal = /*[[${contentoresOrigemPorLocal}]]*/ {};
+    const contDestinoPorLocal = /*[[${contentoresDestinoPorLocal}]]*/ {};
     const nomeGuardado = /*[[${mov.nomeVinho}]]*/ '';
+    const adegaOrigemSel = /*[[${adegaOrigemSel}]]*/ '';
+    const adegaDestinoSel = /*[[${adegaDestinoSel}]]*/ '';
+    const localOrigemSel = /*[[${localOrigemSel}]]*/ '';
+    const localDestinoSel = /*[[${localDestinoSel}]]*/ '';
 
     function tipo() { return document.getElementById('mv-tipo').value; }
+    function ver(id, mostrar) { document.getElementById(id).style.display = mostrar ? '' : 'none'; }
+    function obrigatorio(el, sim) { if (el) { if (sim) el.setAttribute('required', 'required'); else el.removeAttribute('required'); } }
+
+    /** Engarrafado só existe dentro da saída intra-empresa. */
+    function engarrafado() {
+        const r = document.getElementById('pt-eng');
+        return tipo() === 'INTRA_EMP' && r && r.checked;
+    }
 
     function toggleTipo() {
         const t = tipo();
-        const entrada = t === 'ENTRADA', saida = t === 'SAIDA', transfega = t === 'TRANSFEGA';
-        document.getElementById('grpVinhoSel').style.display = entrada ? 'none' : '';
-        document.getElementById('grpOrigem').style.display = entrada ? 'none' : '';
-        document.getElementById('grpDestino').style.display = saida ? 'none' : '';
-        document.getElementById('grpCasta').style.display = entrada ? '' : 'none';
-        document.getElementById('grpContraparte').style.display = transfega ? 'none' : '';
-        document.getElementById('grpTransporte').style.display = transfega ? 'none' : '';
+        const entrada = t === 'ENTRADA', saida = t === 'SAIDA', transfega = t === 'TRANSFEGA', intra = t === 'INTRA_EMP';
+        const eng = engarrafado();
+        const granel = !eng;                 // granel/mosto (inclui os tipos antigos)
+
+        ver('grpProduto', intra);
+        ver('grpAdega', granel);
+        document.getElementById('lblAdega').textContent = intra ? 'Adega de saída' : 'Adega';
+        ver('grpVinhoSel', granel && !entrada);
+        ver('grpNome', granel);
+        ver('grpOrigem', granel && !entrada);
+        ver('grpAdegaDestino', intra && granel);
+        ver('grpDestino', granel && !saida);
+        ver('grpCasta', entrada);
+        ver('grpLitros', granel);
+        ver('grpMatricula', intra && granel);
+
+        ver('grpLocalOrigemEng', eng);
+        ver('grpVinhoEng', eng);
+        ver('grpContOrigem', eng);
+        ver('grpGarrafas', eng);
+        ver('grpCompleto', eng);
+        ver('grpLocalDestinoEng', eng);
+        ver('grpContDestino', eng);
+
+        ver('grpRespEntrega', intra);
+        ver('grpRespRececao', intra);
+        ver('grpNumeroDA', intra);
+        ver('grpDaPdf', intra || entrada || saida);
+        ver('grpContraparte', entrada || saida);
+        ver('grpTransporte', entrada || saida);
+
         document.getElementById('lblContraparte').textContent = entrada ? 'Fornecedor' : 'Cliente';
+        document.getElementById('lblDestino').textContent = intra
+            ? 'Talha/depósito de destino (na adega escolhida)' : 'Recipiente de destino (na adega)';
+        document.getElementById('lblData').textContent = intra ? 'Data da transferência' : 'Início';
         // Nome: editável só na entrada; nas outras vem do vinho escolhido.
         document.getElementById('mv-nome').readOnly = !entrada;
+
+        // Campos obrigatórios só quando estão visíveis (senão o browser bloqueia sem explicar).
+        obrigatorio(document.getElementById('mv-litros'), granel);
+        obrigatorio(document.getElementById('eng-garrafas'), eng && !document.getElementById('eng-completo').checked);
+    }
+
+    // ---------- granel ----------
+
+    /** Vinhos que existem na adega escolhida (todos, se não houver adega). */
+    function filtrarVinhos() {
+        const adega = document.getElementById('mv-adega').value;
+        const sel = document.getElementById('mv-vinho');
+        const atual = document.getElementById('mv-nome').value;
+        let h = '<option value="">— escolher vinho —</option>';
+        Object.keys(mostosPorVinho).forEach(function (nome) {
+            const temAqui = !adega || mostosPorVinho[nome].some(function (m) { return String(m.adegaId) === adega; });
+            if (temAqui) h += '<option value="' + nome + '">' + nome + '</option>';
+        });
+        sel.innerHTML = h;
+        if (atual) sel.value = atual;
     }
 
     function onVinho() {
@@ -154,7 +344,10 @@
     }
 
     function filtrarDestino() {
-        const adega = document.getElementById('mv-adega').value;
+        // Na intra-empresa o destino é noutra adega; nos outros tipos é a mesma.
+        const adega = tipo() === 'INTRA_EMP'
+            ? document.getElementById('mv-adega-destino').value
+            : document.getElementById('mv-adega').value;
         const sel = document.querySelector('[name="destinoRef"]');
         if (!sel) return;
         const guardado = sel.dataset.sel || '';
@@ -168,19 +361,114 @@
         if (guardado) sel.value = guardado;
     }
 
+    // ---------- engarrafado ----------
+
+    /** Vinhos com garrafas no local de saída escolhido. */
+    function filtrarVinhosEng() {
+        const local = document.getElementById('eng-local-origem').value;
+        const sel = document.getElementById('eng-vinho');
+        const anterior = sel.value;
+        const lista = (local && contOrigemPorLocal[local]) ? contOrigemPorLocal[local] : [];
+        const vistos = [];
+        let h = '<option value="">— escolher vinho —</option>';
+        lista.forEach(function (c) {
+            if (vistos.indexOf(c.vinho) === -1) { vistos.push(c.vinho); h += '<option value="' + c.vinho + '">' + c.vinho + '</option>'; }
+        });
+        sel.innerHTML = h;
+        // O vinho anterior pode já não existir no novo local — nesse caso não fica preso.
+        if (anterior) sel.value = anterior;
+        if (!sel.value && vistos.length === 1) sel.value = vistos[0];   // só há um vinho: escolhe-o
+    }
+
+    /** Contentores desse local que têm o vinho escolhido. */
+    function filtrarContentorOrigem() {
+        const local = document.getElementById('eng-local-origem').value;
+        const vinho = document.getElementById('eng-vinho').value;
+        const sel = document.getElementById('eng-cont-origem');
+        const guardado = sel.dataset.sel || '';
+        const lista = (local && contOrigemPorLocal[local]) ? contOrigemPorLocal[local] : [];
+        let h = '<option value="">—</option>';
+        lista.forEach(function (c) {
+            if (!vinho || c.vinho === vinho) h += '<option value="' + c.id + '" data-garrafas="' + c.garrafas + '">' + c.label + '</option>';
+        });
+        sel.innerHTML = h;
+        if (guardado) sel.value = guardado;
+        onContentorOrigem();
+    }
+
+    function onContentorOrigem() {
+        const sel = document.getElementById('eng-cont-origem');
+        const op = sel.options[sel.selectedIndex];
+        const max = op ? op.getAttribute('data-garrafas') : null;
+        const inp = document.getElementById('eng-garrafas');
+        if (max) {
+            inp.max = max;
+            document.getElementById('ajudaGarrafas').textContent = 'Este contentor tem ' + max + ' garrafa(s).';
+        } else {
+            inp.removeAttribute('max');
+            document.getElementById('ajudaGarrafas').textContent = 'Podem sair só algumas garrafas ou o contentor completo.';
+        }
+        filtrarContentorDestino();
+    }
+
+    /** Contentores do local de destino: vazios ou já com o mesmo vinho. */
+    function filtrarContentorDestino() {
+        const local = document.getElementById('eng-local-destino').value;
+        const vinho = document.getElementById('eng-vinho').value;
+        const origem = document.getElementById('eng-cont-origem').value;
+        const sel = document.getElementById('eng-cont-destino');
+        const guardado = sel.dataset.sel || '';
+        const lista = (local && contDestinoPorLocal[local]) ? contDestinoPorLocal[local] : [];
+        let h = '<option value="">—</option>';
+        lista.forEach(function (c) {
+            if (String(c.id) === origem) return;                      // não pode ir para ele próprio
+            if (c.vinho && vinho && c.vinho !== vinho) return;         // já tem outro vinho
+            h += '<option value="' + c.id + '">' + c.label + '</option>';
+        });
+        sel.innerHTML = h;
+        if (guardado) sel.value = guardado;
+    }
+
+    function onCompleto() {
+        const completo = document.getElementById('eng-completo').checked;
+        const inp = document.getElementById('eng-garrafas');
+        inp.disabled = completo;
+        if (completo) inp.value = '';
+        obrigatorio(inp, !completo && engarrafado());
+    }
+
     function atualizar() {
         toggleTipo();
-        filtrarOrigem();
-        filtrarDestino();
+        if (engarrafado()) {
+            filtrarVinhosEng();
+            filtrarContentorOrigem();
+            filtrarContentorDestino();
+            onCompleto();
+        } else {
+            filtrarVinhos();
+            filtrarOrigem();
+            filtrarDestino();
+        }
     }
 
     document.addEventListener('DOMContentLoaded', function () {
-        // Preseleciona o vinho guardado (edição de saída/transfega)
+        // Por omissão, a saída intra-empresa começa em granel.
+        if (!document.getElementById('pt-granel').checked && !document.getElementById('pt-eng').checked) {
+            document.getElementById('pt-granel').checked = true;
+        }
+        // Reabre o formulário no local guardado (edição).
+        if (adegaOrigemSel) document.getElementById('mv-adega').value = adegaOrigemSel;
+        if (adegaDestinoSel) document.getElementById('mv-adega-destino').value = adegaDestinoSel;
+        if (localOrigemSel) document.getElementById('eng-local-origem').value = localOrigemSel;
+        if (localDestinoSel) document.getElementById('eng-local-destino').value = localDestinoSel;
+        atualizar();
+        // Preseleciona o vinho guardado (edição de saída/transfega/intra)
         if (nomeGuardado) {
             const vsel = document.getElementById('mv-vinho');
             if (vsel) vsel.value = nomeGuardado;
+            const esel = document.getElementById('eng-vinho');
+            if (esel) esel.value = nomeGuardado;
         }
-        atualizar();
     });
 </script>
 </body>
