@@ -148,14 +148,10 @@ public class MoagemController {
                 linhaRepo.findById(lid).ifPresent(m.getVindimas()::add);
             }
         }
-        String erro = appendEnchimentos(m, form.getEnchimentos());
-        if (erro != null) {
-            // Nada foi gravado — a moagem ainda nem existe na base de dados.
-            ra.addFlashAttribute("erro", erro);
-            return "redirect:/processos/moagem";
-        }
+        String aviso = appendEnchimentos(m, form.getEnchimentos());
         repo.save(m);
         ra.addFlashAttribute("sucesso", "Moagem criada: " + m.getCodigo());
+        if (aviso != null) ra.addFlashAttribute("aviso", aviso);
         return "redirect:/processos/moagem";
     }
 
@@ -167,10 +163,10 @@ public class MoagemController {
         if (m == null || !podeAceder(m, auth)) { ra.addFlashAttribute("erro", "Sem acesso a esta moagem."); return "redirect:/processos/moagem"; }
         if (!m.isAberto()) { ra.addFlashAttribute("erro", "Moagem fechada — reabra antes de alterar."); return "redirect:/processos/moagem"; }
         if (form.getResponsavel() != null) m.setResponsavel(form.getResponsavel());
-        String erro = appendEnchimentos(m, form.getEnchimentos());
-        if (erro != null) { ra.addFlashAttribute("erro", erro); return "redirect:/processos/moagem"; }
+        String aviso = appendEnchimentos(m, form.getEnchimentos());
         repo.save(m);
         ra.addFlashAttribute("sucesso", "Enchimentos guardados.");
+        if (aviso != null) ra.addFlashAttribute("aviso", aviso);
         return "redirect:/processos/moagem";
     }
 
@@ -253,11 +249,16 @@ public class MoagemController {
      * erro se algum deles quiser moer mais Kg do que a vindima ainda tem — não
      * grava nada nesse caso (o método é chamado dentro de @Transactional).
      */
+    /**
+     * Acrescenta os enchimentos vindos do formulário. Moer mais do que a
+     * vindima tem é permitido (acontece na prática — a pesagem no campo nem
+     * sempre bate certo), mas devolve o aviso do excesso para o utilizador ver.
+     */
     private String appendEnchimentos(ProcessoMoagem m, List<Enchimento> lista) {
         if (lista == null) return null;
         // Saldo por vindima já comprometido noutras moagens.
         Map<Long, BigDecimal> usado = kgUsadoPorVindima();
-        List<Enchimento> aceites = new ArrayList<>();
+        List<String> avisos = new ArrayList<>();
         for (Enchimento e : lista) {
             if (e == null) continue;
             resolverOrigens(e);
@@ -271,33 +272,30 @@ public class MoagemController {
             // Com vindimas indicadas, os Kg moídos são a soma delas.
             if (!e.getOrigens().isEmpty()) e.setQuantidadeMoidaKg(e.getTotalOrigensKg());
 
-            String erro = validarSaldos(e, usado);
-            if (erro != null) return erro;   // ainda não se tocou na moagem
-            aceites.add(e);
-        }
-        // Só depois de tudo validado é que se mexe na moagem.
-        for (Enchimento e : aceites) {
+            avisos.addAll(excessos(e, usado));
             e.setMoagem(m);
             m.getEnchimentos().add(e);
         }
-        return null;
+        return avisos.isEmpty() ? null : String.join(" ", avisos);
     }
 
-    /** Confirma que cada vindima ainda tem Kg suficientes e vai descontando. */
-    private String validarSaldos(Enchimento e, Map<Long, BigDecimal> usado) {
+    /** Vindimas onde se está a moer mais do que o que sobrava; vai descontando. */
+    private List<String> excessos(Enchimento e, Map<Long, BigDecimal> usado) {
+        List<String> avisos = new ArrayList<>();
         for (EnchimentoVindima o : e.getOrigens()) {
             if (o.getLinha() == null || o.getQuantidadeKg() == null || o.getQuantidadeKg().signum() <= 0) continue;
             Long lid = o.getLinha().getId();
-            BigDecimal total = o.getLinha().getTotalVindimadoKg();
-            BigDecimal jaUsado = usado.getOrDefault(lid, BigDecimal.ZERO);
-            BigDecimal disponivel = total.subtract(jaUsado);
+            BigDecimal disponivel = o.getLinha().getTotalVindimadoKg()
+                    .subtract(usado.getOrDefault(lid, BigDecimal.ZERO));
             if (o.getQuantidadeKg().compareTo(disponivel) > 0) {
-                return String.format("%s só tem %s kg por moer — não pode moer %s kg.",
-                        o.getLinha().getEtiqueta(), disponivel.toPlainString(), o.getQuantidadeKg().toPlainString());
+                BigDecimal excesso = o.getQuantidadeKg().subtract(disponivel);
+                avisos.add(String.format("%s: está a moer %s kg a mais do que tinha por moer (sobravam %s kg).",
+                        o.getLinha().getEtiqueta(), excesso.toPlainString(),
+                        (disponivel.signum() < 0 ? BigDecimal.ZERO : disponivel).toPlainString()));
             }
-            usado.put(lid, jaUsado.add(o.getQuantidadeKg()));
+            usado.merge(lid, o.getQuantidadeKg(), BigDecimal::add);
         }
-        return null;
+        return avisos;
     }
 
     /** Resolve os ids de vindima do formulário e deita fora as linhas sem Kg. */

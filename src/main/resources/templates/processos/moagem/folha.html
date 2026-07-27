@@ -75,7 +75,7 @@
                             <th style="min-width:260px;">Kg por vindima</th><th>Casta</th>
                             <th class="text-end" style="width:100px;">Moído (Kg)</th>
                             <th class="text-end" style="width:110px;">Mosto (L)</th>
-                            <th class="text-end" style="width:110px;">Álcool prov. (%)</th></tr></thead>
+                            <th class="text-end" style="width:110px;">Álcool prov. (%)</th><th style="width:40px;"></th></tr></thead>
                         <tbody id="corpoNovo"></tbody>
                     </table>
                 </div>
@@ -145,6 +145,25 @@
             <!-- ABERTA: acrescentar enchimentos + fechar -->
             <div th:if="${mo.aberto}">
                 <form th:action="@{/processos/moagem/{id}/enchimentos(id=${mo.id})}" method="post" class="mb-2">
+                    <!-- Quanto ainda ha por moer em cada vindima desta moagem -->
+                    <div class="table-responsive mb-2">
+                        <table class="table table-sm mb-0" style="max-width:620px;">
+                            <thead><tr><th>Parcela (casta)</th><th class="text-end">Por moer</th></tr></thead>
+                            <tbody>
+                            <tr th:each="v : ${vindimasPorMoagem.get(mo.id)}">
+                                <td class="small" th:text="${v.label} + ' (' + ${v.casta} + ')'"></td>
+                                <td class="text-end fw-bold saldo-vindima"
+                                    th:attr="data-vindima=${v.id},data-disponivel=${v.disponivel},data-bloco=${mo.id}"
+                                    th:text="${v.disponivel} + ' kg'"></td>
+                            </tr>
+                            <tr th:if="${vindimasPorMoagem.get(mo.id) == null or vindimasPorMoagem.get(mo.id).isEmpty()}">
+                                <td colspan="2" class="text-muted small">Esta moagem não tem vindimas associadas.</td>
+                            </tr>
+                            </tbody>
+                        </table>
+                        <div class="form-text">Desce à medida que reparte os Kg em baixo. Pode moer a mais — fica só o aviso.</div>
+                    </div>
+
                     <div class="d-flex justify-content-between align-items-center mb-1" style="max-width:1000px;">
                         <div class="small fw-bold">Acrescentar enchimento(s)</div>
                         <button class="btn btn-sm btn-outline-secondary py-0" type="button"
@@ -158,7 +177,7 @@
                                 <th style="min-width:260px;">Kg por vindima</th><th>Casta</th>
                                 <th class="text-end" style="width:100px;">Moído (Kg)</th>
                                 <th class="text-end" style="width:110px;">Mosto (L)</th>
-                                <th class="text-end" style="width:110px;">Álcool prov. (%)</th></tr></thead>
+                                <th class="text-end" style="width:110px;">Álcool prov. (%)</th><th style="width:40px;"></th></tr></thead>
                             <tbody th:id="'corpo' + ${mo.id}"></tbody>
                         </table>
                     </div>
@@ -264,8 +283,38 @@
             + '<td class="align-top"><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end ench-litros"'
             + ' name="enchimentos[' + i + '].litros"></td>'
             + '<td class="align-top"><input type="number" step="0.01" min="0" max="30" class="form-control form-control-sm text-end"'
-            + ' name="enchimentos[' + i + '].alcoolProvavel"></td>';
+            + ' name="enchimentos[' + i + '].alcoolProvavel"></td>'
+            + '<td class="align-top text-end">'
+            + '<button type="button" class="btn btn-sm btn-outline-danger py-0 btn-remover" title="Remover esta linha">'
+            + '<i class="bi bi-trash"></i></button></td>';
+        // Sem onclick no HTML: liga-se aqui, que evita problemas de aspas.
+        tr.querySelector('.btn-remover').addEventListener('click', function () { removerLinha(this, bloco); });
         corpo.appendChild(tr);
+    }
+
+    /**
+     * Tira uma linha de enchimento. Os nomes dos campos levam o indice, por isso
+     * a seguir e' preciso renumerar as que ficam, senao o servidor perde-as.
+     */
+    function removerLinha(botao, bloco) {
+        const tr = botao.closest('tr');
+        const corpo = tr.parentNode;
+        tr.remove();
+        renumerar(corpo);
+        // Fica sempre pelo menos uma linha, para nao deixar o bloco vazio.
+        if (!corpo.querySelectorAll('tr').length) juntarLinha(bloco);
+        atualizarSaldos();
+    }
+
+    /** Renumera enchimentos[i] e origens[j] depois de remover uma linha. */
+    function renumerar(corpo) {
+        corpo.querySelectorAll('tr').forEach(function (tr, i) {
+            const num = tr.querySelector('td');
+            if (num) num.textContent = i + 1;
+            tr.querySelectorAll('[name^="enchimentos["]').forEach(function (campo) {
+                campo.name = campo.name.replace(/^enchimentos\[\d+\]/, 'enchimentos[' + i + ']');
+            });
+        });
     }
 
     /** Recria as linhas de um bloco (usado quando mudam as vindimas escolhidas). */
@@ -301,7 +350,7 @@
                 + '<td>' + v.label + '</td>'
                 + '<td class="text-end">' + v.vindimado + ' kg</td>'
                 + '<td class="text-end text-muted">' + v.moido + ' kg</td>'
-                + '<td class="text-end fw-bold saldo-vindima" data-vindima="' + v.id + '" data-disponivel="' + v.disponivel + '">'
+                + '<td class="text-end fw-bold saldo-vindima" data-bloco="novo" data-vindima="' + v.id + '" data-disponivel="' + v.disponivel + '">'
                 + v.disponivel + ' kg</td>'
                 + '</tr>';
         }).join('');
@@ -343,16 +392,22 @@
         // 2) Por vindima: saldo = disponível no servidor - o que está escrito agora.
         document.querySelectorAll('.saldo-vindima').forEach(function (celula) {
             const id = celula.dataset.vindima;
+            const bloco = celula.dataset.bloco;
             const disponivel = parseFloat(celula.dataset.disponivel) || 0;
             let usado = 0;
-            document.querySelectorAll('.kg-vindima[data-vindima="' + id + '"]').forEach(function (inp) {
-                const kg = parseFloat(inp.value);
-                if (!isNaN(kg)) usado += kg;
-            });
+            // So' conta as caixas deste bloco — cada moagem tem as suas.
+            document.querySelectorAll('.kg-vindima[data-vindima="' + id + '"][data-bloco="' + bloco + '"]')
+                .forEach(function (inp) {
+                    const kg = parseFloat(inp.value);
+                    if (!isNaN(kg)) usado += kg;
+                });
             const resta = disponivel - usado;
             celula.textContent = resta.toFixed(2) + ' kg';
             celula.classList.toggle('text-danger', resta < 0);
             celula.classList.toggle('text-success', resta >= 0 && usado > 0);
+            celula.title = resta < 0
+                ? 'Vai moer ' + Math.abs(resta).toFixed(2) + ' kg a mais do que tinha por moer (permitido).'
+                : '';
         });
     }
 
