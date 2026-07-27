@@ -38,13 +38,13 @@
             <!-- Saída intra-empresa: origem e destino são locais da empresa -->
             <th:block th:if="${intra}">
                 <dt class="col-sm-3">Produto</dt>
-                <dd class="col-sm-9" th:text="${mov.engarrafado} ? 'Engarrafado (garrafas em contentor)' : 'Mosto / vinho a granel'"></dd>
+                <dd class="col-sm-9" th:text="${mov.produtoTipo == 'BAG_IN_BOX'} ? 'Bag-in-box (unidades em palete)' : (${mov.engarrafado} ? 'Engarrafado (garrafas em contentor)' : 'Mosto / vinho a granel')"></dd>
                 <dt class="col-sm-3">Sai de</dt>
                 <dd class="col-sm-9" th:text="${mov.origemLocalDescricao ?: (mov.mostoOrigem != null ? mov.mostoOrigem.localizacao : '—')}"></dd>
                 <dt class="col-sm-3">Vai para</dt>
                 <dd class="col-sm-9 fw-semibold" th:text="${mov.destinoLocalDescricao ?: mov.destinoDescricao}"></dd>
                 <th:block th:if="${mov.engarrafado}">
-                    <dt class="col-sm-3">Garrafas</dt>
+                    <dt class="col-sm-3" th:text="${mov.produtoTipo == 'BAG_IN_BOX'} ? 'Unidades' : 'Garrafas'">Garrafas</dt>
                     <dd class="col-sm-9">
                         <span th:text="${mov.garrafas ?: 0}"></span>
                         <span th:if="${mov.contentorCompleto}" class="badge bg-secondary">contentor completo</span>

@@ -22,6 +22,11 @@ public class ProcessoPassagemComercial extends Processo {
     private VinhoEngarrafado engarrafado;
 
     /** Contentor (rotulado) de onde saem as garrafas — define o vinho e o local. */
+    /** De que tipo e' o contentor de origem: garrafas ou bag-in-box. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_embalagem", nullable = false, length = 12)
+    private pt.acv.adega.fichas.TipoEmbalagem tipoEmbalagem = pt.acv.adega.fichas.TipoEmbalagem.GARRAFA;
+
     @Column(name = "contentor_id")
     private Long contentorId;
 
@@ -34,6 +39,15 @@ public class ProcessoPassagemComercial extends Processo {
 
     public Long getContentorId() { return contentorId; }
     public void setContentorId(Long contentorId) { this.contentorId = contentorId; }
+
+    public pt.acv.adega.fichas.TipoEmbalagem getTipoEmbalagem() { return tipoEmbalagem; }
+    public void setTipoEmbalagem(pt.acv.adega.fichas.TipoEmbalagem tipoEmbalagem) { this.tipoEmbalagem = tipoEmbalagem; }
+
+    /** "garrafa(s)" ou "unidade(s)", conforme o tipo de contentor. */
+    @Transient
+    public String getUnidadeNome() {
+        return tipoEmbalagem != null ? tipoEmbalagem.getUnidade() : "garrafa(s)";
+    }
 
     public String getOrigemDescricao() { return origemDescricao; }
     public void setOrigemDescricao(String origemDescricao) { this.origemDescricao = origemDescricao; }

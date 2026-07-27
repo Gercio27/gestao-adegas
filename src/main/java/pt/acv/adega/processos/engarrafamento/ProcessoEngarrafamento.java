@@ -3,6 +3,7 @@ package pt.acv.adega.processos.engarrafamento;
 import jakarta.persistence.*;
 import pt.acv.adega.fichas.Consumivel;
 import pt.acv.adega.fichas.TipoBagInBox;
+import pt.acv.adega.fichas.TipoEmbalagem;
 import pt.acv.adega.processos.Fase;
 import pt.acv.adega.processos.Processo;
 import pt.acv.adega.produtos.Mosto;

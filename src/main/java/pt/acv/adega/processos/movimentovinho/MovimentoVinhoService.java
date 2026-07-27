@@ -3,8 +3,8 @@ package pt.acv.adega.processos.movimentovinho;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pt.acv.adega.common.CodigoService;
-import pt.acv.adega.fichas.ContentorGarrafas;
-import pt.acv.adega.fichas.ContentorGarrafasRepository;
+import pt.acv.adega.fichas.ContentorService;
+import pt.acv.adega.fichas.TipoEmbalagem;
 import pt.acv.adega.fichas.Deposito;
 import pt.acv.adega.fichas.DepositoRepository;
 import pt.acv.adega.fichas.Talha;
@@ -32,17 +32,17 @@ public class MovimentoVinhoService {
     private final MostoRepository mostoRepo;
     private final TalhaRepository talhaRepo;
     private final DepositoRepository depositoRepo;
-    private final ContentorGarrafasRepository contentorRepo;
+    private final ContentorService contentorService;
     private final CodigoService codigoService;
 
     public MovimentoVinhoService(ProcessoMovimentoVinhoRepository repo, MostoRepository mostoRepo,
                                  TalhaRepository talhaRepo, DepositoRepository depositoRepo,
-                                 ContentorGarrafasRepository contentorRepo, CodigoService codigoService) {
+                                 ContentorService contentorService, CodigoService codigoService) {
         this.repo = repo;
         this.mostoRepo = mostoRepo;
         this.talhaRepo = talhaRepo;
         this.depositoRepo = depositoRepo;
-        this.contentorRepo = contentorRepo;
+        this.contentorService = contentorService;
         this.codigoService = codigoService;
     }
 
@@ -163,10 +163,10 @@ public class MovimentoVinhoService {
         p.setDestinoCriado(criado);
     }
 
-    /** Saída intra-empresa: transferência interna de granel/mosto ou de engarrafado. */
+    /** Saída intra-empresa: transferência interna de granel/mosto ou de produto acabado. */
     private void intraEmpresa(ProcessoMovimentoVinho p) {
         exigirResponsaveis(p);
-        if ("ENGARRAFADO".equals(p.getProdutoTipo())) {
+        if (p.isEngarrafado()) {
             intraEngarrafado(p);
         } else {
             // Granel/mosto: sai em deposito de camiao, com matricula obrigatoria.
@@ -188,56 +188,43 @@ public class MovimentoVinhoService {
 
     private boolean vazio(String s) { return s == null || s.isBlank(); }
 
+    /** Transferência de produto acabado entre contentores — garrafas ou bag-in-box. */
     private void intraEngarrafado(ProcessoMovimentoVinho p) {
+        TipoEmbalagem tipo = p.getTipoEmbalagem();
+        String unidade = tipo.getUnidade();
         if (p.getContentorOrigemId() == null) throw new MovimentoVinhoException("Indique o contentor de origem.");
-        ContentorGarrafas orig = contentorRepo.findById(p.getContentorOrigemId())
-                .orElseThrow(() -> new MovimentoVinhoException("Contentor de origem não encontrado."));
-        if (orig.getGarrafasAtuais() <= 0) throw new MovimentoVinhoException("O contentor de origem está vazio.");
+        ContentorService.Opcao orig = contentorService.procurar(tipo, p.getContentorOrigemId());
+        if (orig == null) throw new MovimentoVinhoException("Contentor de origem não encontrado.");
+        if (orig.stock() <= 0) throw new MovimentoVinhoException("O contentor de origem está vazio.");
         if (p.getContentorDestinoId() == null) throw new MovimentoVinhoException("Indique o contentor de destino.");
         if (p.getContentorDestinoId().equals(p.getContentorOrigemId())) throw new MovimentoVinhoException("O destino tem de ser diferente da origem.");
-        ContentorGarrafas dest = contentorRepo.findById(p.getContentorDestinoId())
-                .orElseThrow(() -> new MovimentoVinhoException("Contentor de destino não encontrado."));
+        ContentorService.Opcao dest = contentorService.procurar(tipo, p.getContentorDestinoId());
+        if (dest == null) throw new MovimentoVinhoException("Contentor de destino não encontrado.");
 
-        int qtd = p.isContentorCompleto() ? orig.getGarrafasAtuais()
-                : (p.getGarrafas() == null ? 0 : p.getGarrafas());
-        if (qtd <= 0) throw new MovimentoVinhoException("Indique quantas garrafas transferir (> 0) ou marque 'contentor completo'.");
-        if (qtd > orig.getGarrafasAtuais()) throw new MovimentoVinhoException(
-                String.format("O contentor de origem só tem %d garrafa(s).", orig.getGarrafasAtuais()));
+        int qtd = p.isContentorCompleto() ? orig.stock() : (p.getGarrafas() == null ? 0 : p.getGarrafas());
+        if (qtd <= 0) throw new MovimentoVinhoException(
+                "Indique quantas " + unidade + " transferir (> 0) ou marque 'contentor completo'.");
+        if (qtd > orig.stock()) throw new MovimentoVinhoException(
+                String.format("O contentor de origem só tem %d %s.", orig.stock(), unidade));
 
         // O destino tem de estar vazio ou já ter o mesmo vinho.
-        if (dest.getGarrafasAtuais() > 0 && dest.getVinhoEngarrafadoId() != null
-                && orig.getVinhoEngarrafadoId() != null
-                && !dest.getVinhoEngarrafadoId().equals(orig.getVinhoEngarrafadoId())) {
+        Long vinhoOrigem = contentorService.vinhoDe(tipo, p.getContentorOrigemId());
+        Long vinhoDestino = contentorService.vinhoDe(tipo, p.getContentorDestinoId());
+        if (dest.stock() > 0 && vinhoDestino != null && vinhoOrigem != null && !vinhoDestino.equals(vinhoOrigem)) {
             throw new MovimentoVinhoException("O contentor de destino já tem outro vinho. Escolha um vazio ou com o mesmo vinho.");
         }
 
-        // Baixa na origem (mantém o vinho memorizado, mesmo a 0, para reverter).
-        orig.setGarrafasAtuais(orig.getGarrafasAtuais() - qtd);
-        contentorRepo.save(orig);
-        // Entrada no destino, com o vinho da origem.
-        dest.setGarrafasAtuais(dest.getGarrafasAtuais() + qtd);
-        dest.setVinhoEngarrafadoId(orig.getVinhoEngarrafadoId());
-        dest.setVinhoNome(orig.getVinhoNome());
-        dest.setRotulado(orig.isRotulado());
-        contentorRepo.save(dest);
+        contentorService.transferir(tipo, p.getContentorOrigemId(), p.getContentorDestinoId(), qtd);
 
         p.setGarrafas(qtd);
-        if (p.getNomeVinho() == null) p.setNomeVinho(orig.getVinhoNome());
+        if (p.getNomeVinho() == null) p.setNomeVinho(orig.vinhoNome());
     }
 
     private void reverterIntraEngarrafado(ProcessoMovimentoVinho p) {
         int qtd = p.getGarrafas() == null ? 0 : p.getGarrafas();
-        ContentorGarrafas dest = p.getContentorDestinoId() != null ? contentorRepo.findById(p.getContentorDestinoId()).orElse(null) : null;
-        if (dest != null) {
-            dest.setGarrafasAtuais(Math.max(0, dest.getGarrafasAtuais() - qtd));
-            if (dest.getGarrafasAtuais() == 0) { dest.setVinhoEngarrafadoId(null); dest.setVinhoNome(null); dest.setRotulado(false); }
-            contentorRepo.save(dest);
-        }
-        ContentorGarrafas orig = p.getContentorOrigemId() != null ? contentorRepo.findById(p.getContentorOrigemId()).orElse(null) : null;
-        if (orig != null) {
-            orig.setGarrafasAtuais(orig.getGarrafasAtuais() + qtd);
-            contentorRepo.save(orig);
-        }
+        if (qtd <= 0) return;
+        // Devolve ao contentor de origem o que tinha ido para o destino.
+        contentorService.transferir(p.getTipoEmbalagem(), p.getContentorDestinoId(), p.getContentorOrigemId(), qtd);
     }
 
     @Transactional
@@ -247,7 +234,7 @@ public class MovimentoVinhoService {
         if (p.getEstado() == EstadoProcesso.ABERTO) return;
         BigDecimal litros = v(p.getLitros());
 
-        if (p.getTipo() == TipoMovimentoVinho.INTRA_EMP && "ENGARRAFADO".equals(p.getProdutoTipo())) {
+        if (p.isEngarrafado()) {
             reverterIntraEngarrafado(p);
         } else if (p.getTipo() == TipoMovimentoVinho.ENTRADA) {
             for (Mosto m : mostoRepo.findByOrigemMovimentoId(p.getId())) {

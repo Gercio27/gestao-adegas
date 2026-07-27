@@ -2,6 +2,7 @@ package pt.acv.adega.processos.saidacontentor;
 
 import jakarta.persistence.*;
 import pt.acv.adega.common.BaseEntity;
+import pt.acv.adega.fichas.TipoEmbalagem;
 
 import java.time.LocalDateTime;
 
@@ -15,6 +16,11 @@ import java.time.LocalDateTime;
 public class SaidaContentor extends BaseEntity {
 
     public static final String PREFIXO = "SCT";
+
+    /** De que tipo e' o contentor de onde saiu: garrafas ou bag-in-box. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_embalagem", nullable = false, length = 12)
+    private TipoEmbalagem tipoEmbalagem = TipoEmbalagem.GARRAFA;
 
     @Column(name = "contentor_id")
     private Long contentorId;
@@ -40,6 +46,15 @@ public class SaidaContentor extends BaseEntity {
 
     @Column(length = 80)
     private String criadoPor;
+
+    public TipoEmbalagem getTipoEmbalagem() { return tipoEmbalagem; }
+    public void setTipoEmbalagem(TipoEmbalagem tipoEmbalagem) { this.tipoEmbalagem = tipoEmbalagem; }
+
+    /** "garrafa(s)" ou "unidade(s)", conforme o tipo de contentor. */
+    @Transient
+    public String getUnidadeNome() {
+        return tipoEmbalagem != null ? tipoEmbalagem.getUnidade() : "garrafa(s)";
+    }
 
     public Long getContentorId() { return contentorId; }
     public void setContentorId(Long contentorId) { this.contentorId = contentorId; }

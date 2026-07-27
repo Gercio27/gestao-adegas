@@ -9,29 +9,30 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
-import pt.acv.adega.fichas.ContentorGarrafas;
-import pt.acv.adega.fichas.ContentorGarrafasRepository;
+import pt.acv.adega.fichas.ContentorService;
+import pt.acv.adega.fichas.TipoEmbalagem;
 
 import java.time.LocalDateTime;
 import java.util.*;
 
 /**
- * Saidas de garrafas de um contentor por motivo (certificacao, prova, reserva
- * da adega, promocao, outras). Da baixa das garrafas no contentor; a eliminacao
- * repoe-as. Distinto da entrega ao comercial (Fase 10).
+ * Saidas de um contentor (de garrafas ou de bag-in-box) por motivo:
+ * certificacao, prova, reserva da adega, promocao, outras. Da baixa das
+ * unidades no contentor; a eliminacao repoe-as. Distinto da entrega ao
+ * comercial (Fase 10).
  */
 @Controller
 @RequestMapping("/processos/saida-contentor")
 public class SaidaContentorController {
 
     private final SaidaContentorRepository repo;
-    private final ContentorGarrafasRepository contentorRepo;
+    private final ContentorService contentorService;
     private final CodigoService codigoService;
 
-    public SaidaContentorController(SaidaContentorRepository repo, ContentorGarrafasRepository contentorRepo,
+    public SaidaContentorController(SaidaContentorRepository repo, ContentorService contentorService,
                                     CodigoService codigoService) {
         this.repo = repo;
-        this.contentorRepo = contentorRepo;
+        this.contentorService = contentorService;
         this.codigoService = codigoService;
     }
 
@@ -65,26 +66,26 @@ public class SaidaContentorController {
             ra.addFlashAttribute("erro", "Escolha o contentor.");
             return "redirect:/processos/saida-contentor/nova";
         }
-        ContentorGarrafas c = contentorRepo.findById(saida.getContentorId()).orElse(null);
+        TipoEmbalagem tipo = saida.getTipoEmbalagem() != null ? saida.getTipoEmbalagem() : TipoEmbalagem.GARRAFA;
+        ContentorService.Opcao c = contentorService.procurar(tipo, saida.getContentorId());
         if (c == null) {
             ra.addFlashAttribute("erro", "Contentor não encontrado.");
             return "redirect:/processos/saida-contentor/nova";
         }
         if (saida.getQuantidade() <= 0) {
-            ra.addFlashAttribute("erro", "Indique a quantidade de garrafas (> 0).");
+            ra.addFlashAttribute("erro", "Indique a quantidade de " + tipo.getUnidade() + " (> 0).");
             return "redirect:/processos/saida-contentor/nova";
         }
-        if (saida.getQuantidade() > c.getGarrafasAtuais()) {
-            ra.addFlashAttribute("erro", String.format("%s só tem %d garrafas — não pode sair %d.",
-                    c.getNome(), c.getGarrafasAtuais(), saida.getQuantidade()));
+        if (saida.getQuantidade() > c.stock()) {
+            ra.addFlashAttribute("erro", String.format("%s só tem %d %s — não pode sair %d.",
+                    c.nome(), c.stock(), tipo.getUnidade(), saida.getQuantidade()));
             return "redirect:/processos/saida-contentor/nova";
         }
         // Baixa no contentor
-        c.setGarrafasAtuais(c.getGarrafasAtuais() - saida.getQuantidade());
-        contentorRepo.save(c);
+        contentorService.ajustar(tipo, saida.getContentorId(), -saida.getQuantidade());
 
-        saida.setContentorNome(c.getNome());
-        saida.setVinhoNome(c.getVinhoNome());
+        saida.setContentorNome(c.nome());
+        saida.setVinhoNome(c.vinhoNome());
         saida.setCodigo(codigoService.proximoCodigo(SaidaContentor.PREFIXO));
         saida.setCriadoPor(auth.getName());
         if (saida.getDataSaida() == null) saida.setDataSaida(LocalDateTime.now());
@@ -101,28 +102,29 @@ public class SaidaContentorController {
             ra.addFlashAttribute("erro", "Sem acesso a este registo.");
             return "redirect:/processos/saida-contentor";
         }
-        // Repor as garrafas no contentor
-        if (s.getContentorId() != null) {
-            ContentorGarrafas c = contentorRepo.findById(s.getContentorId()).orElse(null);
-            if (c != null) { c.setGarrafasAtuais(c.getGarrafasAtuais() + s.getQuantidade()); contentorRepo.save(c); }
-        }
+        // Repor as unidades no contentor
+        TipoEmbalagem tipo = s.getTipoEmbalagem() != null ? s.getTipoEmbalagem() : TipoEmbalagem.GARRAFA;
+        contentorService.ajustar(tipo, s.getContentorId(), s.getQuantidade());
         repo.delete(s);
-        ra.addFlashAttribute("sucesso", "Saída anulada. Garrafas repostas no contentor.");
+        ra.addFlashAttribute("sucesso", "Saída anulada. " + s.getQuantidade() + " " + tipo.getUnidade() + " repostas no contentor.");
         return "redirect:/processos/saida-contentor";
     }
 
     private void preencherOpcoes(Model model) {
-        List<Map<String, Object>> contentores = new ArrayList<>();
-        for (ContentorGarrafas c : contentorRepo.findAllByOrderByNomeAsc()) {
-            if (c.getGarrafasAtuais() <= 0) continue;
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("id", c.getId());
-            row.put("label", c.getCodigo() + " · " + c.getNome() + " · "
-                    + (c.getVinhoNome() != null ? c.getVinhoNome() : "—") + " · "
-                    + c.getLocalizacao() + " · " + c.getGarrafasAtuais() + " garrafas");
-            contentores.add(row);
+        // Uma lista por tipo de contentor; o formulário mostra a do tipo escolhido.
+        Map<String, List<Map<String, Object>>> porTipo = new LinkedHashMap<>();
+        for (TipoEmbalagem tipo : TipoEmbalagem.values()) {
+            List<Map<String, Object>> lista = new ArrayList<>();
+            for (ContentorService.Opcao o : contentorService.comStock(tipo)) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("id", o.id());
+                row.put("label", o.label());
+                lista.add(row);
+            }
+            porTipo.put(tipo.name(), lista);
         }
-        model.addAttribute("contentores", contentores);
+        model.addAttribute("contentoresPorTipo", porTipo);
+        model.addAttribute("tiposEmbalagem", TipoEmbalagem.values());
         model.addAttribute("motivos", MotivoSaidaContentor.values());
     }
 

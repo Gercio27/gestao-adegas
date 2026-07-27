@@ -17,16 +17,25 @@
                 <label class="form-label">Código</label>
                 <input class="form-control" th:value="*{codigo}" disabled>
             </div>
+            <div class="col-12">
+                <label class="form-label">Entregar *</label>
+                <div>
+                    <div class="form-check form-check-inline" th:each="t : ${tiposEmbalagem}">
+                        <input class="form-check-input" type="radio" th:field="*{tipoEmbalagem}" th:value="${t}"
+                               th:id="'co-tipo-' + ${t}" onchange="alternarTipo()">
+                        <label class="form-check-label" th:for="'co-tipo-' + ${t}" th:text="${t.descricao}"></label>
+                    </div>
+                </div>
+            </div>
             <div class="col-md-8">
                 <label class="form-label">Vinho disponível (por adega/armazém, rotulado) *</label>
-                <select class="form-select" th:field="*{contentorId}" required>
+                <select class="form-select" th:field="*{contentorId}" id="co-contentor" required>
                     <option th:value="${null}">—</option>
-                    <option th:each="c : ${contentoresDisponiveis}" th:value="${c.id}" th:text="${c.label}"></option>
                 </select>
-                <div class="form-text" th:if="${contentoresDisponiveis.isEmpty()}">Não há garrafas rotuladas disponíveis. Faça a rotulagem (Fase 7).</div>
+                <div class="form-text" id="co-ajuda"></div>
             </div>
             <div class="col-md-4">
-                <label class="form-label">Garrafas a entregar *</label>
+                <label class="form-label"><span id="lblQtd">Garrafas</span> a entregar *</label>
                 <input type="number" min="1" class="form-control" th:field="*{quantidadeGarrafas}" required>
             </div>
 
@@ -72,5 +81,32 @@
 </div>
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
+<script th:inline="javascript">
+    const contentoresPorTipo = /*[[${contentoresPorTipo}]]*/ {};
+    const contentorGuardado = /*[[${comercial.contentorId}]]*/ null;
+
+    function tipoEscolhido() {
+        const r = document.querySelector('[name="tipoEmbalagem"]:checked');
+        return r ? r.value : 'GARRAFA';
+    }
+
+    /** Mostra só o que está disponível no tipo de embalagem escolhido. */
+    function alternarTipo() {
+        const tipo = tipoEscolhido();
+        const bib = tipo === 'BAG_IN_BOX';
+        const lista = contentoresPorTipo[tipo] || [];
+        const sel = document.getElementById('co-contentor');
+        let h = '<option value="">—</option>';
+        lista.forEach(function (c) { h += '<option value="' + c.id + '">' + c.label + '</option>'; });
+        sel.innerHTML = h;
+        if (contentorGuardado) sel.value = contentorGuardado;
+        document.getElementById('lblQtd').textContent = bib ? 'Unidades' : 'Garrafas';
+        document.getElementById('co-ajuda').textContent = lista.length ? ''
+            : (bib ? 'Não há bag-in-box rotulado disponível. Faça a rotulagem (Fase 7).'
+                   : 'Não há garrafas rotuladas disponíveis. Faça a rotulagem (Fase 7).');
+    }
+
+    document.addEventListener('DOMContentLoaded', alternarTipo);
+</script>
 </body>
 </html>

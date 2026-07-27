@@ -3,8 +3,8 @@ package pt.acv.adega.processos.comercial;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pt.acv.adega.common.CodigoService;
-import pt.acv.adega.fichas.ContentorGarrafas;
-import pt.acv.adega.fichas.ContentorGarrafasRepository;
+import pt.acv.adega.fichas.ContentorService;
+import pt.acv.adega.fichas.TipoEmbalagem;
 import pt.acv.adega.processos.EstadoProcesso;
 import pt.acv.adega.produtos.VinhoEngarrafado;
 import pt.acv.adega.produtos.VinhoEngarrafadoRepository;
@@ -23,15 +23,15 @@ public class ComercialService {
 
     private final ProcessoPassagemComercialRepository repo;
     private final VinhoEngarrafadoRepository engarrafadoRepo;
-    private final ContentorGarrafasRepository contentorRepo;
+    private final ContentorService contentorService;
     private final CodigoService codigoService;
 
     public ComercialService(ProcessoPassagemComercialRepository repo,
-                            VinhoEngarrafadoRepository engarrafadoRepo, ContentorGarrafasRepository contentorRepo,
+                            VinhoEngarrafadoRepository engarrafadoRepo, ContentorService contentorService,
                             CodigoService codigoService) {
         this.repo = repo;
         this.engarrafadoRepo = engarrafadoRepo;
-        this.contentorRepo = contentorRepo;
+        this.contentorService = contentorService;
         this.codigoService = codigoService;
     }
 
@@ -40,19 +40,21 @@ public class ComercialService {
         ProcessoPassagemComercial p = repo.findById(id)
                 .orElseThrow(() -> new ComercialException("Processo não encontrado."));
         if (p.getEstado() == EstadoProcesso.FECHADO) throw new ComercialException("O processo já está fechado.");
-        if (p.getQuantidadeGarrafas() <= 0) throw new ComercialException("Indique a quantidade de garrafas (> 0).");
+        TipoEmbalagem tipo = p.getTipoEmbalagem() != null ? p.getTipoEmbalagem() : TipoEmbalagem.GARRAFA;
+        if (p.getQuantidadeGarrafas() <= 0) {
+            throw new ComercialException("Indique a quantidade de " + tipo.getUnidade() + " (> 0).");
+        }
 
         // Preferencialmente a entrega sai de um contentor rotulado (define vinho + local).
-        ContentorGarrafas c = p.getContentorId() != null ? contentorRepo.findById(p.getContentorId()).orElse(null) : null;
+        ContentorService.Opcao c = contentorService.procurar(tipo, p.getContentorId());
         if (c != null) {
-            if (!c.isRotulado()) throw new ComercialException("O contentor " + c.getNome() + " ainda não está rotulado (Fase 7).");
-            if (p.getQuantidadeGarrafas() > c.getGarrafasAtuais()) {
+            if (!c.rotulado()) throw new ComercialException("O contentor " + c.nome() + " ainda não está rotulado (Fase 7).");
+            if (p.getQuantidadeGarrafas() > c.stock()) {
                 throw new ComercialException(String.format(
-                        "%s (%s) só tem %d garrafas — não pode entregar %d.",
-                        c.getNome(), c.getLocalizacao(), c.getGarrafasAtuais(), p.getQuantidadeGarrafas()));
+                        "%s só tem %d %s — não pode entregar %d.",
+                        c.nome(), c.stock(), tipo.getUnidade(), p.getQuantidadeGarrafas()));
             }
-            c.setGarrafasAtuais(c.getGarrafasAtuais() - p.getQuantidadeGarrafas());
-            contentorRepo.save(c);
+            contentorService.ajustar(tipo, p.getContentorId(), -p.getQuantidadeGarrafas());
         }
 
         if (p.getEngarrafado() == null) throw new ComercialException("Indique o vinho a entregar.");
@@ -93,11 +95,9 @@ public class ComercialService {
                 engarrafadoRepo.save(veg);
             }
         }
-        // Repor as garrafas no contentor de origem.
-        if (p.getContentorId() != null) {
-            ContentorGarrafas c = contentorRepo.findById(p.getContentorId()).orElse(null);
-            if (c != null) { c.setGarrafasAtuais(c.getGarrafasAtuais() + p.getQuantidadeGarrafas()); contentorRepo.save(c); }
-        }
+        // Repor as unidades no contentor de origem.
+        TipoEmbalagem tipo = p.getTipoEmbalagem() != null ? p.getTipoEmbalagem() : TipoEmbalagem.GARRAFA;
+        contentorService.ajustar(tipo, p.getContentorId(), p.getQuantidadeGarrafas());
         p.setEstado(EstadoProcesso.ABERTO);
         p.setDataFecho(null);
         repo.save(p);

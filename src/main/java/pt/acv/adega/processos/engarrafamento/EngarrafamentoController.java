@@ -15,6 +15,7 @@ import pt.acv.adega.fichas.ContentorGarrafasRepository;
 import pt.acv.adega.fichas.ConsumivelRepository;
 import pt.acv.adega.fichas.TipoBagInBox;
 import pt.acv.adega.fichas.TipoConsumivel;
+import pt.acv.adega.fichas.TipoEmbalagem;
 import pt.acv.adega.fichas.TrabalhadorRepository;
 import pt.acv.adega.fichas.AdegaRepository;
 import pt.acv.adega.planeamento.PlaneamentoVinho;

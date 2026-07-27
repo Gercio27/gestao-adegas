@@ -15,8 +15,8 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.fichas.AdegaRepository;
-import pt.acv.adega.fichas.ContentorGarrafas;
-import pt.acv.adega.fichas.ContentorGarrafasRepository;
+import pt.acv.adega.fichas.ContentorService;
+import pt.acv.adega.fichas.TipoEmbalagem;
 import pt.acv.adega.fichas.TrabalhadorRepository;
 import pt.acv.adega.planeamento.PlaneamentoVinho;
 import pt.acv.adega.processos.loteamento.Loteamento;
@@ -43,14 +43,14 @@ public class CertificacaoController {
     private final AdegaRepository adegaRepo;
     private final ProcessoMoagemRepository moagemRepo;
     private final LoteamentoRepository loteRepo;
-    private final ContentorGarrafasRepository contentorRepo;
+    private final ContentorService contentorService;
     private final TrabalhadorRepository trabalhadorRepo;
     private final CodigoService codigoService;
 
     public CertificacaoController(ProcessoCertificacaoRepository repo, CertificacaoService service,
                                   MostoRepository mostoRepo, VinhoEngarrafadoRepository engarrafadoRepo,
                                   AdegaRepository adegaRepo, ProcessoMoagemRepository moagemRepo,
-                                  LoteamentoRepository loteRepo, ContentorGarrafasRepository contentorRepo,
+                                  LoteamentoRepository loteRepo, ContentorService contentorService,
                                   TrabalhadorRepository trabalhadorRepo, CodigoService codigoService) {
         this.repo = repo;
         this.service = service;
@@ -59,7 +59,7 @@ public class CertificacaoController {
         this.adegaRepo = adegaRepo;
         this.moagemRepo = moagemRepo;
         this.loteRepo = loteRepo;
-        this.contentorRepo = contentorRepo;
+        this.contentorService = contentorService;
         this.trabalhadorRepo = trabalhadorRepo;
         this.codigoService = codigoService;
     }
@@ -128,17 +128,19 @@ public class CertificacaoController {
             cert.setVinhoGranel(cert.getAmostraId() != null ? mostoRepo.findById(cert.getAmostraId()).orElse(null) : null);
             selecaoFeita = ids.length() > 0;
         } else if (!granel && cert.getContentorId() != null) {
-            // Engarrafado: as garrafas saem de um contentor; o vinho vem daí.
-            ContentorGarrafas c = contentorRepo.findById(cert.getContentorId()).orElse(null);
-            VinhoEngarrafado v = (c != null && c.getVinhoEngarrafadoId() != null)
-                    ? engarrafadoRepo.findById(c.getVinhoEngarrafadoId()).orElse(null) : null;
-            if (v != null) {
+            // Engarrafado: as amostras saem de um contentor; o vinho vem daí.
+            TipoEmbalagem tipo = cert.getTipoEmbalagem() != null ? cert.getTipoEmbalagem() : TipoEmbalagem.GARRAFA;
+            ContentorService.Opcao c = contentorService.procurar(tipo, cert.getContentorId());
+            Long vegId = contentorService.vinhoDe(tipo, cert.getContentorId());
+            VinhoEngarrafado v = vegId != null ? engarrafadoRepo.findById(vegId).orElse(null) : null;
+            if (c != null && v != null) {
                 cert.setVinhoGranel(null);
                 cert.setEngarrafado(v);
                 cert.setItensIdsCsv(String.valueOf(v.getId()));
-                cert.setContentorDescricao(c.getNome() + " · " + c.getLocalizacao());
+                cert.setContentorDescricao(c.label());
                 cert.setItensDescricao(v.getCodigo() + " · " + v.getNome()
-                        + " · " + cert.getGarrafasCertificacao() + " garrafa(s) p/ certificação (de " + c.getNome() + ")");
+                        + " · " + cert.getGarrafasCertificacao() + " " + tipo.getUnidade()
+                        + " p/ certificação (de " + c.nome() + ")");
                 selecaoFeita = true;
             }
         }
@@ -305,18 +307,23 @@ public class CertificacaoController {
         // certificado — é de um contentor que saem as garrafas para certificação.
         Map<Long, Boolean> engCertificado = new HashMap<>();
         for (VinhoEngarrafado v : engarrafadoRepo.findAll()) engCertificado.put(v.getId(), v.isCertificado());
-        List<Map<String, Object>> contentores = new ArrayList<>();
-        for (ContentorGarrafas c : contentorRepo.findAllByOrderByNomeAsc()) {
-            if (c.getGarrafasAtuais() <= 0 || c.getVinhoEngarrafadoId() == null) continue;
-            if (Boolean.TRUE.equals(engCertificado.get(c.getVinhoEngarrafadoId()))) continue;
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("id", c.getId());
-            row.put("garrafas", c.getGarrafasAtuais());
-            row.put("label", c.getNome() + " · " + (c.getVinhoNome() != null ? c.getVinhoNome() : "vinho")
-                    + " · " + c.getLocalizacao() + " · " + c.getGarrafasAtuais() + " garrafas");
-            contentores.add(row);
+        Map<String, List<Map<String, Object>>> porTipo = new LinkedHashMap<>();
+        for (TipoEmbalagem tipo : TipoEmbalagem.values()) {
+            List<Map<String, Object>> lista = new ArrayList<>();
+            for (ContentorService.Opcao o : contentorService.comStock(tipo)) {
+                Long vegId = contentorService.vinhoDe(tipo, o.id());
+                if (vegId == null) continue;
+                if (Boolean.TRUE.equals(engCertificado.get(vegId))) continue;   // já certificado
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("id", o.id());
+                row.put("garrafas", o.stock());
+                row.put("label", o.label());
+                lista.add(row);
+            }
+            porTipo.put(tipo.name(), lista);
         }
-        model.addAttribute("contentoresDisponiveis", contentores);
+        model.addAttribute("contentoresPorTipo", porTipo);
+        model.addAttribute("tiposEmbalagem", TipoEmbalagem.values());
     }
 
     private boolean isAdmin(Authentication auth) {

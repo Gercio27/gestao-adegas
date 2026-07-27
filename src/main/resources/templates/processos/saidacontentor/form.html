@@ -6,22 +6,33 @@
 
 <div class="container">
     <h3 class="mb-1">Nova saída de contentor</h3>
-    <p class="text-muted">Dá baixa de garrafas de um contentor por um motivo. Para entrega a cliente, use a Fase 10 (Comercial).</p>
+    <p class="text-muted">Dá baixa de garrafas ou de unidades de bag-in-box de um contentor, por um motivo. Para entrega a cliente, use a Fase 10 (Comercial).</p>
 
     <div class="card shadow-sm"><div class="card-body">
         <form th:action="@{/processos/saida-contentor}" th:object="${saida}" method="post" class="row g-3">
             <input type="hidden" th:field="*{id}">
 
+            <div class="col-12">
+                <label class="form-label">Sai de *</label>
+                <div>
+                    <div class="form-check form-check-inline" th:each="t : ${tiposEmbalagem}">
+                        <input class="form-check-input" type="radio" th:field="*{tipoEmbalagem}" th:value="${t}"
+                               th:id="'sc-tipo-' + ${t}" onchange="alternarTipo()">
+                        <label class="form-check-label" th:for="'sc-tipo-' + ${t}"
+                               th:text="${t == T(pt.acv.adega.fichas.TipoEmbalagem).GARRAFA} ? 'Contentor de garrafas' : 'Palete de bag-in-box'"></label>
+                    </div>
+                </div>
+            </div>
+
             <div class="col-md-8">
                 <label class="form-label">Contentor *</label>
-                <select class="form-select" th:field="*{contentorId}" required>
+                <select class="form-select" th:field="*{contentorId}" id="sc-contentor" required>
                     <option value="">—</option>
-                    <option th:each="c : ${contentores}" th:value="${c.id}" th:text="${c.label}"></option>
                 </select>
-                <div class="form-text" th:if="${contentores.isEmpty()}">Não há contentores com garrafas.</div>
+                <div class="form-text" id="sc-ajuda"></div>
             </div>
             <div class="col-md-4">
-                <label class="form-label">Garrafas a sair *</label>
+                <label class="form-label"><span id="lblQtd">Garrafas</span> a sair *</label>
                 <input type="number" min="1" class="form-control" th:field="*{quantidade}" required>
             </div>
 
@@ -49,13 +60,40 @@
 </div>
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
-<script>
+<script th:inline="javascript">
+    const contentoresPorTipo = /*[[${contentoresPorTipo}]]*/ {};
+    const contentorGuardado = /*[[${saida.contentorId}]]*/ null;
+
     function toggleObs() {
         const outras = document.getElementById('sc-motivo').value === 'OUTRAS';
         document.getElementById('grpObs').style.display = outras ? '' : '';
         // observação é sempre visível; apenas realçamos quando é Outras
     }
-    document.addEventListener('DOMContentLoaded', toggleObs);
+
+    function tipoEscolhido() {
+        const r = document.querySelector('[name="tipoEmbalagem"]:checked');
+        return r ? r.value : 'GARRAFA';
+    }
+
+    /** Mostra só os contentores do tipo escolhido. */
+    function alternarTipo() {
+        const tipo = tipoEscolhido();
+        const bib = tipo === 'BAG_IN_BOX';
+        const lista = contentoresPorTipo[tipo] || [];
+        const sel = document.getElementById('sc-contentor');
+        let h = '<option value="">—</option>';
+        lista.forEach(function (c) { h += '<option value="' + c.id + '">' + c.label + '</option>'; });
+        sel.innerHTML = h;
+        if (contentorGuardado) sel.value = contentorGuardado;
+        document.getElementById('lblQtd').textContent = bib ? 'Unidades' : 'Garrafas';
+        document.getElementById('sc-ajuda').textContent = lista.length
+            ? '' : (bib ? 'Não há paletes de bag-in-box com unidades.' : 'Não há contentores com garrafas.');
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        toggleObs();
+        alternarTipo();
+    });
 </script>
 </body>
 </html>

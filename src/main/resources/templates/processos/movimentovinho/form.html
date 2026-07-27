@@ -38,6 +38,11 @@
                                th:field="*{produtoTipo}" onchange="atualizar()">
                         <label class="form-check-label" for="pt-eng">Engarrafado (garrafas em contentores)</label>
                     </div>
+                    <div class="form-check form-check-inline">
+                        <input class="form-check-input" type="radio" id="pt-bib" value="BAG_IN_BOX"
+                               th:field="*{produtoTipo}" onchange="atualizar()">
+                        <label class="form-check-label" for="pt-bib">Bag-in-box (unidades em paletes)</label>
+                    </div>
                 </div>
             </div>
 
@@ -121,7 +126,7 @@
                 <label class="form-label">Armazém/adega de saída *</label>
                 <select class="form-select" id="eng-local-origem" onchange="atualizar()">
                     <option value="">— escolher local —</option>
-                    <option th:each="l : ${locaisOrigemEng}" th:value="${l.ref}" th:text="${l.nome}"></option>
+                    
                 </select>
             </div>
             <div class="col-md-4" id="grpVinhoEng">
@@ -142,7 +147,7 @@
             </div>
 
             <div class="col-md-4" id="grpGarrafas">
-                <label class="form-label">Garrafas a transferir *</label>
+                <label class="form-label" id="lblGarrafas">Garrafas a transferir *</label>
                 <input type="number" min="1" step="1" class="form-control" th:field="*{garrafas}" id="eng-garrafas">
                 <div class="form-text" id="ajudaGarrafas">Podem sair só algumas garrafas ou o contentor completo.</div>
             </div>
@@ -159,7 +164,7 @@
                 <label class="form-label">Armazém/adega de destino *</label>
                 <select class="form-select" id="eng-local-destino" onchange="filtrarContentorDestino()">
                     <option value="">— escolher local —</option>
-                    <option th:each="l : ${locaisDestinoEng}" th:value="${l.ref}" th:text="${l.nome}"></option>
+                    
                 </select>
             </div>
             <div class="col-md-8" id="grpContDestino">
@@ -244,8 +249,10 @@
 <script th:inline="javascript">
     const mostosPorVinho = /*[[${mostosPorVinho}]]*/ {};
     const recipientesPorLocal = /*[[${recipientesPorLocal}]]*/ {};
-    const contOrigemPorLocal = /*[[${contentoresOrigemPorLocal}]]*/ {};
-    const contDestinoPorLocal = /*[[${contentoresDestinoPorLocal}]]*/ {};
+    const contOrigemPorTipo = /*[[${contentoresOrigemPorTipo}]]*/ {};
+    const contDestinoPorTipo = /*[[${contentoresDestinoPorTipo}]]*/ {};
+    const locaisOrigemPorTipo = /*[[${locaisOrigemPorTipo}]]*/ {};
+    const locaisDestinoPorTipo = /*[[${locaisDestinoPorTipo}]]*/ {};
     const nomeGuardado = /*[[${mov.nomeVinho}]]*/ '';
     const adegaOrigemSel = /*[[${adegaOrigemSel}]]*/ '';
     const adegaDestinoSel = /*[[${adegaDestinoSel}]]*/ '';
@@ -256,10 +263,39 @@
     function ver(id, mostrar) { document.getElementById(id).style.display = mostrar ? '' : 'none'; }
     function obrigatorio(el, sim) { if (el) { if (sim) el.setAttribute('required', 'required'); else el.removeAttribute('required'); } }
 
-    /** Engarrafado só existe dentro da saída intra-empresa. */
-    function engarrafado() {
-        const r = document.getElementById('pt-eng');
-        return tipo() === 'INTRA_EMP' && r && r.checked;
+    /** Qual dos três produtos está escolhido na saída intra-empresa. */
+    function produto() {
+        if (tipo() !== 'INTRA_EMP') return 'GRANEL';
+        if (document.getElementById('pt-eng').checked) return 'ENGARRAFADO';
+        if (document.getElementById('pt-bib').checked) return 'BAG_IN_BOX';
+        return 'GRANEL';
+    }
+
+    /** Produto acabado (garrafas ou bag-in-box) — o oposto de granel. */
+    function engarrafado() { return produto() !== 'GRANEL'; }
+
+    /** Em que ficha de contentor ir buscar o stock do produto escolhido. */
+    function tipoEmbalagem() { return produto() === 'BAG_IN_BOX' ? 'BAG_IN_BOX' : 'GARRAFA'; }
+
+    function contOrigemPorLocal() { return contOrigemPorTipo[tipoEmbalagem()] || {}; }
+    function contDestinoPorLocal() { return contDestinoPorTipo[tipoEmbalagem()] || {}; }
+
+    /** Refaz os seletores de local, que dependem do produto escolhido. */
+    function encherLocais() {
+        const origem = locaisOrigemPorTipo[tipoEmbalagem()] || [];
+        const destino = locaisDestinoPorTipo[tipoEmbalagem()] || [];
+        encherSelect('eng-local-origem', origem);
+        encherSelect('eng-local-destino', destino);
+    }
+
+    function encherSelect(id, locais) {
+        const sel = document.getElementById(id);
+        if (!sel) return;
+        const anterior = sel.value;
+        let h = '<option value="">— escolher local —</option>';
+        locais.forEach(function (l) { h += '<option value="' + l.ref + '">' + l.nome + '</option>'; });
+        sel.innerHTML = h;
+        if (anterior) sel.value = anterior;
     }
 
     function toggleTipo() {
@@ -305,6 +341,9 @@
         // Campos obrigatórios só quando estão visíveis (senão o browser bloqueia sem explicar).
         obrigatorio(document.getElementById('mv-litros'), granel);
         obrigatorio(document.getElementById('eng-garrafas'), eng && !document.getElementById('eng-completo').checked);
+        const unidade = produto() === 'BAG_IN_BOX' ? 'Unidades' : 'Garrafas';
+        const lblG = document.getElementById('lblGarrafas');
+        if (lblG) lblG.textContent = unidade + ' a transferir *';
     }
 
     // ---------- granel ----------
@@ -368,7 +407,7 @@
         const local = document.getElementById('eng-local-origem').value;
         const sel = document.getElementById('eng-vinho');
         const anterior = sel.value;
-        const lista = (local && contOrigemPorLocal[local]) ? contOrigemPorLocal[local] : [];
+        const lista = (local && contOrigemPorLocal()[local]) ? contOrigemPorLocal()[local] : [];
         const vistos = [];
         let h = '<option value="">— escolher vinho —</option>';
         lista.forEach(function (c) {
@@ -386,7 +425,7 @@
         const vinho = document.getElementById('eng-vinho').value;
         const sel = document.getElementById('eng-cont-origem');
         const guardado = sel.dataset.sel || '';
-        const lista = (local && contOrigemPorLocal[local]) ? contOrigemPorLocal[local] : [];
+        const lista = (local && contOrigemPorLocal()[local]) ? contOrigemPorLocal()[local] : [];
         let h = '<option value="">—</option>';
         lista.forEach(function (c) {
             if (!vinho || c.vinho === vinho) h += '<option value="' + c.id + '" data-garrafas="' + c.garrafas + '">' + c.label + '</option>';
@@ -403,7 +442,8 @@
         const inp = document.getElementById('eng-garrafas');
         if (max) {
             inp.max = max;
-            document.getElementById('ajudaGarrafas').textContent = 'Este contentor tem ' + max + ' garrafa(s).';
+            const un = produto() === 'BAG_IN_BOX' ? 'unidade(s)' : 'garrafa(s)';
+            document.getElementById('ajudaGarrafas').textContent = 'Este contentor tem ' + max + ' ' + un + '.';
         } else {
             inp.removeAttribute('max');
             document.getElementById('ajudaGarrafas').textContent = 'Podem sair só algumas garrafas ou o contentor completo.';
@@ -418,7 +458,7 @@
         const origem = document.getElementById('eng-cont-origem').value;
         const sel = document.getElementById('eng-cont-destino');
         const guardado = sel.dataset.sel || '';
-        const lista = (local && contDestinoPorLocal[local]) ? contDestinoPorLocal[local] : [];
+        const lista = (local && contDestinoPorLocal()[local]) ? contDestinoPorLocal()[local] : [];
         let h = '<option value="">—</option>';
         lista.forEach(function (c) {
             if (String(c.id) === origem) return;                      // não pode ir para ele próprio
@@ -440,6 +480,7 @@
     function atualizar() {
         toggleTipo();
         if (engarrafado()) {
+            encherLocais();
             filtrarVinhosEng();
             filtrarContentorOrigem();
             filtrarContentorDestino();

@@ -41,7 +41,7 @@ public class MovimentoVinhoController {
     private final TrabalhadorRepository trabalhadorRepo;
     private final CastaRepository castaRepo;
     private final ArmazemRepository armazemRepo;
-    private final ContentorGarrafasRepository contentorRepo;
+    private final ContentorService contentorService;
     private final CodigoService codigoService;
 
     public MovimentoVinhoController(ProcessoMovimentoVinhoRepository repo, MovimentoVinhoService service,
@@ -49,7 +49,7 @@ public class MovimentoVinhoController {
                                     DepositoRepository depositoRepo, AdegaRepository adegaRepo, MostoRepository mostoRepo,
                                     ProcessoMoagemRepository moagemRepo, TrabalhadorRepository trabalhadorRepo,
                                     CastaRepository castaRepo, ArmazemRepository armazemRepo,
-                                    ContentorGarrafasRepository contentorRepo, CodigoService codigoService) {
+                                    ContentorService contentorService, CodigoService codigoService) {
         this.repo = repo;
         this.service = service;
         this.recipienteService = recipienteService;
@@ -61,7 +61,7 @@ public class MovimentoVinhoController {
         this.trabalhadorRepo = trabalhadorRepo;
         this.castaRepo = castaRepo;
         this.armazemRepo = armazemRepo;
-        this.contentorRepo = contentorRepo;
+        this.contentorService = contentorService;
         this.codigoService = codigoService;
     }
 
@@ -166,14 +166,15 @@ public class MovimentoVinhoController {
     /** Resolve os recipientes/descrições da saída intra-empresa (granel ou engarrafado). */
     private void prepararIntraEmpresa(ProcessoMovimentoVinho mov) {
         mov.setCasta(null);
-        if ("ENGARRAFADO".equals(mov.getProdutoTipo())) {
+        if (mov.isEngarrafado()) {
             mov.setMostoOrigem(null);
             mov.setTalhaDestino(null);
             mov.setDepositoDestino(null);
-            ContentorGarrafas o = mov.getContentorOrigemId() != null ? contentorRepo.findById(mov.getContentorOrigemId()).orElse(null) : null;
-            ContentorGarrafas d = mov.getContentorDestinoId() != null ? contentorRepo.findById(mov.getContentorDestinoId()).orElse(null) : null;
-            if (o != null) { mov.setOrigemLocalDescricao(o.getLocalizacao() + " · " + o.getNome()); mov.setNomeVinho(o.getVinhoNome()); }
-            if (d != null) mov.setDestinoLocalDescricao(d.getLocalizacao() + " · " + d.getNome());
+            TipoEmbalagem te = mov.getTipoEmbalagem();
+            ContentorService.Opcao o = contentorService.procurar(te, mov.getContentorOrigemId());
+            ContentorService.Opcao d = contentorService.procurar(te, mov.getContentorDestinoId());
+            if (o != null) { mov.setOrigemLocalDescricao(o.label()); mov.setNomeVinho(o.vinhoNome()); }
+            if (d != null) mov.setDestinoLocalDescricao(d.label());
         } else { // GRANEL/mosto: transfega entre recipientes (pode ser entre adegas)
             mov.setProdutoTipo("GRANEL");
             mov.setContentorOrigemId(null);
@@ -301,56 +302,60 @@ public class MovimentoVinhoController {
         }
         model.addAttribute("nomesConhecidos", new ArrayList<>(conhecidos));
 
-        // ===== Saída intra-empresa: engarrafado (contentores por local) =====
+        // ===== Saída intra-empresa: produto acabado (contentores por local) =====
+        // Uma estrutura por tipo de embalagem: o formulário usa a do tipo escolhido.
         model.addAttribute("armazens", armazemRepo.findAllByOrderByNomeAsc());
-        Map<String, String> locaisNome = new LinkedHashMap<>();
-        Map<String, List<Map<String, Object>>> contOrigem = new LinkedHashMap<>();
-        Map<String, List<Map<String, Object>>> contDestino = new LinkedHashMap<>();
-        for (ContentorGarrafas c : contentorRepo.findAllByOrderByNomeAsc()) {
-            String localRef = c.getArmazem() != null ? "ARMAZEM:" + c.getArmazem().getId()
-                    : (c.getAdega() != null ? "ADEGA:" + c.getAdega().getId() : null);
-            if (localRef == null) continue;
-            locaisNome.putIfAbsent(localRef, c.getLocalizacao());
-            String vinho = c.getVinhoNome() != null && !c.getVinhoNome().isBlank() ? c.getVinhoNome() : null;
-            Map<String, Object> drow = new LinkedHashMap<>();
-            drow.put("id", c.getId());
-            // O destino aceita contentores vazios ou já com o mesmo vinho. Um contentor
-            // vazio conta como livre, mesmo que ainda recorde o vinho anterior.
-            drow.put("vinho", c.getGarrafasAtuais() > 0 && vinho != null ? vinho : "");
-            drow.put("label", c.getNome() + (c.getGarrafasAtuais() > 0
-                    ? " · " + (vinho != null ? vinho : "vinho") + " · " + c.getGarrafasAtuais() + " garrafas"
-                    + " (cabem mais " + c.getEspacoLivre() + ")"
-                    : " · vazio (cabem " + c.getCapacidadeGarrafas() + ")"));
-            contDestino.computeIfAbsent(localRef, k -> new ArrayList<>()).add(drow);
-            if (c.getGarrafasAtuais() > 0) {
-                Map<String, Object> orow = new LinkedHashMap<>();
-                orow.put("id", c.getId());
-                orow.put("garrafas", c.getGarrafasAtuais());
-                orow.put("vinho", vinho == null ? "(sem vinho identificado)" : vinho);
-                orow.put("label", c.getNome() + " · " + c.getGarrafasAtuais() + " garrafas");
-                contOrigem.computeIfAbsent(localRef, k -> new ArrayList<>()).add(orow);
+        Map<String, Object> origemPorTipo = new LinkedHashMap<>();
+        Map<String, Object> destinoPorTipo = new LinkedHashMap<>();
+        Map<String, Object> locaisOrigemPorTipo = new LinkedHashMap<>();
+        Map<String, Object> locaisDestinoPorTipo = new LinkedHashMap<>();
+        for (TipoEmbalagem te : TipoEmbalagem.values()) {
+            Map<String, String> locaisNome = contentorService.nomesDosLocais(te);
+            Map<String, List<Map<String, Object>>> contOrigem = new LinkedHashMap<>();
+            Map<String, List<Map<String, Object>>> contDestino = new LinkedHashMap<>();
+            for (Map.Entry<String, List<ContentorService.Opcao>> e : contentorService.porLocal(te, false).entrySet()) {
+                for (ContentorService.Opcao o : e.getValue()) {
+                    Map<String, Object> drow = new LinkedHashMap<>();
+                    drow.put("id", o.id());
+                    // Um contentor vazio conta como livre, mesmo que recorde o vinho anterior.
+                    drow.put("vinho", o.stock() > 0 && o.vinhoNome() != null ? o.vinhoNome() : "");
+                    drow.put("label", o.label());
+                    contDestino.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).add(drow);
+                    if (o.stock() > 0) {
+                        Map<String, Object> orow = new LinkedHashMap<>();
+                        orow.put("id", o.id());
+                        orow.put("garrafas", o.stock());
+                        orow.put("vinho", o.vinhoNome() == null ? "(sem vinho identificado)" : o.vinhoNome());
+                        orow.put("label", o.nome() + " · " + o.stock() + " " + te.getUnidade());
+                        contOrigem.computeIfAbsent(e.getKey(), k -> new ArrayList<>()).add(orow);
+                    }
+                }
             }
+            List<Map<String, Object>> locaisOrigem = new ArrayList<>();
+            for (String ref : contOrigem.keySet()) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("ref", ref); m.put("nome", locaisNome.get(ref)); locaisOrigem.add(m);
+            }
+            List<Map<String, Object>> locaisDestino = new ArrayList<>();
+            for (String ref : locaisNome.keySet()) {
+                Map<String, Object> m = new LinkedHashMap<>();
+                m.put("ref", ref); m.put("nome", locaisNome.get(ref)); locaisDestino.add(m);
+            }
+            origemPorTipo.put(te.name(), contOrigem);
+            destinoPorTipo.put(te.name(), contDestino);
+            locaisOrigemPorTipo.put(te.name(), locaisOrigem);
+            locaisDestinoPorTipo.put(te.name(), locaisDestino);
         }
-        List<Map<String, Object>> locaisOrigem = new ArrayList<>();
-        for (String ref : contOrigem.keySet()) {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("ref", ref); m.put("nome", locaisNome.get(ref)); locaisOrigem.add(m);
-        }
-        List<Map<String, Object>> locaisDestino = new ArrayList<>();
-        for (String ref : locaisNome.keySet()) {
-            Map<String, Object> m = new LinkedHashMap<>();
-            m.put("ref", ref); m.put("nome", locaisNome.get(ref)); locaisDestino.add(m);
-        }
-        model.addAttribute("locaisOrigemEng", locaisOrigem);
-        model.addAttribute("contentoresOrigemPorLocal", contOrigem);
-        model.addAttribute("locaisDestinoEng", locaisDestino);
-        model.addAttribute("contentoresDestinoPorLocal", contDestino);
+        model.addAttribute("contentoresOrigemPorTipo", origemPorTipo);
+        model.addAttribute("contentoresDestinoPorTipo", destinoPorTipo);
+        model.addAttribute("locaisOrigemPorTipo", locaisOrigemPorTipo);
+        model.addAttribute("locaisDestinoPorTipo", locaisDestinoPorTipo);
 
         // Ao editar, o formulário tem de reabrir já com a adega/armazém certos.
         model.addAttribute("adegaOrigemSel", adegaDoMosto(mov.getMostoOrigem()));
         model.addAttribute("adegaDestinoSel", adegaDoDestino(mov));
-        model.addAttribute("localOrigemSel", localDoContentor(mov.getContentorOrigemId()));
-        model.addAttribute("localDestinoSel", localDoContentor(mov.getContentorDestinoId()));
+        model.addAttribute("localOrigemSel", localDoContentor(mov, mov.getContentorOrigemId()));
+        model.addAttribute("localDestinoSel", localDoContentor(mov, mov.getContentorDestinoId()));
     }
 
     /** Local ("ADEGA:id" / "ARMAZEM:id") onde está o mosto de origem, para reabrir o formulário no sítio certo. */
@@ -371,13 +376,8 @@ public class MovimentoVinhoController {
     }
 
     /** Referência do local ("ARMAZEM:id" / "ADEGA:id") onde está um contentor. */
-    private String localDoContentor(Long contentorId) {
-        if (contentorId == null) return "";
-        ContentorGarrafas c = contentorRepo.findById(contentorId).orElse(null);
-        if (c == null) return "";
-        if (c.getArmazem() != null) return "ARMAZEM:" + c.getArmazem().getId();
-        if (c.getAdega() != null) return "ADEGA:" + c.getAdega().getId();
-        return "";
+    private String localDoContentor(ProcessoMovimentoVinho mov, Long contentorId) {
+        return contentorService.localDe(mov.getTipoEmbalagem(), contentorId);
     }
 
     /** Nome do vinho: denormalizado no mosto ou, em falta, do planeamento de origem. */

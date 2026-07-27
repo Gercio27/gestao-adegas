@@ -8,10 +8,9 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
-import pt.acv.adega.fichas.ContentorGarrafas;
-import pt.acv.adega.fichas.ContentorGarrafasRepository;
+import pt.acv.adega.fichas.ContentorService;
+import pt.acv.adega.fichas.TipoEmbalagem;
 import pt.acv.adega.fichas.TrabalhadorRepository;
-import pt.acv.adega.produtos.VinhoEngarrafado;
 import pt.acv.adega.produtos.VinhoEngarrafadoRepository;
 
 import java.time.LocalDateTime;
@@ -25,17 +24,17 @@ public class ComercialController {
     private final ComercialService service;
     private final VinhoEngarrafadoRepository engarrafadoRepo;
     private final TrabalhadorRepository trabalhadorRepo;
-    private final ContentorGarrafasRepository contentorRepo;
+    private final ContentorService contentorService;
     private final CodigoService codigoService;
 
     public ComercialController(ProcessoPassagemComercialRepository repo, ComercialService service,
                                VinhoEngarrafadoRepository engarrafadoRepo, TrabalhadorRepository trabalhadorRepo,
-                               ContentorGarrafasRepository contentorRepo, CodigoService codigoService) {
+                               ContentorService contentorService, CodigoService codigoService) {
         this.repo = repo;
         this.service = service;
         this.engarrafadoRepo = engarrafadoRepo;
         this.trabalhadorRepo = trabalhadorRepo;
-        this.contentorRepo = contentorRepo;
+        this.contentorService = contentorService;
         this.codigoService = codigoService;
     }
 
@@ -93,14 +92,13 @@ public class ComercialController {
             return "processos/comercial/form";
         }
         // A partir do contentor escolhido, resolve o vinho engarrafado e o local de origem.
+        TipoEmbalagem tipo = com.getTipoEmbalagem() != null ? com.getTipoEmbalagem() : TipoEmbalagem.GARRAFA;
         if (com.getContentorId() != null) {
-            ContentorGarrafas c = contentorRepo.findById(com.getContentorId()).orElse(null);
+            ContentorService.Opcao c = contentorService.procurar(tipo, com.getContentorId());
             if (c != null) {
-                com.setOrigemDescricao((c.getVinhoNome() != null ? c.getVinhoNome() : "—") + " · " + c.getLocalizacao() + " · " + c.getNome());
-                if (c.getVinhoEngarrafadoId() != null) {
-                    VinhoEngarrafado veg = engarrafadoRepo.findById(c.getVinhoEngarrafadoId()).orElse(null);
-                    com.setEngarrafado(veg);
-                }
+                com.setOrigemDescricao(c.label());
+                Long vegId = contentorService.vinhoDe(tipo, com.getContentorId());
+                if (vegId != null) com.setEngarrafado(engarrafadoRepo.findById(vegId).orElse(null));
             }
         }
         if (com.getId() == null) {
@@ -158,16 +156,20 @@ public class ComercialController {
     }
 
     private void preencherOpcoes(Model model) {
-        // Garrafas disponiveis por vinho em cada armazem/adega: contentores rotulados com garrafas.
-        List<Map<String, Object>> disponiveis = new ArrayList<>();
-        for (ContentorGarrafas c : contentorRepo.findByRotuladoTrueAndGarrafasAtuaisGreaterThanOrderByNomeAsc(0)) {
-            Map<String, Object> row = new LinkedHashMap<>();
-            row.put("id", c.getId());
-            row.put("label", (c.getVinhoNome() != null ? c.getVinhoNome() : "Vinho") + " · " + c.getLocalizacao()
-                    + " · " + c.getGarrafasAtuais() + " garrafas · " + c.getNome());
-            disponiveis.add(row);
+        // Disponivel para entrega: contentores rotulados com stock, por tipo.
+        Map<String, List<Map<String, Object>>> porTipo = new LinkedHashMap<>();
+        for (TipoEmbalagem tipo : TipoEmbalagem.values()) {
+            List<Map<String, Object>> lista = new ArrayList<>();
+            for (ContentorService.Opcao o : contentorService.rotuladosComStock(tipo)) {
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("id", o.id());
+                row.put("label", o.label());
+                lista.add(row);
+            }
+            porTipo.put(tipo.name(), lista);
         }
-        model.addAttribute("contentoresDisponiveis", disponiveis);
+        model.addAttribute("contentoresPorTipo", porTipo);
+        model.addAttribute("tiposEmbalagem", TipoEmbalagem.values());
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
     }
 

@@ -42,19 +42,28 @@
                 <div class="border rounded p-2" id="cert-granel-itens"><span class="text-muted small">Escolha a adega e o vinho.</span></div>
             </div>
 
-            <!-- ENGARRAFADO: de que contentor saem as garrafas -->
+            <!-- ENGARRAFADO: de que contentor saem as amostras -->
+            <div class="col-12 grp-eng">
+                <label class="form-label">Embalagem</label>
+                <div>
+                    <div class="form-check form-check-inline" th:each="t : ${tiposEmbalagem}">
+                        <input class="form-check-input" type="radio" th:field="*{tipoEmbalagem}" th:value="${t}"
+                               th:id="'ce-tipo-' + ${t}" onchange="alternarTipoEmbalagem()">
+                        <label class="form-check-label" th:for="'ce-tipo-' + ${t}" th:text="${t.descricao}"></label>
+                    </div>
+                </div>
+            </div>
             <div class="col-md-8 grp-eng">
-                <label class="form-label">Contentor (de onde saem as garrafas para certificação)</label>
-                <select class="form-select" th:field="*{contentorId}">
+                <label class="form-label">Contentor (de onde saem as amostras para certificação)</label>
+                <select class="form-select" th:field="*{contentorId}" id="ce-contentor">
                     <option th:value="${null}">— escolher contentor —</option>
-                    <option th:each="c : ${contentoresDisponiveis}" th:value="${c.id}" th:text="${c.label}"></option>
                 </select>
-                <div class="form-text">Só aparecem contentores com garrafas de vinho ainda não certificado.</div>
+                <div class="form-text" id="ce-ajuda">Só aparecem contentores com vinho ainda não certificado.</div>
             </div>
             <div class="col-md-4 grp-eng">
-                <label class="form-label">Garrafas para certificação</label>
+                <label class="form-label"><span id="lblCertQtd">Garrafas</span> para certificação</label>
                 <input type="number" min="0" class="form-control" th:field="*{garrafasCertificacao}">
-                <div class="form-text">Quantas garrafas foram tiradas do contentor.</div>
+                <div class="form-text">Quantas foram tiradas do contentor.</div>
             </div>
 
             <div th:if="${cert.itensDescricao != null}" class="col-12">
@@ -119,6 +128,29 @@
 <div th:replace="~{fragments/layout :: scripts}"></div>
 <script th:inline="javascript">
     const granelDisponivel = /*[[${granelDisponivel}]]*/ [];
+    const contentoresPorTipo = /*[[${contentoresPorTipo}]]*/ {};
+    const contentorGuardado = /*[[${cert.contentorId}]]*/ null;
+
+    function tipoEmbalagemEscolhido() {
+        const r = document.querySelector('[name="tipoEmbalagem"]:checked');
+        return r ? r.value : 'GARRAFA';
+    }
+
+    /** Mostra só os contentores do tipo de embalagem escolhido. */
+    function alternarTipoEmbalagem() {
+        const tipo = tipoEmbalagemEscolhido();
+        const bib = tipo === 'BAG_IN_BOX';
+        const lista = contentoresPorTipo[tipo] || [];
+        const sel = document.getElementById('ce-contentor');
+        let h = '<option value="">— escolher contentor —</option>';
+        lista.forEach(function (c) { h += '<option value="' + c.id + '">' + c.label + '</option>'; });
+        sel.innerHTML = h;
+        if (contentorGuardado) sel.value = contentorGuardado;
+        document.getElementById('lblCertQtd').textContent = bib ? 'Unidades' : 'Garrafas';
+        document.getElementById('ce-ajuda').textContent = lista.length
+            ? 'Só aparecem contentores com vinho ainda não certificado.'
+            : (bib ? 'Não há bag-in-box por certificar.' : 'Não há contentores de garrafas por certificar.');
+    }
 
     function linhaItem(id, label) {
         return '<div class="d-flex align-items-center gap-3 py-1">'
@@ -148,6 +180,7 @@
     document.addEventListener('DOMContentLoaded', function () {
         toggleAlvo();
         filtrarGranel();
+        alternarTipoEmbalagem();
     });
 </script>
 </body>

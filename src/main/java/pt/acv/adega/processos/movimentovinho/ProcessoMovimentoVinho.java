@@ -74,7 +74,10 @@ public class ProcessoMovimentoVinho extends Processo {
 
     // ===== SAIDA_INTRA-EMPRESA (transferencia entre adegas/armazens) =====
 
-    /** "GRANEL" (mosto/vinho a granel em talha/deposito) ou "ENGARRAFADO" (garrafas em contentor). */
+    /**
+     * O que se transfere: "GRANEL" (mosto/vinho em talha/deposito),
+     * "ENGARRAFADO" (garrafas em contentor) ou "BAG_IN_BOX" (unidades em palete).
+     */
     @Column(length = 12)
     private String produtoTipo;
 
@@ -218,9 +221,24 @@ public class ProcessoMovimentoVinho extends Processo {
     @Transient
     public boolean isTemDaPdf() { return daPdf != null && daPdf.length > 0; }
 
-    /** True quando o movimento e' uma saida intra-empresa de vinho engarrafado. */
+    /** True quando o movimento mexe em produto acabado (garrafas ou bag-in-box). */
     @Transient
     public boolean isEngarrafado() {
-        return tipo == TipoMovimentoVinho.INTRA_EMP && "ENGARRAFADO".equals(produtoTipo);
+        return tipo == TipoMovimentoVinho.INTRA_EMP
+                && ("ENGARRAFADO".equals(produtoTipo) || "BAG_IN_BOX".equals(produtoTipo));
+    }
+
+    /** Em que ficha de contentor ir buscar o stock deste movimento. */
+    @Transient
+    public pt.acv.adega.fichas.TipoEmbalagem getTipoEmbalagem() {
+        return "BAG_IN_BOX".equals(produtoTipo)
+                ? pt.acv.adega.fichas.TipoEmbalagem.BAG_IN_BOX
+                : pt.acv.adega.fichas.TipoEmbalagem.GARRAFA;
+    }
+
+    /** "garrafa(s)" ou "unidade(s)", para os textos dos ecras. */
+    @Transient
+    public String getUnidadeNome() {
+        return isEngarrafado() ? getTipoEmbalagem().getUnidade() : "litros";
     }
 }

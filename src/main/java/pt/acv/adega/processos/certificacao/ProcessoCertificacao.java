@@ -98,6 +98,14 @@ public class ProcessoCertificacao extends Processo {
     @Column(length = 100)
     private String certificadoPdfTipo;
 
+    /** De que tipo e' o contentor de onde saem as amostras: garrafas ou bag-in-box. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "tipo_embalagem", nullable = false, length = 12)
+    private pt.acv.adega.fichas.TipoEmbalagem tipoEmbalagem = pt.acv.adega.fichas.TipoEmbalagem.GARRAFA;
+
+    public pt.acv.adega.fichas.TipoEmbalagem getTipoEmbalagem() { return tipoEmbalagem; }
+    public void setTipoEmbalagem(pt.acv.adega.fichas.TipoEmbalagem tipoEmbalagem) { this.tipoEmbalagem = tipoEmbalagem; }
+
     public Long getContentorId() { return contentorId; }
     public void setContentorId(Long contentorId) { this.contentorId = contentorId; }
 
