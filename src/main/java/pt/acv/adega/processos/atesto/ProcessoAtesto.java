@@ -64,6 +64,15 @@ public class ProcessoAtesto extends Processo {
      * desfazer: de onde saiu o vinho, para onde foi, e se essa do destino foi
      * criada por este atesto.
      */
+    /**
+     * Litros que saíram mesmo da origem. Pode ser menos do que os litros do
+     * atesto, quando se tirou mais do que o recipiente tinha (fica a zero).
+     * E' o que o reabrir tem de devolver - senao a origem ficava com litros a
+     * mais do que os que tinha antes.
+     */
+    @Column(name = "litros_da_origem", precision = 12, scale = 2)
+    private BigDecimal litrosDaOrigem;
+
     @Column(name = "mosto_origem_id")
     private Long mostoOrigemId;
 
@@ -126,6 +135,9 @@ public class ProcessoAtesto extends Processo {
         if (depositoDestino != null) return "Depósito " + depositoDestino.getIdentificacao();
         return "—";
     }
+
+    public BigDecimal getLitrosDaOrigem() { return litrosDaOrigem; }
+    public void setLitrosDaOrigem(BigDecimal litrosDaOrigem) { this.litrosDaOrigem = litrosDaOrigem; }
 
     public Long getMostoOrigemId() { return mostoOrigemId; }
     public void setMostoOrigemId(Long mostoOrigemId) { this.mostoOrigemId = mostoOrigemId; }

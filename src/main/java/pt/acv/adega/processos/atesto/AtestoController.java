@@ -125,8 +125,9 @@ public class AtestoController {
         ProcessoAtesto a = repo.findById(id).orElse(null);
         if (a == null || !podeAceder(a, auth)) { ra.addFlashAttribute("erro", "Sem acesso a este processo."); return "redirect:/processos/atesto"; }
         try {
-            atestoService.fechar(id);
+            String aviso = atestoService.fechar(id);
             ra.addFlashAttribute("sucesso", "Atesto fechado. Volumes atualizados nos dois recipientes.");
+            if (aviso != null) ra.addFlashAttribute("aviso", aviso);
         } catch (AtestoException ex) {
             ra.addFlashAttribute("erro", ex.getMessage());
         }

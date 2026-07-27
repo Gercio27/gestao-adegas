@@ -38,8 +38,13 @@ public class AtestoService {
         this.codigoService = codigoService;
     }
 
+    /**
+     * Fecha o atesto e devolve os avisos que houver (ex.: tirou-se mais do que
+     * a origem tinha). Nao bloqueia: a medicao no campo nem sempre bate certo
+     * com o registado, por isso a operacao passa e fica so' o aviso.
+     */
     @Transactional
-    public void fechar(Long id) {
+    public String fechar(Long id) {
         ProcessoAtesto a = repo.findById(id).orElseThrow(() -> new AtestoException("Atesto não encontrado."));
         if (a.getEstado() == EstadoProcesso.FECHADO) throw new AtestoException("O atesto já está fechado.");
 
@@ -71,22 +76,24 @@ public class AtestoService {
         String nomeOrigem = origemTalha ? "Talha " + tOrig.getIdentificacao() : "Depósito " + dOrig.getIdentificacao();
         String nomeDestino = destinoTalha ? "Talha " + tDest.getIdentificacao() : "Depósito " + dDest.getIdentificacao();
 
-        // Controlo da ORIGEM: nao pode dar mais do que tem
+        // A ORIGEM ficar a zero e o DESTINO passar da capacidade sao avisos, nao erros.
+        List<String> avisos = new java.util.ArrayList<>();
         if (volOrigem.compareTo(litros) < 0) {
-            throw new AtestoException(String.format(
-                    "%s só tem %s L — não pode ceder %s L.", nomeOrigem, volOrigem.toPlainString(), litros.toPlainString()));
+            avisos.add(String.format("%s só tinha %s L e saíram %s L — ficou a zero, com %s L a mais do que o registado.",
+                    nomeOrigem, volOrigem.toPlainString(), litros.toPlainString(),
+                    litros.subtract(volOrigem).toPlainString()));
         }
-        // Controlo do DESTINO: nao pode passar a capacidade
         if (capDestino != null && volDestino.add(litros).compareTo(capDestino) > 0) {
-            throw new AtestoException(String.format(
-                    "%s: capacidade excedida. Capacidade %s L, tem %s L, tentou juntar %s L (total %s L).",
-                    nomeDestino, capDestino.toPlainString(), volDestino.toPlainString(),
-                    litros.toPlainString(), volDestino.add(litros).toPlainString()));
+            avisos.add(String.format("%s: fica com %s L, acima da capacidade de %s L (%s L a mais).",
+                    nomeDestino, volDestino.add(litros).toPlainString(), capDestino.toPlainString(),
+                    volDestino.add(litros).subtract(capDestino).toPlainString()));
         }
 
-        // Aplicar movimento aos volumes dos recipientes
-        if (origemTalha) { tOrig.setVolumeAtualLitros(volOrigem.subtract(litros)); talhaRepo.save(tOrig); }
-        else { dOrig.setVolumeAtualLitros(volOrigem.subtract(litros)); depositoRepo.save(dOrig); }
+        // Aplicar movimento aos volumes dos recipientes (a origem nunca fica negativa)
+        BigDecimal saiuDaOrigem = volOrigem.min(litros);   // o que a origem tinha mesmo para dar
+        a.setLitrosDaOrigem(saiuDaOrigem);
+        if (origemTalha) { tOrig.setVolumeAtualLitros(naoNegativo(volOrigem.subtract(litros))); talhaRepo.save(tOrig); }
+        else { dOrig.setVolumeAtualLitros(naoNegativo(volOrigem.subtract(litros))); depositoRepo.save(dOrig); }
         if (destinoTalha) { tDest.setVolumeAtualLitros(volDestino.add(litros)); talhaRepo.save(tDest); }
         else { dDest.setVolumeAtualLitros(volDestino.add(litros)); depositoRepo.save(dDest); }
 
@@ -98,6 +105,7 @@ public class AtestoService {
         if (a.getDataHoraFim() == null) a.setDataHoraFim(LocalDateTime.now());
         a.setDataFecho(LocalDateTime.now());
         repo.save(a);
+        return avisos.isEmpty() ? null : String.join(" ", avisos);
     }
 
     @Transactional
@@ -106,13 +114,16 @@ public class AtestoService {
         if (a.getEstado() == EstadoProcesso.ABERTO) return;
         BigDecimal litros = vol(a.getLitros());
 
-        // Reverter: devolver a origem, retirar do destino
+        // Reverter: devolver a origem SO' o que de la' saiu (pode ter sido menos
+        // do que os litros do atesto, se tiver ficado a zero), e tirar do destino
+        // tudo o que la' entrou.
+        BigDecimal devolverOrigem = a.getLitrosDaOrigem() != null ? a.getLitrosDaOrigem() : litros;
         if (a.getTalhaOrigem() != null) {
             Talha t = talhaRepo.findById(a.getTalhaOrigem().getId()).orElseThrow();
-            t.setVolumeAtualLitros(vol(t.getVolumeAtualLitros()).add(litros)); talhaRepo.save(t);
+            t.setVolumeAtualLitros(vol(t.getVolumeAtualLitros()).add(devolverOrigem)); talhaRepo.save(t);
         } else if (a.getDepositoOrigem() != null) {
             Deposito d = depositoRepo.findById(a.getDepositoOrigem().getId()).orElseThrow();
-            d.setVolumeAtualLitros(vol(d.getVolumeAtualLitros()).add(litros)); depositoRepo.save(d);
+            d.setVolumeAtualLitros(vol(d.getVolumeAtualLitros()).add(devolverOrigem)); depositoRepo.save(d);
         }
         if (a.getTalhaDestino() != null) {
             Talha t = talhaRepo.findById(a.getTalhaDestino().getId()).orElseThrow();
@@ -143,9 +154,11 @@ public class AtestoService {
         }
         if (origem == null) return;   // recipiente sem ficha de mosto (ex.: dados antigos)
 
-        BigDecimal aMover = vol(origem.getLitros()).min(litros);
-        origem.setLitros(naoNegativo(vol(origem.getLitros()).subtract(aMover)));
+        // A origem nunca fica negativa; o destino recebe os litros registados,
+        // mesmo que sejam mais do que os que a origem tinha (fica o aviso).
+        origem.setLitros(naoNegativo(vol(origem.getLitros()).subtract(litros)));
         mostoRepo.save(origem);
+        BigDecimal aMover = litros;
 
         String nome = origem.getVinhoNome();
         List<Mosto> noDestino = tDest != null ? mostoRepo.findByTalhaId(tDest.getId()) : mostoRepo.findByDepositoId(dDest.getId());
@@ -183,21 +196,22 @@ public class AtestoService {
     /** Desfaz o que o moverVinho fez. */
     private void reverterVinho(ProcessoAtesto a, BigDecimal litros) {
         Mosto destino = a.getMostoDestinoId() != null ? mostoRepo.findById(a.getMostoDestinoId()).orElse(null) : null;
-        BigDecimal devolvido = BigDecimal.ZERO;
         if (destino != null) {
-            devolvido = vol(destino.getLitros()).min(litros);
-            destino.setLitros(naoNegativo(vol(destino.getLitros()).subtract(devolvido)));
+            destino.setLitros(naoNegativo(vol(destino.getLitros()).subtract(litros)));
             if (a.isDestinoCriado() && vol(destino.getLitros()).signum() <= 0) mostoRepo.delete(destino);
             else mostoRepo.save(destino);
         }
+        // A origem recebe de volta so' o que de la' tinha saido.
+        BigDecimal devolverOrigem = a.getLitrosDaOrigem() != null ? a.getLitrosDaOrigem() : litros;
         Mosto origem = a.getMostoOrigemId() != null ? mostoRepo.findById(a.getMostoOrigemId()).orElse(null) : null;
         if (origem != null) {
-            origem.setLitros(vol(origem.getLitros()).add(devolvido));
+            origem.setLitros(vol(origem.getLitros()).add(devolverOrigem));
             mostoRepo.save(origem);
         }
         a.setMostoOrigemId(null);
         a.setMostoDestinoId(null);
         a.setDestinoCriado(false);
+        a.setLitrosDaOrigem(null);
     }
 
     private BigDecimal vol(BigDecimal v) { return v == null ? BigDecimal.ZERO : v; }
