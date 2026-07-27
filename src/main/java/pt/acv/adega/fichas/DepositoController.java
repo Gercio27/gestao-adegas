@@ -14,13 +14,15 @@ public class DepositoController {
 
     private final DepositoRepository repo;
     private final AdegaRepository adegaRepo;
+    private final ArmazemRepository armazemRepo;
     private final CodigoService codigoService;
     private final pt.acv.adega.produtos.MostoRepository mostoRepo;
 
-    public DepositoController(DepositoRepository repo, AdegaRepository adegaRepo, CodigoService codigoService,
-                              pt.acv.adega.produtos.MostoRepository mostoRepo) {
+    public DepositoController(DepositoRepository repo, AdegaRepository adegaRepo, ArmazemRepository armazemRepo,
+                              CodigoService codigoService, pt.acv.adega.produtos.MostoRepository mostoRepo) {
         this.repo = repo;
         this.adegaRepo = adegaRepo;
+        this.armazemRepo = armazemRepo;
         this.codigoService = codigoService;
         this.mostoRepo = mostoRepo;
     }
@@ -32,7 +34,8 @@ public class DepositoController {
         model.addAttribute("tipo", "Depósito");
         model.addAttribute("codigo", d.getCodigo());
         model.addAttribute("identificacao", d.getIdentificacao());
-        model.addAttribute("adega", d.getAdega() != null ? d.getAdega().getNome() : null);
+        model.addAttribute("adega", d.getAdega() != null ? d.getAdega().getNome()
+                : (d.getArmazem() != null ? "Armazém " + d.getArmazem().getNome() : null));
         model.addAttribute("capacidade", d.getCapacidadeLitros());
         model.addAttribute("volume", d.getVolumeAtualLitros());
         model.addAttribute("propriedade", d.getPropriedade().getDescricao());
@@ -67,7 +70,10 @@ public class DepositoController {
 
     @PostMapping
     public String guardar(@Valid @ModelAttribute("deposito") Deposito d, BindingResult result,
+                          @RequestParam(value = "localTipo", required = false) String localTipo,
                           Model model, RedirectAttributes ra) {
+        // O depósito fica numa adega OU num armazém — limpa o lado não escolhido.
+        if ("ARMAZEM".equals(localTipo)) d.setAdega(null); else d.setArmazem(null);
         if (result.hasErrors()) {
             preencherOpcoes(model);
             return "fichas/depositos/form";
@@ -89,6 +95,7 @@ public class DepositoController {
 
     private void preencherOpcoes(Model model) {
         model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
+        model.addAttribute("armazens", armazemRepo.findAllByOrderByNomeAsc());
         model.addAttribute("propriedades", Propriedade.values());
     }
 }

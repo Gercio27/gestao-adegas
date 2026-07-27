@@ -43,10 +43,10 @@
 
             <!-- ================= GRANEL: adega/vinho/origem ================= -->
             <div class="col-md-4" id="grpAdega">
-                <label class="form-label"><span id="lblAdega">Adega</span></label>
+                <label class="form-label"><span id="lblAdega">Adega / armazém</span></label>
                 <select class="form-select" id="mv-adega" onchange="atualizar()">
-                    <option value="">— escolher adega —</option>
-                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
+                    <option value="">— escolher local —</option>
+                    <option th:each="l : ${locaisGranel}" th:value="${l.ref}" th:text="${l.nome}"></option>
                 </select>
             </div>
             <div class="col-md-4" id="grpVinhoSel">
@@ -55,7 +55,7 @@
                     <option value="">— escolher vinho —</option>
                     <option th:each="v : ${vinhos}" th:value="${v}" th:text="${v}"></option>
                 </select>
-                <div class="form-text" id="ajudaVinho">Vinhos existentes na adega escolhida.</div>
+                <div class="form-text" id="ajudaVinho">Vinhos existentes no local escolhido.</div>
             </div>
 
             <div class="col-md-6" id="grpNome">
@@ -80,10 +80,10 @@
 
             <!-- DESTINO (ENTRADA / TRANSFEGA / INTRA-EMPRESA a granel) -->
             <div class="col-md-4" id="grpAdegaDestino">
-                <label class="form-label">Adega de destino *</label>
+                <label class="form-label">Adega / armazém de destino *</label>
                 <select class="form-select" id="mv-adega-destino" onchange="filtrarDestino()">
-                    <option value="">— escolher adega —</option>
-                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
+                    <option value="">— escolher local —</option>
+                    <option th:each="l : ${locaisGranel}" th:value="${l.ref}" th:text="${l.nome}"></option>
                 </select>
             </div>
             <div class="col-md-8" id="grpDestino">
@@ -243,7 +243,7 @@
 <div th:replace="~{fragments/layout :: scripts}"></div>
 <script th:inline="javascript">
     const mostosPorVinho = /*[[${mostosPorVinho}]]*/ {};
-    const recipientesPorAdega = /*[[${recipientesPorAdega}]]*/ {};
+    const recipientesPorLocal = /*[[${recipientesPorLocal}]]*/ {};
     const contOrigemPorLocal = /*[[${contentoresOrigemPorLocal}]]*/ {};
     const contDestinoPorLocal = /*[[${contentoresDestinoPorLocal}]]*/ {};
     const nomeGuardado = /*[[${mov.nomeVinho}]]*/ '';
@@ -270,7 +270,7 @@
 
         ver('grpProduto', intra);
         ver('grpAdega', granel);
-        document.getElementById('lblAdega').textContent = intra ? 'Adega de saída' : 'Adega';
+        document.getElementById('lblAdega').textContent = intra ? 'Adega / armazém de saída' : 'Adega / armazém';
         ver('grpVinhoSel', granel && !entrada);
         ver('grpNome', granel);
         ver('grpOrigem', granel && !entrada);
@@ -297,7 +297,7 @@
 
         document.getElementById('lblContraparte').textContent = entrada ? 'Fornecedor' : 'Cliente';
         document.getElementById('lblDestino').textContent = intra
-            ? 'Talha/depósito de destino (na adega escolhida)' : 'Recipiente de destino (na adega)';
+            ? 'Talha/depósito de destino (no local escolhido)' : 'Recipiente de destino (no local)';
         document.getElementById('lblData').textContent = intra ? 'Data da transferência' : 'Início';
         // Nome: editável só na entrada; nas outras vem do vinho escolhido.
         document.getElementById('mv-nome').readOnly = !entrada;
@@ -309,14 +309,14 @@
 
     // ---------- granel ----------
 
-    /** Vinhos que existem na adega escolhida (todos, se não houver adega). */
+    /** Vinhos que existem no local escolhido (todos, se não houver local). */
     function filtrarVinhos() {
-        const adega = document.getElementById('mv-adega').value;
+        const local = document.getElementById('mv-adega').value;
         const sel = document.getElementById('mv-vinho');
         const atual = document.getElementById('mv-nome').value;
         let h = '<option value="">— escolher vinho —</option>';
         Object.keys(mostosPorVinho).forEach(function (nome) {
-            const temAqui = !adega || mostosPorVinho[nome].some(function (m) { return String(m.adegaId) === adega; });
+            const temAqui = !local || mostosPorVinho[nome].some(function (m) { return m.localRef === local; });
             if (temAqui) h += '<option value="' + nome + '">' + nome + '</option>';
         });
         sel.innerHTML = h;
@@ -330,13 +330,13 @@
     }
 
     function filtrarOrigem() {
-        const adega = document.getElementById('mv-adega').value;
+        const local = document.getElementById('mv-adega').value;
         const nome = document.getElementById('mv-nome').value;
         const sel = document.querySelector('[name="mostoOrigem"]');
         if (!sel) return;
         const guardado = sel.dataset.sel || '';
         let lista = (nome && mostosPorVinho[nome]) ? mostosPorVinho[nome] : [];
-        if (adega) lista = lista.filter(function (m) { return String(m.adegaId) === adega; });
+        if (local) lista = lista.filter(function (m) { return m.localRef === local; });
         let h = '<option value="">—</option>';
         lista.forEach(function (m) { h += '<option value="' + m.id + '">' + m.label + '</option>'; });
         sel.innerHTML = h;
@@ -344,14 +344,14 @@
     }
 
     function filtrarDestino() {
-        // Na intra-empresa o destino é noutra adega; nos outros tipos é a mesma.
-        const adega = tipo() === 'INTRA_EMP'
+        // Na intra-empresa o destino é noutro local; nos outros tipos é o mesmo.
+        const local = tipo() === 'INTRA_EMP'
             ? document.getElementById('mv-adega-destino').value
             : document.getElementById('mv-adega').value;
         const sel = document.querySelector('[name="destinoRef"]');
         if (!sel) return;
         const guardado = sel.dataset.sel || '';
-        const recs = (adega && recipientesPorAdega[adega]) ? recipientesPorAdega[adega] : [];
+        const recs = (local && recipientesPorLocal[local]) ? recipientesPorLocal[local] : [];
         let h = '<option value="">—</option>';
         recs.forEach(function (r) {
             const estilo = r.cheia ? ' style="color:#b00020;font-weight:600;"' : '';

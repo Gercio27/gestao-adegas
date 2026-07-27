@@ -189,15 +189,16 @@ public class MovimentoVinhoController {
         }
     }
 
+    /** Nome do local (adega ou armazém) onde está o vinho. */
     private String adegaLocal(Mosto m) {
-        if (m.getTalha() != null && m.getTalha().getAdega() != null) return m.getTalha().getAdega().getNome();
-        if (m.getDeposito() != null && m.getDeposito().getAdega() != null) return m.getDeposito().getAdega().getNome();
+        if (m.getTalha() != null && m.getTalha().getAdega() != null) return "Adega " + m.getTalha().getAdega().getNome();
+        if (m.getDeposito() != null) return m.getDeposito().getLocalizacao();
         return "—";
     }
 
     private String destinoLocal(RecipienteService.Recipiente r) {
-        if (r.talha() != null && r.talha().getAdega() != null) return r.talha().getAdega().getNome();
-        if (r.deposito() != null && r.deposito().getAdega() != null) return r.deposito().getAdega().getNome();
+        if (r.talha() != null && r.talha().getAdega() != null) return "Adega " + r.talha().getAdega().getNome();
+        if (r.deposito() != null) return r.deposito().getLocalizacao();
         return "—";
     }
 
@@ -270,21 +271,24 @@ public class MovimentoVinhoController {
         Set<String> nomes = new LinkedHashSet<>();
         Map<String, List<Map<String, Object>>> mostosPorVinho = new LinkedHashMap<>();
         for (Mosto m : mostoRepo.findByEstadoOrderByDataProducaoDesc(EstadoMosto.VINHO_GRANEL)) {
-            Long adegaId = null; String local = "—";
-            if (m.getTalha() != null && m.getTalha().getAdega() != null) { adegaId = m.getTalha().getAdega().getId(); local = "Talha " + m.getTalha().getIdentificacao(); }
-            else if (m.getDeposito() != null && m.getDeposito().getAdega() != null) { adegaId = m.getDeposito().getAdega().getId(); local = "Depósito " + m.getDeposito().getIdentificacao(); }
+            // O local é uma adega ou um armazém — os depósitos podem estar nos dois.
+            String localRef = null; String local = "—";
+            if (m.getTalha() != null && m.getTalha().getAdega() != null) { localRef = "ADEGA:" + m.getTalha().getAdega().getId(); local = "Talha " + m.getTalha().getIdentificacao(); }
+            else if (m.getDeposito() != null && !m.getDeposito().getLocalRef().isEmpty()) { localRef = m.getDeposito().getLocalRef(); local = "Depósito " + m.getDeposito().getIdentificacao(); }
             String nome = nomeVinho(m, moagemPlano);
-            if (adegaId == null || nome == null) continue;
+            if (localRef == null || nome == null) continue;
             nomes.add(nome);
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("id", m.getId());
-            row.put("adegaId", adegaId);
+            row.put("localRef", localRef);
             row.put("label", m.getCodigo() + " · " + local + " · " + (m.getLitros() == null ? "0" : m.getLitros().toPlainString()) + " L");
             mostosPorVinho.computeIfAbsent(nome, k -> new ArrayList<>()).add(row);
         }
         model.addAttribute("vinhos", new ArrayList<>(nomes));
         model.addAttribute("mostosPorVinho", mostosPorVinho);
-        model.addAttribute("recipientesPorAdega", recipientesPorAdega());
+        Map<String, List<Map<String, Object>>> recipientes = recipientesPorLocal();
+        model.addAttribute("recipientesPorLocal", recipientes);
+        model.addAttribute("locaisGranel", locaisGranel(recipientes));
 
         // Nomes de vinho já conhecidos no sistema (todos os processos), para o
         // campo de ENTRADA os puxar em vez de serem escritos do zero.
@@ -349,21 +353,20 @@ public class MovimentoVinhoController {
         model.addAttribute("localDestinoSel", localDoContentor(mov.getContentorDestinoId()));
     }
 
-    /** Id da adega onde está o mosto de origem (para reabrir o formulário no sítio certo). */
+    /** Local ("ADEGA:id" / "ARMAZEM:id") onde está o mosto de origem, para reabrir o formulário no sítio certo. */
     private String adegaDoMosto(Mosto ref) {
         if (ref == null || ref.getId() == null) return "";
         Mosto m = mostoRepo.findById(ref.getId()).orElse(null);
         if (m == null) return "";
-        if (m.getTalha() != null && m.getTalha().getAdega() != null) return String.valueOf(m.getTalha().getAdega().getId());
-        if (m.getDeposito() != null && m.getDeposito().getAdega() != null) return String.valueOf(m.getDeposito().getAdega().getId());
+        if (m.getTalha() != null && m.getTalha().getAdega() != null) return "ADEGA:" + m.getTalha().getAdega().getId();
+        if (m.getDeposito() != null) return m.getDeposito().getLocalRef();
         return "";
     }
 
     private String adegaDoDestino(ProcessoMovimentoVinho mov) {
         if (mov.getTalhaDestino() != null && mov.getTalhaDestino().getAdega() != null)
-            return String.valueOf(mov.getTalhaDestino().getAdega().getId());
-        if (mov.getDepositoDestino() != null && mov.getDepositoDestino().getAdega() != null)
-            return String.valueOf(mov.getDepositoDestino().getAdega().getId());
+            return "ADEGA:" + mov.getTalhaDestino().getAdega().getId();
+        if (mov.getDepositoDestino() != null) return mov.getDepositoDestino().getLocalRef();
         return "";
     }
 
@@ -384,19 +387,46 @@ public class MovimentoVinhoController {
         return w != null ? w.getNomeVinho() : null;
     }
 
-    private Map<Long, List<Map<String, Object>>> recipientesPorAdega() {
-        Map<Long, List<Map<String, Object>>> out = new LinkedHashMap<>();
+    /**
+     * Recipientes de granel por local. A chave é "ADEGA:id" ou "ARMAZEM:id":
+     * as talhas ficam sempre numa adega, mas os depósitos podem estar numa
+     * adega ou num armazém.
+     */
+    private Map<String, List<Map<String, Object>>> recipientesPorLocal() {
+        Map<String, List<Map<String, Object>>> out = new LinkedHashMap<>();
         talhaRepo.findAllByOrderByIdentificacaoAsc().forEach(t -> {
             if (t.getAdega() == null) return;
-            out.computeIfAbsent(t.getAdega().getId(), k -> new ArrayList<>())
+            out.computeIfAbsent("ADEGA:" + t.getAdega().getId(), k -> new ArrayList<>())
                     .add(recipiente("TALHA:" + t.getId(), "Talha " + t.getIdentificacao(), t.getCapacidadeLitros(), t.getVolumeAtualLitros()));
         });
         depositoRepo.findAllByOrderByIdentificacaoAsc().forEach(d -> {
-            if (d.getAdega() == null) return;
-            out.computeIfAbsent(d.getAdega().getId(), k -> new ArrayList<>())
+            String ref = d.getLocalRef();
+            if (ref.isEmpty()) return;
+            out.computeIfAbsent(ref, k -> new ArrayList<>())
                     .add(recipiente("DEPOSITO:" + d.getId(), "Depósito " + d.getIdentificacao(), d.getCapacidadeLitros(), d.getVolumeAtualLitros()));
         });
         return out;
+    }
+
+    /** Locais que têm recipientes de granel, para os seletores de origem/destino. */
+    private List<Map<String, Object>> locaisGranel(Map<String, List<Map<String, Object>>> recipientes) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        adegaRepo.findAllByOrderByNomeAsc().forEach(a -> {
+            String ref = "ADEGA:" + a.getId();
+            if (recipientes.containsKey(ref)) out.add(local(ref, "Adega " + a.getNome()));
+        });
+        armazemRepo.findAllByOrderByNomeAsc().forEach(a -> {
+            String ref = "ARMAZEM:" + a.getId();
+            if (recipientes.containsKey(ref)) out.add(local(ref, "Armazém " + a.getNome()));
+        });
+        return out;
+    }
+
+    private Map<String, Object> local(String ref, String nome) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("ref", ref);
+        m.put("nome", nome);
+        return m;
     }
 
     private Map<String, Object> recipiente(String ref, String ident, BigDecimal cap, BigDecimal vol) {

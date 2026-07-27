@@ -24,9 +24,17 @@ public class Deposito extends BaseEntity {
     @Column(length = 40)
     private String tipo; // ex.: Cuba inox, Deposito, Cuba fermentacao
 
+    /**
+     * O deposito fica numa adega OU num armazem - nunca nos dois. A adega e o
+     * sitio onde se processa o vinho; o armazem e so de armazenamento.
+     */
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "adega_id")
     private Adega adega;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "armazem_id")
+    private Armazem armazem;
 
     @Column(precision = 12, scale = 2)
     private BigDecimal capacidadeLitros;
@@ -50,6 +58,9 @@ public class Deposito extends BaseEntity {
     public Adega getAdega() { return adega; }
     public void setAdega(Adega adega) { this.adega = adega; }
 
+    public Armazem getArmazem() { return armazem; }
+    public void setArmazem(Armazem armazem) { this.armazem = armazem; }
+
     public BigDecimal getCapacidadeLitros() { return capacidadeLitros; }
     public void setCapacidadeLitros(BigDecimal capacidadeLitros) { this.capacidadeLitros = capacidadeLitros; }
 
@@ -65,5 +76,27 @@ public class Deposito extends BaseEntity {
     @Transient
     public boolean isVazia() {
         return volumeAtualLitros == null || volumeAtualLitros.signum() == 0;
+    }
+
+    /** Identificacao do local (adega ou armazem) onde o deposito se encontra. */
+    @Transient
+    public String getLocalizacao() {
+        if (adega != null) return "Adega " + adega.getNome();
+        if (armazem != null) return "Armazém " + armazem.getNome();
+        return "—";
+    }
+
+    /** Referencia do local para os seletores: "ADEGA:id" ou "ARMAZEM:id". */
+    @Transient
+    public String getLocalRef() {
+        if (adega != null) return "ADEGA:" + adega.getId();
+        if (armazem != null) return "ARMAZEM:" + armazem.getId();
+        return "";
+    }
+
+    /** "ADEGA" ou "ARMAZEM" - usado pelo formulario da ficha. */
+    @Transient
+    public String getLocalTipo() {
+        return armazem != null ? "ARMAZEM" : "ADEGA";
     }
 }

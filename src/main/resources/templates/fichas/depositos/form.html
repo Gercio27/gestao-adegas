@@ -25,12 +25,28 @@
                 <label class="form-label">Tipo</label>
                 <input type="text" class="form-control" th:field="*{tipo}" placeholder="Cuba inox, Depósito...">
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
+                <label class="form-label">Fica em *</label>
+                <select class="form-select" name="localTipo" id="dep-local-tipo" onchange="toggleLocal()">
+                    <option value="ADEGA" th:selected="${deposito.localTipo == 'ADEGA'}">Adega</option>
+                    <option value="ARMAZEM" th:selected="${deposito.localTipo == 'ARMAZEM'}">Armazém</option>
+                </select>
+                <div class="form-text">Onde está fisicamente o depósito.</div>
+            </div>
+            <div class="col-md-4" id="grpAdega">
                 <label class="form-label">Adega</label>
                 <select class="form-select" th:field="*{adega}">
                     <option th:value="${null}">—</option>
                     <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
                 </select>
+            </div>
+            <div class="col-md-4" id="grpArmazem">
+                <label class="form-label">Armazém</label>
+                <select class="form-select" th:field="*{armazem}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="a : ${armazens}" th:value="${a.id}" th:text="${a.nome}"></option>
+                </select>
+                <div class="form-text">Só armazenamento — não aparece nos processos de adega.</div>
             </div>
             <div class="col-md-3">
                 <label class="form-label">Capacidade (L)</label>
@@ -63,8 +79,21 @@
     function toggleTerceiro(sel) {
         document.getElementById('grpTerceiro').style.display = (sel.value === 'TERCEIRO') ? '' : 'none';
     }
+
+    /** Mostra só o seletor do local escolhido e limpa o outro. */
+    function toggleLocal() {
+        const armazem = document.getElementById('dep-local-tipo').value === 'ARMAZEM';
+        document.getElementById('grpAdega').style.display = armazem ? 'none' : '';
+        document.getElementById('grpArmazem').style.display = armazem ? '' : 'none';
+        document.querySelector('[name=' + (armazem ? 'adega' : 'armazem') + ']').value = '';
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         toggleTerceiro(document.querySelector('[name=propriedade]'));
+        // Sem limpar nada no arranque: só acerta a visibilidade.
+        const armazem = document.getElementById('dep-local-tipo').value === 'ARMAZEM';
+        document.getElementById('grpAdega').style.display = armazem ? 'none' : '';
+        document.getElementById('grpArmazem').style.display = armazem ? '' : 'none';
     });
 </script>
 </body>
