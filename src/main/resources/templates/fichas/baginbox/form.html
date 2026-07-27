@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Contentor / palete bag-in-box')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+
+<div class="container">
+    <h3 class="mb-3" th:text="${contentor.id == null} ? 'Novo contentor / palete bag-in-box' : 'Editar contentor bag-in-box'">Bag-in-box</h3>
+
+    <div class="card shadow-sm"><div class="card-body">
+        <form th:action="@{/fichas/bag-in-box}" th:object="${contentor}" method="post" class="row g-3">
+            <input type="hidden" th:field="*{id}">
+            <input type="hidden" th:field="*{codigo}">
+
+            <div class="col-md-3" th:if="${contentor.codigo != null}">
+                <label class="form-label">Código</label>
+                <input class="form-control" th:value="*{codigo}" disabled>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Nome *</label>
+                <input type="text" class="form-control" th:field="*{nome}" required placeholder="Ex.: Palete BIB 01">
+                <div class="text-danger small" th:if="${#fields.hasErrors('nome')}" th:errors="*{nome}"></div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Formato</label>
+                <select class="form-select" th:field="*{tipoBag}" id="bib-tipo" onchange="recalcular()">
+                    <option th:each="t : ${tiposBag}" th:value="${t}" th:text="${t.descricao}"
+                            th:attr="data-litros=${t.litrosPorUnidade}"></option>
+                </select>
+                <div class="form-text">Litros de cada bolsa.</div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Capacidade (nº unidades)</label>
+                <input type="number" min="0" class="form-control" th:field="*{capacidadeUnidades}" id="bib-cap"
+                       oninput="recalcular()">
+                <div class="form-text">Quantas bolsas leva a palete/contentor.</div>
+            </div>
+
+            <div class="col-md-3">
+                <label class="form-label">Fica em *</label>
+                <select class="form-select" name="localTipo" id="bib-local-tipo" onchange="toggleLocal()">
+                    <option value="ARMAZEM" th:selected="${contentor.adega == null}">Armazém</option>
+                    <option value="ADEGA" th:selected="${contentor.adega != null}">Adega</option>
+                </select>
+            </div>
+            <div class="col-md-4" id="grpArmazem">
+                <label class="form-label">Armazém</label>
+                <select class="form-select" th:field="*{armazem}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="a : ${armazens}" th:value="${a.id}" th:text="${a.nome}"></option>
+                </select>
+            </div>
+            <div class="col-md-4" id="grpAdega">
+                <label class="form-label">Adega</label>
+                <select class="form-select" th:field="*{adega}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
+                </select>
+            </div>
+
+            <div class="col-12"><hr class="my-1"></div>
+            <div class="col-12">
+                <span class="text-muted small">Conteúdo atual — preencha só para registar <strong>stock inicial</strong>
+                    de uma adega a meio.</span>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Vinho (nome)</label>
+                <input type="text" class="form-control" th:field="*{vinhoNome}" placeholder="Ex.: Vinho de Talha Tinto 2025">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Unidades atuais</label>
+                <input type="number" min="0" class="form-control" th:field="*{unidadesAtuais}" id="bib-atuais"
+                       oninput="recalcular()">
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">&nbsp;</label>
+                <div id="bib-resumo" class="small"></div>
+            </div>
+            <div class="col-12">
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" th:field="*{rotulado}" id="bib-rotulado">
+                    <label class="form-check-label" for="bib-rotulado">Estas unidades já estão rotuladas</label>
+                </div>
+            </div>
+
+            <div class="col-12">
+                <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
+                <a th:href="@{/fichas/bag-in-box}" class="btn btn-outline-secondary">Cancelar</a>
+            </div>
+        </form>
+    </div></div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+<script>
+    function litrosDoTipo() {
+        const sel = document.getElementById('bib-tipo');
+        const opt = sel.options[sel.selectedIndex];
+        return opt && opt.dataset.litros ? parseFloat(opt.dataset.litros) : 0;
+    }
+
+    /** Mostra os litros que o contentor tem e quanto ainda cabe. */
+    function recalcular() {
+        const litros = litrosDoTipo();
+        const cap = parseInt(document.getElementById('bib-cap').value, 10) || 0;
+        const atuais = parseInt(document.getElementById('bib-atuais').value, 10) || 0;
+        const box = document.getElementById('bib-resumo');
+        const total = (atuais * litros).toFixed(0);
+        if (cap <= 0) { box.innerHTML = '<span class="text-muted">' + total + ' L lá dentro</span>'; return; }
+        if (atuais > cap) {
+            box.innerHTML = '<span class="text-danger fw-bold">Excede a capacidade em ' + (atuais - cap) + ' unidade(s)</span>'
+                + '<br><span class="text-muted">' + total + ' L lá dentro</span>';
+        } else {
+            box.innerHTML = '<span class="text-success">Cabem mais ' + (cap - atuais) + ' unidade(s)</span>'
+                + '<br><span class="text-muted">' + total + ' L de ' + (cap * litros).toFixed(0) + ' L</span>';
+        }
+    }
+
+    /** Um contentor fica num armazém OU numa adega, nunca nos dois. */
+    function toggleLocal() {
+        const adega = document.getElementById('bib-local-tipo').value === 'ADEGA';
+        document.getElementById('grpAdega').style.display = adega ? '' : 'none';
+        document.getElementById('grpArmazem').style.display = adega ? 'none' : '';
+        document.querySelector('[name=' + (adega ? 'armazem' : 'adega') + ']').value = '';
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        const adega = document.getElementById('bib-local-tipo').value === 'ADEGA';
+        document.getElementById('grpAdega').style.display = adega ? '' : 'none';
+        document.getElementById('grpArmazem').style.display = adega ? 'none' : '';
+        recalcular();
+    });
+</script>
+</body>
+</html>

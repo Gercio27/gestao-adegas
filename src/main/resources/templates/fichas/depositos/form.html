@@ -66,6 +66,36 @@
                 <label class="form-label">Terceiro (se aplicável)</label>
                 <input type="text" class="form-control" th:field="*{terceiro}">
             </div>
+
+            <!-- Conteúdo: só faz sentido quando o depósito já vem com litros lá dentro. -->
+            <div class="col-12"><hr class="my-1"></div>
+            <div class="col-12" th:if="${conteudo == null or conteudo.isEmpty()}" id="grpConteudo">
+                <span class="text-muted small">Conteúdo atual — preencha só para registar <strong>stock inicial</strong>
+                    de uma adega a meio. No fluxo normal, o vinho chega cá pela moagem ou por um movimento.</span>
+            </div>
+            <div class="col-md-5" th:if="${conteudo == null or conteudo.isEmpty()}" id="grpVinhoNome">
+                <label class="form-label">Vinho que lá está</label>
+                <input type="text" class="form-control" name="vinhoNome" id="dep-vinho"
+                       placeholder="Ex.: Vinho de Talha Tinto 2025" autocomplete="off">
+                <div class="form-text">Cria a ficha do produto com os litros indicados acima.</div>
+            </div>
+            <div class="col-md-4" th:if="${conteudo == null or conteudo.isEmpty()}" id="grpEstadoConteudo">
+                <label class="form-label">Estado</label>
+                <select class="form-select" name="estadoConteudo">
+                    <option th:each="e : ${estados}" th:value="${e}" th:text="${e.descricao}"
+                            th:selected="${e.name() == 'VINHO_GRANEL'}"></option>
+                </select>
+            </div>
+
+            <div class="col-12" th:if="${conteudo != null and !conteudo.isEmpty()}">
+                <div class="alert alert-light border py-2 mb-0 small">
+                    <i class="bi bi-info-circle"></i> <strong>Já tem conteúdo registado:</strong>
+                    <span th:each="m,s : ${conteudo}"
+                          th:text="${(s.first ? '' : ' · ') + m.codigo + ' — ' + (m.vinhoNome ?: m.estado.descricao) + ' — ' + m.litros + ' L'}"></span>.
+                    Para alterar o vinho, use os processos (movimentos) em vez desta ficha.
+                </div>
+            </div>
+
             <div class="col-12">
                 <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
                 <a th:href="@{/fichas/depositos}" class="btn btn-outline-secondary">Cancelar</a>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt">
+<head th:replace="~{fragments/layout :: head('Contentores bag-in-box')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="mb-0"><i class="bi bi-box-seam"></i> Contentores / paletes bag-in-box</h3>
+        <a th:href="@{/fichas/bag-in-box/novo}" class="btn text-white" style="background-color:#6b1f2a;">
+            <i class="bi bi-plus-lg"></i> Novo contentor
+        </a>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Código</th><th>Nome</th><th>Formato</th><th class="text-end">Capac.</th>
+                    <th>Local</th><th>Vinho (conteúdo)</th><th class="text-end">Unidades</th>
+                    <th class="text-end">Litros</th><th>Ocupação</th><th>Rotulado</th><th class="text-end">Ações</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="c : ${contentores}">
+                    <td><span class="codigo" th:text="${c.codigo}"></span></td>
+                    <td th:text="${c.nome}"></td>
+                    <td th:text="${c.tipoBag.descricao}"></td>
+                    <td class="text-end" th:text="${c.capacidadeUnidades}"></td>
+                    <td th:text="${c.localizacao}"></td>
+                    <td th:text="${c.vinhoNome ?: '—'}"></td>
+                    <td class="text-end" th:text="${c.unidadesAtuais}"></td>
+                    <td class="text-end" th:text="${c.litrosAtuais} + ' L'"></td>
+                    <td class="small">
+                        <span th:if="${c.acimaDaCapacidade}" class="text-danger fw-bold"
+                              th:text="'Excede em ' + ${c.excedente}"></span>
+                        <span th:unless="${c.acimaDaCapacidade}" class="text-muted"
+                              th:text="'Cabem mais ' + ${c.espacoLivre}"></span>
+                    </td>
+                    <td>
+                        <span th:if="${c.unidadesAtuais > 0 and c.rotulado}" class="badge bg-success">Rotulado</span>
+                        <span th:if="${c.unidadesAtuais > 0 and !c.rotulado}" class="badge bg-warning text-dark">Por rotular</span>
+                        <span th:if="${c.unidadesAtuais <= 0}" class="badge bg-secondary">Vazio</span>
+                    </td>
+                    <td class="text-end">
+                        <a th:href="@{/fichas/bag-in-box/{id}/editar(id=${c.id})}" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form th:action="@{/fichas/bag-in-box/{id}/eliminar(id=${c.id})}" method="post" class="d-inline"
+                              onsubmit="return confirm('Eliminar este contentor bag-in-box?');">
+                            <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                <tr th:if="${contentores.isEmpty()}"><td colspan="11" class="text-center text-muted py-4">Sem contentores bag-in-box registados.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>
