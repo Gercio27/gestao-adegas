@@ -92,7 +92,11 @@ public class MovimentoService {
             ajustarRecipiente(m, litros.negate());
         }
 
-        if (p.getNumeroDA() == null) p.setNumeroDA(codigoService.proximoCodigo(PREFIXO_DA));
+        // O DA só é emitido nas SAÍDAS. Nas entradas o documento vem do
+        // fornecedor e é anexado em PDF na ficha do movimento.
+        if (p.getTipo() == TipoMovimento.SAIDA && p.getNumeroDA() == null) {
+            p.setNumeroDA(codigoService.proximoCodigo(PREFIXO_DA));
+        }
         p.setEstado(EstadoProcesso.FECHADO);
         if (p.getDataHoraFim() == null) p.setDataHoraFim(LocalDateTime.now());
         p.setDataFecho(LocalDateTime.now());

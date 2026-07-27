@@ -58,6 +58,21 @@ public class ProcessoMovimentoMosto extends Processo {
     @Column(length = 20)
     private String numeroDA;
 
+    /**
+     * PDF do Documento de Acompanhamento que veio com a entrada. Nas entradas o
+     * DA e' do fornecedor (externo), por isso anexa-se; nas saidas e' a adega
+     * que o emite e o sistema gera o numero.
+     */
+    @Lob
+    @Column(name = "da_pdf")
+    private byte[] daPdf;
+
+    @Column(length = 200)
+    private String daPdfNome;
+
+    @Column(length = 100)
+    private String daPdfTipo;
+
     @Transient
     private String destinoRef;
 
@@ -102,4 +117,19 @@ public class ProcessoMovimentoMosto extends Processo {
         if (depositoDestino != null) return "Depósito " + depositoDestino.getIdentificacao();
         return "—";
     }
+
+    public byte[] getDaPdf() { return daPdf; }
+    public void setDaPdf(byte[] daPdf) { this.daPdf = daPdf; }
+
+    public String getDaPdfNome() { return daPdfNome; }
+    public void setDaPdfNome(String daPdfNome) { this.daPdfNome = daPdfNome; }
+
+    public String getDaPdfTipo() { return daPdfTipo; }
+    public void setDaPdfTipo(String daPdfTipo) { this.daPdfTipo = daPdfTipo; }
+
+    @Transient
+    public boolean isTemDaPdf() { return daPdf != null && daPdf.length > 0; }
+
+    @Transient
+    public boolean isEntrada() { return tipo == TipoMovimento.ENTRADA; }
 }

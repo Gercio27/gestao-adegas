@@ -9,7 +9,8 @@
     <p class="text-muted">Fase 4.3 — Fermentação · Entradas / Saídas de mosto (DA). Escolha a adega e o vinho; aparecem as talhas/depósitos com mosto. Ao <strong>fechar</strong>, aplica o movimento e emite o DA.</p>
 
     <div class="card shadow-sm"><div class="card-body">
-        <form th:action="@{/processos/movimento-mosto}" th:object="${mov}" method="post" class="row g-3">
+        <form th:action="@{/processos/movimento-mosto}" th:object="${mov}" method="post" class="row g-3"
+              enctype="multipart/form-data">
             <input type="hidden" th:field="*{id}">
             <input type="hidden" th:field="*{codigo}">
 
@@ -54,9 +55,34 @@
                 </select>
             </div>
 
+            <!-- ENTRADA: para que casta vai este mosto -->
+            <div class="col-md-4" id="grpCasta">
+                <label class="form-label">Casta do mosto</label>
+                <select class="form-select" th:field="*{casta}">
+                    <option th:value="${null}">—</option>
+                    <option th:each="c : ${castas}" th:value="${c.id}" th:text="${c.nome}"></option>
+                </select>
+                <div class="form-text">Fica na ficha do mosto criado por esta entrada.</div>
+            </div>
+
             <div class="col-md-4">
                 <label class="form-label">Litros *</label>
                 <input type="number" step="0.01" min="0" class="form-control" th:field="*{litros}" required>
+            </div>
+
+            <!-- ENTRADA: o D.A. vem do fornecedor, por isso anexa-se -->
+            <div class="col-md-8" id="grpDaPdf">
+                <label class="form-label">PDF do D.A. do fornecedor</label>
+                <input type="file" class="form-control" name="daFicheiro" accept="application/pdf,.pdf">
+                <div class="form-text">
+                    <span th:if="${mov.temDaPdf}">
+                        Já tem anexo:
+                        <a th:href="@{/processos/movimento-mosto/{id}/da-pdf(id=${mov.id})}" target="_blank"
+                           th:text="${mov.daPdfNome ?: 'ver PDF'}">PDF</a>. Escolher outro substitui-o.
+                    </span>
+                    <span th:unless="${mov.temDaPdf}">Nas entradas o D.A. é do fornecedor — anexe aqui (máx. 10 MB).
+                        Nas saídas é a adega que o emite, ao fechar.</span>
+                </div>
             </div>
 
             <div class="col-md-6">
@@ -101,6 +127,9 @@
         const entrada = (document.getElementById('mv-tipo').value === 'ENTRADA');
         document.getElementById('grpMosto').style.display = entrada ? 'none' : '';
         document.getElementById('grpDestino').style.display = entrada ? '' : 'none';
+        // A casta e o PDF do D.A. só fazem sentido na entrada.
+        document.getElementById('grpCasta').style.display = entrada ? '' : 'none';
+        document.getElementById('grpDaPdf').style.display = entrada ? '' : 'none';
         document.getElementById('lblContraparte').textContent = entrada ? 'Fornecedor' : 'Cliente';
     }
 

@@ -15,14 +15,17 @@
             <span th:unless="${mov.aberto}" class="badge bg-success align-middle">Fechado</span>
         </h3>
         <div>
-            <a th:if="${mov.numeroDA != null}" th:href="@{/processos/movimento-mosto/{id}/da(id=${mov.id})}" target="_blank"
-               class="btn btn-dark"><i class="bi bi-printer"></i> DA</a>
+            <!-- O DA emitido pela adega e' so' das saidas. -->
+            <a th:if="${mov.numeroDA != null and !mov.entrada}" th:href="@{/processos/movimento-mosto/{id}/da(id=${mov.id})}"
+               target="_blank" class="btn btn-dark"><i class="bi bi-printer"></i> Emitir DA</a>
+            <a th:if="${mov.temDaPdf}" th:href="@{/processos/movimento-mosto/{id}/da-pdf(id=${mov.id})}" target="_blank"
+               class="btn btn-outline-dark"><i class="bi bi-file-earmark-pdf"></i> PDF do D.A.</a>
             <a th:if="${mov.aberto}" th:href="@{/processos/movimento-mosto/{id}/editar(id=${mov.id})}"
                class="btn btn-outline-secondary"><i class="bi bi-pencil"></i> Editar</a>
             <form th:if="${mov.aberto}" th:action="@{/processos/movimento-mosto/{id}/fechar(id=${mov.id})}"
                   method="post" class="d-inline"
-                  onsubmit="return confirm('Fechar? Aplica o movimento e emite o DA.');">
-                <button class="btn btn-success"><i class="bi bi-lock"></i> Fechar e emitir DA</button>
+                  onsubmit="return confirm('Fechar? Aplica o movimento (e emite o DA, se for saída).');">
+                <button class="btn btn-success"><i class="bi bi-lock"></i> Fechar</button>
             </form>
             <form sec:authorize="hasRole('ADMIN')" th:unless="${mov.aberto}"
                   th:action="@{/processos/movimento-mosto/{id}/reabrir(id=${mov.id})}" method="post" class="d-inline"
@@ -34,7 +37,15 @@
 
     <div class="card shadow-sm"><div class="card-body">
         <dl class="row mb-0">
-            <dt class="col-sm-3">DA</dt><dd class="col-sm-9"><span class="codigo" th:text="${mov.numeroDA ?: '(emitido ao fechar)'}"></span></dd>
+            <dt class="col-sm-3">DA</dt>
+            <dd class="col-sm-9">
+                <span th:if="${!mov.entrada}" class="codigo" th:text="${mov.numeroDA ?: '(emitido ao fechar)'}"></span>
+                <span th:if="${mov.entrada and mov.temDaPdf}">
+                    <a th:href="@{/processos/movimento-mosto/{id}/da-pdf(id=${mov.id})}" target="_blank"
+                       th:text="${mov.daPdfNome ?: 'PDF do fornecedor'}">PDF</a>
+                </span>
+                <span th:if="${mov.entrada and !mov.temDaPdf}" class="badge bg-warning text-dark">D.A. do fornecedor por anexar</span>
+            </dd>
             <dt class="col-sm-3">Tipo</dt><dd class="col-sm-9" th:text="${mov.tipo.descricao}"></dd>
             <dt class="col-sm-3">Litros</dt><dd class="col-sm-9"><span th:text="${mov.litros}"></span> L</dd>
             <dt class="col-sm-3" th:if="${mov.tipo.name() == 'ENTRADA'}">Destino</dt>

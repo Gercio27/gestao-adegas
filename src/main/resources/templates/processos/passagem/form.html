@@ -100,18 +100,25 @@
         }
         const talhaOpts = opcoesTalha(adega);
         let h = '<div class="row g-1 fw-bold small text-muted mb-1">'
-            + '<div class="col-md-6">Mosto</div><div class="col-md-2">Litros efetivos</div><div class="col-md-4">Vai para</div></div>';
+            + '<div class="col-md-5">Mosto</div><div class="col-md-2">Litros efetivos</div>'
+            + '<div class="col-md-3">Vai para</div><div class="col-md-2">Ficou vazia?</div></div>';
         lista.forEach(function (m) {
             const sel = selecionados[m.id];
             const on = !!sel;
             const litros = on ? sel.litros : m.litros;
+            const vazia = on && sel.vazia;
             h += '<div class="row g-1 align-items-center mb-1">'
-                + '<div class="col-md-6"><div class="form-check mb-0">'
+                + '<div class="col-md-5"><div class="form-check mb-0">'
                 + '<input class="form-check-input pv-inc" type="checkbox" id="pvc' + m.id + '"' + (on ? ' checked' : '') + ' onchange="toggleRow(this)">'
                 + '<input type="hidden" name="itemMostoId" value="' + m.id + '"' + (on ? '' : ' disabled') + '>'
                 + '<label class="form-check-label small" for="pvc' + m.id + '">' + escapar(m.label) + '</label></div></div>'
-                + '<div class="col-md-2"><input type="number" step="0.01" min="0.01" name="itemLitros" value="' + litros + '" class="form-control form-control-sm"' + (on ? '' : ' disabled') + '></div>'
-                + '<div class="col-md-4"><select name="itemTalhaDestino" class="form-select form-select-sm"' + (on ? '' : ' disabled') + '>' + talhaOpts + '</select></div>'
+                + '<div class="col-md-2"><input type="number" step="0.01" min="0.01" name="itemLitros" value="' + litros + '" class="form-control form-control-sm pv-litros" data-total="' + m.litros + '"' + (on ? '' : ' disabled') + '></div>'
+                + '<div class="col-md-3"><select name="itemTalhaDestino" class="form-select form-select-sm"' + (on ? '' : ' disabled') + '>' + talhaOpts + '</select></div>'
+                + '<div class="col-md-2"><div class="form-check mb-0">'
+                + '<input class="form-check-input pv-vazia" type="checkbox" id="pvv' + m.id + '"' + (vazia ? ' checked' : '') + ' onchange="onVazia(this)">'
+                + '<input type="hidden" name="itemVazia" value="' + (vazia ? '1' : '0') + '"' + (on ? '' : ' disabled') + '>'
+                + '<label class="form-check-label small text-muted" for="pvv' + m.id + '">ficou vazia</label></div>'
+                + '<div class="form-text pv-sobra small"></div></div>'
                 + '</div>';
         });
         box.innerHTML = h;
@@ -126,11 +133,44 @@
         });
     }
 
+    /** Marca no campo escondido se o recipiente ficou vazio, e refaz o texto. */
+    function onVazia(chk) {
+        const esc = chk.closest('.col-md-2').querySelector('input[name="itemVazia"]');
+        if (esc) esc.value = chk.checked ? '1' : '0';
+        atualizarSobras();
+    }
+
+    /**
+     * Diz, por linha, o que acontece ao que nao foi passado: fica no
+     * recipiente como mosto, ou conta como perda se a talha ficou vazia.
+     */
+    function atualizarSobras() {
+        document.querySelectorAll('#pv-mostos .row').forEach(function (row) {
+            const inp = row.querySelector('.pv-litros');
+            const txt = row.querySelector('.pv-sobra');
+            if (!inp || !txt) return;
+            const total = parseFloat(inp.dataset.total) || 0;
+            const efet = parseFloat(inp.value) || 0;
+            const sobra = total - efet;
+            const vazia = row.querySelector('.pv-vazia');
+            if (sobra <= 0) { txt.textContent = ''; return; }
+            txt.textContent = (vazia && vazia.checked)
+                ? 'perde ' + sobra.toFixed(2) + ' L'
+                : 'ficam ' + sobra.toFixed(2) + ' L por passar';
+            txt.classList.toggle('text-danger', vazia && vazia.checked);
+        });
+    }
+
+    document.addEventListener('input', function (e) {
+        if (e.target.classList.contains('pv-litros')) atualizarSobras();
+    });
+
     function toggleRow(chk) {
         const row = chk.closest('.row');
         const on = chk.checked;
-        row.querySelectorAll('input[name="itemMostoId"], input[name="itemLitros"], select[name="itemTalhaDestino"]')
+        row.querySelectorAll('input[name="itemMostoId"], input[name="itemLitros"], select[name="itemTalhaDestino"], input[name="itemVazia"]')
             .forEach(function (el) { el.disabled = !on; });
+        atualizarSobras();
     }
 
     function escapar(t) {

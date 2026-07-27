@@ -101,6 +101,7 @@ public class PassagemController {
                           @RequestParam(required = false) List<Long> itemMostoId,
                           @RequestParam(required = false) List<BigDecimal> itemLitros,
                           @RequestParam(required = false) List<Long> itemTalhaDestino,
+                          @RequestParam(required = false) List<String> itemVazia,
                           Authentication auth, Model model, RedirectAttributes ra) {
         if (result.hasErrors()) {
             preencherOpcoes(model);
@@ -142,11 +143,19 @@ public class PassagemController {
                 it.setMostoId(mid);
                 it.setLitrosEfetivos(efet);
                 it.setTalhaDestinoId(dest);
+                // "1" = o recipiente ficou vazio, logo o que sobrou e' perda.
+                boolean vazia = itemVazia != null && i < itemVazia.size() && "1".equals(itemVazia.get(i));
+                it.setOrigemVazia(vazia);
                 String destTxt = dest == null ? "fica em " + m.getLocalizacao()
                         : "→ " + talhaRepo.findById(dest).map(t -> "Talha " + t.getIdentificacao()).orElse("talha");
                 String nome = nomeVinho(m);
+                BigDecimal sobra = orig.subtract(efet);
+                String sobraTxt = sobra.signum() > 0
+                        ? (vazia ? " · sobraram " + sobra.toPlainString() + " L (perda)"
+                                 : " · ficam " + sobra.toPlainString() + " L por passar")
+                        : "";
                 it.setDescricao((nome != null ? nome + " · " : "") + m.getCodigo() + " · "
-                        + m.getLocalizacao() + " · " + efet.toPlainString() + " L · " + destTxt);
+                        + m.getLocalizacao() + " · " + efet.toPlainString() + " L · " + destTxt + sobraTxt);
                 passagem.getItens().add(it);
                 resumo.add(it.getDescricao());
             }
@@ -244,6 +253,7 @@ public class PassagemController {
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("litros", it.getLitrosEfetivos() == null ? BigDecimal.ZERO : it.getLitrosEfetivos());
             row.put("destino", it.getTalhaDestinoId() == null ? 0L : it.getTalhaDestinoId());
+            row.put("vazia", it.isOrigemVazia());
             selecionados.put(String.valueOf(it.getMostoId()), row);
         }
         model.addAttribute("selecionados", selecionados);

@@ -6,6 +6,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.fichas.*;
@@ -33,12 +34,14 @@ public class MovimentoController {
     private final MostoRepository mostoRepo;
     private final ProcessoMoagemRepository moagemRepo;
     private final TrabalhadorRepository trabalhadorRepo;
+    private final CastaRepository castaRepo;
     private final CodigoService codigoService;
 
     public MovimentoController(ProcessoMovimentoMostoRepository repo, MovimentoService service,
                               RecipienteService recipienteService, TalhaRepository talhaRepo,
                               DepositoRepository depositoRepo, AdegaRepository adegaRepo, MostoRepository mostoRepo,
                               ProcessoMoagemRepository moagemRepo, TrabalhadorRepository trabalhadorRepo,
+                               CastaRepository castaRepo,
                               CodigoService codigoService) {
         this.repo = repo;
         this.service = service;
@@ -49,6 +52,7 @@ public class MovimentoController {
         this.mostoRepo = mostoRepo;
         this.moagemRepo = moagemRepo;
         this.trabalhadorRepo = trabalhadorRepo;
+        this.castaRepo = castaRepo;
         this.codigoService = codigoService;
     }
 
@@ -78,6 +82,24 @@ public class MovimentoController {
         return "processos/movimento/detalhe";
     }
 
+    /** Descarrega o PDF do D.A. anexado (entradas). */
+    @GetMapping("/{id}/da-pdf")
+    public org.springframework.http.ResponseEntity<org.springframework.core.io.ByteArrayResource> descarregarDaPdf(
+            @PathVariable Long id, Authentication auth) {
+        ProcessoMovimentoMosto p = repo.findById(id).orElse(null);
+        if (p == null || !podeAceder(p, auth) || !p.isTemDaPdf()) {
+            return org.springframework.http.ResponseEntity.notFound().build();
+        }
+        String nome = p.getDaPdfNome() != null ? p.getDaPdfNome() : ("DA-" + p.getCodigo() + ".pdf");
+        org.springframework.http.MediaType tipo = p.getDaPdfTipo() != null
+                ? org.springframework.http.MediaType.parseMediaType(p.getDaPdfTipo())
+                : org.springframework.http.MediaType.APPLICATION_PDF;
+        return org.springframework.http.ResponseEntity.ok().contentType(tipo)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        org.springframework.http.ContentDisposition.inline().filename(nome).build().toString())
+                .body(new org.springframework.core.io.ByteArrayResource(p.getDaPdf()));
+    }
+
     @GetMapping("/{id}/da")
     public String da(@PathVariable Long id, Authentication auth, Model model, RedirectAttributes ra) {
         ProcessoMovimentoMosto p = repo.findById(id).orElse(null);
@@ -99,6 +121,7 @@ public class MovimentoController {
 
     @PostMapping
     public String guardar(@Valid @ModelAttribute("mov") ProcessoMovimentoMosto mov, BindingResult result,
+                          @RequestParam(value = "daFicheiro", required = false) MultipartFile daFicheiro,
                           Authentication auth, Model model, RedirectAttributes ra) {
         if (mov.getTipo() == TipoMovimento.ENTRADA) {
             RecipienteService.Recipiente r = recipienteService.resolver(mov.getDestinoRef());
@@ -108,8 +131,8 @@ public class MovimentoController {
         } else {
             mov.setTalhaDestino(null);
             mov.setDepositoDestino(null);
+            mov.setCasta(null);   // na saída a casta vem do mosto que sai
         }
-        mov.setCasta(null); // a casta vem do mosto/vinho — não é pedida aqui
         if (result.hasErrors()) {
             preencherOpcoes(model);
             return "processos/movimento/form";
@@ -127,6 +150,20 @@ public class MovimentoController {
             mov.setEstado(existente.getEstado());
             mov.setDataFecho(existente.getDataFecho());
             mov.setNumeroDA(existente.getNumeroDA());
+            // Mantém o PDF já guardado se não vier ficheiro novo.
+            mov.setDaPdf(existente.getDaPdf());
+            mov.setDaPdfNome(existente.getDaPdfNome());
+            mov.setDaPdfTipo(existente.getDaPdfTipo());
+        }
+        if (daFicheiro != null && !daFicheiro.isEmpty()) {
+            try {
+                mov.setDaPdf(daFicheiro.getBytes());
+                mov.setDaPdfNome(daFicheiro.getOriginalFilename());
+                mov.setDaPdfTipo(daFicheiro.getContentType());
+            } catch (java.io.IOException e) {
+                ra.addFlashAttribute("erro", "Não foi possível ler o PDF do D.A.");
+                return "redirect:/processos/movimento-mosto";
+            }
         }
         repo.save(mov);
         ra.addFlashAttribute("sucesso", "Movimento guardado: " + mov.getCodigo());
@@ -174,6 +211,7 @@ public class MovimentoController {
         model.addAttribute("tipos", TipoMovimento.values());
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
         model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
+        model.addAttribute("castas", castaRepo.findAllByOrderByNomeAsc());
 
         // Vinhos (da moagem) + mostos em fermentação por vinho, e recipientes por adega.
         Map<Long, PlaneamentoVinho> moagemPlano = new HashMap<>();

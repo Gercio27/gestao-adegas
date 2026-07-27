@@ -6,6 +6,7 @@ import pt.acv.adega.fichas.Deposito;
 import pt.acv.adega.fichas.DepositoRepository;
 import pt.acv.adega.fichas.Talha;
 import pt.acv.adega.fichas.TalhaRepository;
+import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.processos.EstadoProcesso;
 import pt.acv.adega.produtos.EstadoMosto;
 import pt.acv.adega.produtos.Mosto;
@@ -29,13 +30,16 @@ public class PassagemService {
     private final MostoRepository mostoRepo;
     private final TalhaRepository talhaRepo;
     private final DepositoRepository depositoRepo;
+    private final CodigoService codigoService;
 
     public PassagemService(ProcessoPassagemVinhoRepository repo, MostoRepository mostoRepo,
-                           TalhaRepository talhaRepo, DepositoRepository depositoRepo) {
+                           TalhaRepository talhaRepo, DepositoRepository depositoRepo,
+                           CodigoService codigoService) {
         this.repo = repo;
         this.mostoRepo = mostoRepo;
         this.talhaRepo = talhaRepo;
         this.depositoRepo = depositoRepo;
+        this.codigoService = codigoService;
     }
 
     @Transactional
@@ -66,23 +70,52 @@ public class PassagemService {
             it.setTalhaOrigemId(m.getTalha() != null ? m.getTalha().getId() : null);
             it.setDepositoOrigemId(m.getDeposito() != null ? m.getDeposito().getId() : null);
 
+            // O que não foi passado. Só é perda se o utilizador disser que o
+            // recipiente ficou vazio; senão fica lá como mosto por passar.
+            BigDecimal sobra = orig.subtract(efet);
+            boolean guardarSobra = sobra.signum() > 0 && !it.isOrigemVazia();
+
             Long destinoId = it.getTalhaDestinoId();
             boolean fica = destinoId == null
                     || (m.getTalha() != null && destinoId.equals(m.getTalha().getId()));
 
             if (fica) {
-                // Fica no mesmo recipiente: reduz o volume pela perda (orig - efet).
-                ajustarRecipiente(m, efet.subtract(orig));
+                // Fica no mesmo recipiente: só desce o volume se a sobra for perda.
+                if (!guardarSobra) ajustarRecipiente(m, efet.subtract(orig));
                 it.setMovido(false);
             } else {
                 Talha destino = talhaRepo.findById(destinoId)
                         .orElseThrow(() -> new PassagemException("Talha de destino não encontrada."));
                 exigirCapacidade(destino, efet);
-                // Tira TODO o volume original do recipiente de origem...
-                ajustarRecipiente(m, orig.negate());
+                // Tira da origem os litros que saem (tudo, se a sobra for perda).
+                ajustarRecipiente(m, guardarSobra ? efet.negate() : orig.negate());
                 // ...e poe os litros efetivos na talha de destino.
                 destino.setVolumeAtualLitros(naoNeg(v(destino.getVolumeAtualLitros()).add(efet)));
                 talhaRepo.save(destino);
+            }
+
+            // A sobra fica no recipiente de origem, como mosto ainda por passar.
+            if (guardarSobra) {
+                Mosto resto = new Mosto();
+                resto.setCodigo(codigoService.proximoCodigo(Mosto.PREFIXO));
+                resto.setLitros(sobra);
+                resto.setEstado(EstadoMosto.EM_FERMENTACAO);
+                resto.setCasta(m.getCasta());
+                resto.setCastas(new java.util.ArrayList<>(m.getCastas()));
+                resto.setVinhoNome(m.getVinhoNome());
+                resto.setAlcoolProvavel(m.getAlcoolProvavel());
+                resto.setOrigemMoagemId(m.getOrigemMoagemId());
+                resto.setOrigemDescricao("Sobra da passagem a limpo " + p.getCodigo() + " de " + m.getCodigo());
+                resto.setDataProducao(LocalDateTime.now());
+                resto.setTalha(m.getTalha());
+                resto.setDeposito(m.getDeposito());
+                mostoRepo.save(resto);
+                it.setMostoRestanteId(resto.getId());
+            }
+
+            // Só agora se move o mosto passado, para a sobra ficar no sítio certo.
+            if (!fica) {
+                Talha destino = talhaRepo.findById(destinoId).orElseThrow();
                 m.setTalha(destino);
                 m.setDeposito(null);
                 it.setMovido(true);
@@ -113,22 +146,34 @@ public class PassagemService {
             BigDecimal orig = v(it.getLitrosOriginais());
             BigDecimal efet = it.getLitrosEfetivos() != null ? it.getLitrosEfetivos() : orig;
 
+            // A sobra guardada volta a fazer parte do mosto original.
+            BigDecimal sobraGuardada = BigDecimal.ZERO;
+            if (it.getMostoRestanteId() != null) {
+                Mosto resto = mostoRepo.findById(it.getMostoRestanteId()).orElse(null);
+                if (resto != null) { sobraGuardada = v(resto.getLitros()); mostoRepo.delete(resto); }
+                it.setMostoRestanteId(null);
+            }
+            boolean sobraFicou = sobraGuardada.signum() > 0;
+
             if (it.isMovido()) {
                 // Tira os litros efetivos da talha de destino (onde o mosto esta agora).
                 ajustarRecipiente(m, efet.negate());
-                // Repoe o mosto no recipiente de origem, com os litros originais.
+                // Devolve ao recipiente de origem exatamente o que de la' saiu:
+                // so' os litros passados, se a sobra tiver ficado la'.
+                BigDecimal devolver = sobraFicou ? efet : orig;
                 if (it.getTalhaOrigemId() != null) {
                     Talha to = talhaRepo.findById(it.getTalhaOrigemId()).orElse(null);
                     m.setTalha(to); m.setDeposito(null);
-                    if (to != null) { to.setVolumeAtualLitros(naoNeg(v(to.getVolumeAtualLitros()).add(orig))); talhaRepo.save(to); }
+                    if (to != null) { to.setVolumeAtualLitros(naoNeg(v(to.getVolumeAtualLitros()).add(devolver))); talhaRepo.save(to); }
                 } else if (it.getDepositoOrigemId() != null) {
                     Deposito dep = depositoRepo.findById(it.getDepositoOrigemId()).orElse(null);
                     m.setDeposito(dep); m.setTalha(null);
-                    if (dep != null) { dep.setVolumeAtualLitros(naoNeg(v(dep.getVolumeAtualLitros()).add(orig))); depositoRepo.save(dep); }
+                    if (dep != null) { dep.setVolumeAtualLitros(naoNeg(v(dep.getVolumeAtualLitros()).add(devolver))); depositoRepo.save(dep); }
                 }
             } else {
-                // Ficou no mesmo recipiente: devolve a perda (orig - efet).
-                ajustarRecipiente(m, orig.subtract(efet));
+                // Ficou no mesmo recipiente: se a sobra ficou la', o volume nunca
+                // desceu e nao ha nada a devolver; senao devolve-se a perda.
+                if (!sobraFicou) ajustarRecipiente(m, orig.subtract(efet));
             }
 
             m.setLitros(orig);

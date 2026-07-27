@@ -54,6 +54,24 @@ public class PassagemItem {
     @Column(nullable = false)
     private boolean movido = false;
 
+    /**
+     * A talha/deposito de origem ficou vazio nesta passagem. So' nesse caso e'
+     * que os litros que sobraram contam como perda; por omissao ficam la' como
+     * mosto, para se poderem passar a limpo mais tarde.
+     */
+    @Column(nullable = false)
+    private boolean origemVazia = false;
+
+    /** Ficha de mosto criada com o que sobrou (para o reabrir a poder apagar). */
+    @Column(name = "mosto_restante_id")
+    private Long mostoRestanteId;
+
+    public boolean isOrigemVazia() { return origemVazia; }
+    public void setOrigemVazia(boolean origemVazia) { this.origemVazia = origemVazia; }
+
+    public Long getMostoRestanteId() { return mostoRestanteId; }
+    public void setMostoRestanteId(Long mostoRestanteId) { this.mostoRestanteId = mostoRestanteId; }
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

@@ -27,6 +27,12 @@
                   onsubmit="return confirm('Reabrir? Os vinhos voltam a mosto em fermentação.');">
                 <button class="btn btn-outline-warning"><i class="bi bi-unlock"></i> Reabrir</button>
             </form>
+            <!-- So' se pode eliminar com o processo aberto (fechado, reabra primeiro). -->
+            <form th:if="${passagem.aberto}" th:action="@{/processos/passagem-vinho/{id}/eliminar(id=${passagem.id})}"
+                  method="post" class="d-inline"
+                  onsubmit="return confirm('Eliminar esta passagem a limpo? Não é possível voltar atrás.');">
+                <button class="btn btn-outline-danger"><i class="bi bi-trash"></i> Eliminar</button>
+            </form>
         </div>
     </div>
 
@@ -68,7 +74,9 @@
             </table>
         </div>
         <p class="text-muted small mb-0 mt-2" th:if="${passagem.aberto}">
-            Os litros originais e a perda só ficam apurados depois de <strong>fechar</strong> o processo.</p>
+            Os litros originais só ficam apurados depois de <strong>fechar</strong> o processo.
+            O que não for passado fica no recipiente como mosto por passar — só conta como perda
+            se marcar que a talha/depósito <strong>ficou vazia</strong>.</p>
     </div></div>
 
     <div class="mt-3">
