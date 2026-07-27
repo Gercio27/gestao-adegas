@@ -6,7 +6,7 @@
 
 <div class="container">
     <h3 class="mb-1" th:text="${engarrafamento.id == null} ? 'Novo engarrafamento' : 'Editar engarrafamento'">Engarrafamento</h3>
-    <p class="text-muted">Fase 6. Escolha a adega e o vinho; aparecem os depósitos desse vinho a granel. Distribua as garrafas pelos contentores. Ao <strong>fechar</strong>, dá baixa do vinho, garrafas e rolhas, cria a ficha de engarrafado e coloca-o nos contentores.</p>
+    <p class="text-muted">Fase 6. Escolha se embala em <strong>garrafas</strong> ou em <strong>bag-in-box</strong>, depois a adega e o vinho; aparecem os depósitos desse vinho a granel. Distribua as unidades pelos contentores. Ao <strong>fechar</strong>, dá baixa do vinho e dos consumíveis, cria a ficha de engarrafado e coloca-o nos contentores.</p>
 
     <div class="card shadow-sm"><div class="card-body">
         <form th:action="@{/processos/engarrafamento}" th:object="${engarrafamento}" method="post" class="row g-3" onsubmit="construirDistribuicao()">
@@ -17,6 +17,25 @@
             <div class="col-md-3" th:if="${engarrafamento.codigo != null}">
                 <label class="form-label">Código</label>
                 <input class="form-control" th:value="*{codigo}" disabled>
+            </div>
+
+            <div class="col-12">
+                <label class="form-label">Embalar em *</label>
+                <div>
+                    <div class="form-check form-check-inline" th:each="t : ${tiposEmbalagem}">
+                        <input class="form-check-input" type="radio" th:field="*{tipoEmbalagem}" th:value="${t}"
+                               th:id="'emb-' + ${t}" onchange="alternarEmbalagem()">
+                        <label class="form-check-label" th:for="'emb-' + ${t}" th:text="${t.descricao}"></label>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3" id="grpTipoBag">
+                <label class="form-label">Formato do bag-in-box *</label>
+                <select class="form-select" th:field="*{tipoBag}" id="eg-tipobag" onchange="recalcTotal()">
+                    <option th:each="t : ${tiposBag}" th:value="${t}" th:text="${t.descricao}"
+                            th:attr="data-litros=${t.litrosPorUnidade}"></option>
+                </select>
+                <div class="form-text">Os litros são calculados: unidades × litros do formato.</div>
             </div>
 
             <div class="col-md-4">
@@ -57,15 +76,15 @@
             </div>
 
             <div class="col-md-6">
-                <label class="form-label">Garrafas (stock) *</label>
+                <label class="form-label"><span id="lblGarrafa">Garrafas</span> (stock) *</label>
                 <select class="form-select" th:field="*{garrafa}" required>
                     <option th:value="${null}">—</option>
                     <option th:each="g : ${garrafas}" th:value="${g.id}"
                             th:text="${g.codigo} + ' · ' + ${g.descricao} + ' · stock ' + ${g.stock}"></option>
                 </select>
-                <div class="form-text" th:if="${garrafas.isEmpty()}">Crie uma ficha de consumível do tipo Garrafa.</div>
+                <div class="form-text" th:if="${garrafas.isEmpty()}">Crie uma ficha de consumível do tipo Garrafa / Bag-in-box.</div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-4" id="grpRolha">
                 <label class="form-label">Rolhas (stock)</label>
                 <select class="form-select" th:field="*{rolha}">
                     <option th:value="${null}">— (sem rolha)</option>
@@ -73,14 +92,14 @@
                             th:text="${r.codigo} + ' · ' + ${r.descricao} + ' · stock ' + ${r.stock}"></option>
                 </select>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-2" id="grpNumRolhas">
                 <label class="form-label">Nº de rolhas</label>
                 <input type="number" min="0" class="form-control" th:field="*{numeroRolhas}">
             </div>
 
             <!-- Distribuição por contentores -->
             <div class="col-12"><hr class="my-1"></div>
-            <div class="col-12">
+            <div class="col-12" id="grpContGarrafas">
                 <label class="form-label">Contentores — quantas garrafas foram para cada um</label>
                 <div class="border rounded p-2" style="max-height:240px;overflow:auto;">
                     <div th:if="${contentores.isEmpty()}" class="text-muted small">Sem contentores. Crie fichas em Fichas → Contentores de garrafas.</div>
@@ -93,10 +112,23 @@
                     </div>
                 </div>
             </div>
+            <div class="col-12" id="grpContBib">
+                <label class="form-label">Paletes de bag-in-box — quantas unidades foram para cada uma</label>
+                <div class="border rounded p-2" style="max-height:240px;overflow:auto;">
+                    <div th:if="${contentoresBib.isEmpty()}" class="text-muted small">Sem paletes. Crie fichas em Fichas → Contentores / paletes bag-in-box.</div>
+                    <div th:each="c : ${contentoresBib}" class="row g-2 align-items-center mb-1">
+                        <div class="col-8 small" th:text="${c.label}"></div>
+                        <div class="col-4">
+                            <input type="number" min="0" class="form-control form-control-sm bib-qty"
+                                   th:attr="data-cid=${c.id}" oninput="recalcTotal()" placeholder="0">
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="col-md-3">
-                <label class="form-label">Nº total de garrafas *</label>
+                <label class="form-label">Nº total de <span id="lblTotal">garrafas</span> *</label>
                 <input type="number" min="1" class="form-control" th:field="*{numeroGarrafas}" id="eg-total" required>
-                <div class="form-text">Preenchido a partir dos contentores (pode ajustar se não usar contentores).</div>
+                <div class="form-text" id="ajudaTotal">Preenchido a partir dos contentores (pode ajustar se não usar contentores).</div>
             </div>
             <div class="col-md-3">
                 <label class="form-label">Responsável</label>
@@ -152,25 +184,73 @@
         if (guardado) sel.value = guardado;
     }
 
+    function ehBagInBox() {
+        const r = document.getElementById('emb-BAG_IN_BOX');
+        return r && r.checked;
+    }
+
+    function litrosDoFormato() {
+        const sel = document.getElementById('eg-tipobag');
+        const opt = sel.options[sel.selectedIndex];
+        return opt && opt.dataset.litros ? parseFloat(opt.dataset.litros) : 0;
+    }
+
+    /** Mostra o que é de garrafas ou o que é de bag-in-box. */
+    function alternarEmbalagem() {
+        const bib = ehBagInBox();
+        const ver = (id, sim) => { const e = document.getElementById(id); if (e) e.style.display = sim ? '' : 'none'; };
+        ver('grpTipoBag', bib);
+        ver('grpContGarrafas', !bib);
+        ver('grpContBib', bib);
+        ver('grpRolha', !bib);          // bag-in-box não leva rolha
+        ver('grpNumRolhas', !bib);
+        document.getElementById('lblGarrafa').textContent = bib ? 'Bag-in-box' : 'Garrafas';
+        document.getElementById('lblTotal').textContent = bib ? 'unidades' : 'garrafas';
+        recalcTotal();
+    }
+
+    /** Caixas de quantidade que contam agora (garrafas ou bag-in-box). */
+    function caixasAtivas() {
+        return document.querySelectorAll(ehBagInBox() ? '.bib-qty' : '.ctg-qty');
+    }
+
     function recalcTotal() {
         let total = 0;
-        document.querySelectorAll('.ctg-qty').forEach(function (i) {
+        caixasAtivas().forEach(function (i) {
             const n = parseInt(i.value, 10);
             if (!isNaN(n) && n > 0) total += n;
         });
         if (total > 0) document.getElementById('eg-total').value = total;
+
+        // No bag-in-box os litros são exatos: unidades × litros do formato.
+        const litros = document.querySelector('[name="litrosUtilizados"]');
+        const ajuda = document.getElementById('ajudaTotal');
+        if (ehBagInBox()) {
+            const unidades = parseInt(document.getElementById('eg-total').value, 10) || 0;
+            const l = unidades * litrosDoFormato();
+            if (litros) { litros.value = l ? l.toFixed(2) : ''; litros.readOnly = true; }
+            ajuda.textContent = unidades
+                ? unidades + ' unidade(s) × ' + litrosDoFormato() + ' L = ' + l.toFixed(2) + ' L de vinho.'
+                : 'Preenchido a partir das paletes.';
+        } else {
+            if (litros) litros.readOnly = false;
+            ajuda.textContent = 'Preenchido a partir dos contentores (pode ajustar se não usar contentores).';
+        }
     }
 
     function construirDistribuicao() {
         const partes = [];
-        document.querySelectorAll('.ctg-qty').forEach(function (i) {
+        caixasAtivas().forEach(function (i) {
             const n = parseInt(i.value, 10);
             if (!isNaN(n) && n > 0) partes.push(i.dataset.cid + ':' + n);
         });
         document.getElementById('eg-distrib').value = partes.join(',');
     }
 
-    document.addEventListener('DOMContentLoaded', filtrar);
+    document.addEventListener('DOMContentLoaded', function () {
+        filtrar();
+        alternarEmbalagem();
+    });
 </script>
 </body>
 </html>

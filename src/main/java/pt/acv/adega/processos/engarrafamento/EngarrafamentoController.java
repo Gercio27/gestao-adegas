@@ -8,9 +8,12 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
+import pt.acv.adega.fichas.ContentorBagInBox;
+import pt.acv.adega.fichas.ContentorBagInBoxRepository;
 import pt.acv.adega.fichas.ContentorGarrafas;
 import pt.acv.adega.fichas.ContentorGarrafasRepository;
 import pt.acv.adega.fichas.ConsumivelRepository;
+import pt.acv.adega.fichas.TipoBagInBox;
 import pt.acv.adega.fichas.TipoConsumivel;
 import pt.acv.adega.fichas.TrabalhadorRepository;
 import pt.acv.adega.fichas.AdegaRepository;
@@ -38,13 +41,15 @@ public class EngarrafamentoController {
     private final AdegaRepository adegaRepo;
     private final ProcessoMoagemRepository moagemRepo;
     private final ContentorGarrafasRepository contentorRepo;
+    private final ContentorBagInBoxRepository bibRepo;
     private final CodigoService codigoService;
 
     public EngarrafamentoController(ProcessoEngarrafamentoRepository repo, EngarrafamentoService service,
                                     MostoRepository mostoRepo, ConsumivelRepository consumivelRepo,
                                     TrabalhadorRepository trabalhadorRepo, VinhoEngarrafadoRepository engarrafadoRepo,
                                     AdegaRepository adegaRepo, ProcessoMoagemRepository moagemRepo,
-                                    ContentorGarrafasRepository contentorRepo, CodigoService codigoService) {
+                                    ContentorGarrafasRepository contentorRepo, ContentorBagInBoxRepository bibRepo,
+                                    CodigoService codigoService) {
         this.repo = repo;
         this.service = service;
         this.mostoRepo = mostoRepo;
@@ -54,6 +59,7 @@ public class EngarrafamentoController {
         this.adegaRepo = adegaRepo;
         this.moagemRepo = moagemRepo;
         this.contentorRepo = contentorRepo;
+        this.bibRepo = bibRepo;
         this.codigoService = codigoService;
     }
 
@@ -131,9 +137,10 @@ public class EngarrafamentoController {
         return "redirect:/processos/engarrafamento/" + eng.getId();
     }
 
-    /** Interpreta a distribuicao "id:qtd,id:qtd", define o total de garrafas e a descricao. */
+    /** Interpreta a distribuicao "id:qtd,id:qtd", define o total de unidades e a descricao. */
     private void aplicarDistribuicao(ProcessoEngarrafamento eng, String distribuicaoInput) {
         if (distribuicaoInput == null || distribuicaoInput.isBlank()) return;
+        boolean bib = eng.isBagInBox();
         StringJoiner csv = new StringJoiner(";");
         StringJoiner desc = new StringJoiner("; ");
         int total = 0;
@@ -145,16 +152,24 @@ public class EngarrafamentoController {
             try { cid = Long.valueOf(kv[0].trim()); qtd = Integer.parseInt(kv[1].trim()); }
             catch (Exception ex) { continue; }
             if (qtd <= 0) continue;
-            ContentorGarrafas c = contentorRepo.findById(cid).orElse(null);
-            if (c == null) continue;
+            String nome;
+            if (bib) {
+                ContentorBagInBox c = bibRepo.findById(cid).orElse(null);
+                if (c == null) continue;
+                nome = c.getNome() + " (" + qtd + " unidades)";
+            } else {
+                ContentorGarrafas c = contentorRepo.findById(cid).orElse(null);
+                if (c == null) continue;
+                nome = c.getNome() + " (" + qtd + " garrafas)";
+            }
             csv.add(cid + ":" + qtd);
-            desc.add(c.getNome() + " (" + qtd + " garrafas)");
+            desc.add(nome);
             total += qtd;
         }
         if (total > 0) {
             eng.setDistribuicaoContentores(csv.toString());
             eng.setContentoresDescricao(desc.toString());
-            eng.setNumeroGarrafas(total); // o total de garrafas vem da distribuicao
+            eng.setNumeroGarrafas(total); // o total vem da distribuicao
         }
     }
 
@@ -248,6 +263,19 @@ public class EngarrafamentoController {
             contentores.add(row);
         }
         model.addAttribute("contentores", contentores);
+
+        // Paletes/contentores de bag-in-box, para o mesmo efeito.
+        List<Map<String, Object>> bibs = new ArrayList<>();
+        for (ContentorBagInBox c : bibRepo.findAllByOrderByNomeAsc()) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("id", c.getId());
+            row.put("label", c.getCodigo() + " · " + c.getNome() + " · " + c.getTipoBag().getDescricao()
+                    + " · " + c.getLocalizacao() + " · livre " + c.getEspacoLivre() + "/" + c.getCapacidadeUnidades());
+            bibs.add(row);
+        }
+        model.addAttribute("contentoresBib", bibs);
+        model.addAttribute("tiposEmbalagem", TipoEmbalagem.values());
+        model.addAttribute("tiposBag", TipoBagInBox.values());
     }
 
     private boolean isAdmin(Authentication auth) {

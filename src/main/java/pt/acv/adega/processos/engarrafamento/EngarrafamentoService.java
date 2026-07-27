@@ -29,12 +29,14 @@ public class EngarrafamentoService {
     private final DepositoRepository depositoRepo;
     private final VinhoEngarrafadoRepository engarrafadoRepo;
     private final ContentorGarrafasRepository contentorRepo;
+    private final ContentorBagInBoxRepository bibRepo;
     private final CodigoService codigoService;
 
     public EngarrafamentoService(ProcessoEngarrafamentoRepository repo, MostoRepository mostoRepo,
                                  ConsumivelRepository consumivelRepo, TalhaRepository talhaRepo,
                                  DepositoRepository depositoRepo, VinhoEngarrafadoRepository engarrafadoRepo,
-                                 ContentorGarrafasRepository contentorRepo, CodigoService codigoService) {
+                                 ContentorGarrafasRepository contentorRepo, ContentorBagInBoxRepository bibRepo,
+                                 CodigoService codigoService) {
         this.repo = repo;
         this.mostoRepo = mostoRepo;
         this.consumivelRepo = consumivelRepo;
@@ -42,6 +44,7 @@ public class EngarrafamentoService {
         this.depositoRepo = depositoRepo;
         this.engarrafadoRepo = engarrafadoRepo;
         this.contentorRepo = contentorRepo;
+        this.bibRepo = bibRepo;
         this.codigoService = codigoService;
     }
 
@@ -56,9 +59,17 @@ public class EngarrafamentoService {
                 .orElseThrow(() -> new EngarrafamentoException("Engarrafamento não encontrado."));
         if (p.getEstado() == EstadoProcesso.FECHADO) throw new EngarrafamentoException("O engarrafamento já está fechado.");
 
-        if (p.getNumeroGarrafas() <= 0) throw new EngarrafamentoException("Indique o número de garrafas (> 0).");
+        boolean bib = p.isBagInBox();
+        if (p.getNumeroGarrafas() <= 0) {
+            throw new EngarrafamentoException("Indique o número de " + (bib ? "unidades" : "garrafas") + " (> 0).");
+        }
         if (p.getVinhoGranel() == null) throw new EngarrafamentoException("Indique o vinho a granel a utilizar.");
-        if (p.getGarrafa() == null) throw new EngarrafamentoException("Indique as garrafas a utilizar.");
+        if (bib && p.getTipoBag() == null) throw new EngarrafamentoException("Indique o formato do bag-in-box (3, 5, 10 ou 20 L).");
+        if (p.getGarrafa() == null) {
+            throw new EngarrafamentoException("Indique " + (bib ? "as bag-in-box" : "as garrafas") + " a utilizar.");
+        }
+        // No bag-in-box os litros são exatamente unidades × litros do formato.
+        if (bib) p.setLitrosUtilizados(p.getLitrosDasUnidades());
 
         Mosto vinho = mostoRepo.findById(p.getVinhoGranel().getId())
                 .orElseThrow(() -> new EngarrafamentoException("Vinho a granel não encontrado."));
@@ -108,7 +119,10 @@ public class EngarrafamentoService {
         veg.setNome(p.getNomeVinho() != null && !p.getNomeVinho().isBlank()
                 ? p.getNomeVinho() : ("Vinho " + vinho.getCodigo()));
         veg.setNumeroGarrafas(p.getNumeroGarrafas());
-        veg.setCapacidadeMl(garrafa.getCapacidadeMl());
+        // Bag-in-box: a capacidade da unidade vem do formato, não da ficha da garrafa.
+        veg.setCapacidadeMl(bib
+                ? p.getTipoBag().getLitrosPorUnidade().multiply(BigDecimal.valueOf(1000)).intValue()
+                : garrafa.getCapacidadeMl());
         veg.setLote(p.getLote());
         veg.setCasta(vinho.getCasta());
         veg.setOrigemDescricao("Engarrafamento " + p.getCodigo() + " · Vinho a granel " + vinho.getCodigo());
@@ -123,12 +137,22 @@ public class EngarrafamentoService {
         if (!forcar) {
             List<String> avisos = new ArrayList<>();
             for (Map.Entry<Long, Integer> e : distribuicao.entrySet()) {
-                ContentorGarrafas c = contentorRepo.findById(e.getKey()).orElse(null);
-                if (c == null) continue;
-                int novoTotal = c.getGarrafasAtuais() + e.getValue();
-                if (c.getCapacidadeGarrafas() > 0 && novoTotal > c.getCapacidadeGarrafas()) {
-                    avisos.add(String.format("%s excede o máximo em %d garrafa(s) (máx. %d, ficaria com %d)",
-                            c.getNome(), novoTotal - c.getCapacidadeGarrafas(), c.getCapacidadeGarrafas(), novoTotal));
+                if (bib) {
+                    ContentorBagInBox c = bibRepo.findById(e.getKey()).orElse(null);
+                    if (c == null) continue;
+                    int novoTotal = c.getUnidadesAtuais() + e.getValue();
+                    if (c.getCapacidadeUnidades() > 0 && novoTotal > c.getCapacidadeUnidades()) {
+                        avisos.add(String.format("%s excede a capacidade em %d unidade(s) (máx. %d, ficaria com %d)",
+                                c.getNome(), novoTotal - c.getCapacidadeUnidades(), c.getCapacidadeUnidades(), novoTotal));
+                    }
+                } else {
+                    ContentorGarrafas c = contentorRepo.findById(e.getKey()).orElse(null);
+                    if (c == null) continue;
+                    int novoTotal = c.getGarrafasAtuais() + e.getValue();
+                    if (c.getCapacidadeGarrafas() > 0 && novoTotal > c.getCapacidadeGarrafas()) {
+                        avisos.add(String.format("%s excede o máximo em %d garrafa(s) (máx. %d, ficaria com %d)",
+                                c.getNome(), novoTotal - c.getCapacidadeGarrafas(), c.getCapacidadeGarrafas(), novoTotal));
+                    }
                 }
             }
             if (!avisos.isEmpty()) {
@@ -137,13 +161,23 @@ public class EngarrafamentoService {
             }
         }
         for (Map.Entry<Long, Integer> e : distribuicao.entrySet()) {
-            ContentorGarrafas c = contentorRepo.findById(e.getKey()).orElse(null);
-            if (c == null) continue;
-            c.setGarrafasAtuais(c.getGarrafasAtuais() + e.getValue());
-            c.setVinhoEngarrafadoId(veg.getId());
-            c.setVinhoNome(veg.getNome());
-            c.setRotulado(false);
-            contentorRepo.save(c);
+            if (bib) {
+                ContentorBagInBox c = bibRepo.findById(e.getKey()).orElse(null);
+                if (c == null) continue;
+                c.setUnidadesAtuais(c.getUnidadesAtuais() + e.getValue());
+                c.setVinhoEmbaladoId(veg.getId());
+                c.setVinhoNome(veg.getNome());
+                c.setRotulado(false);   // fica por rotular até à Fase 7
+                bibRepo.save(c);
+            } else {
+                ContentorGarrafas c = contentorRepo.findById(e.getKey()).orElse(null);
+                if (c == null) continue;
+                c.setGarrafasAtuais(c.getGarrafasAtuais() + e.getValue());
+                c.setVinhoEngarrafadoId(veg.getId());
+                c.setVinhoNome(veg.getNome());
+                c.setRotulado(false);
+                contentorRepo.save(c);
+            }
         }
 
         p.setEstado(EstadoProcesso.FECHADO);
@@ -158,17 +192,29 @@ public class EngarrafamentoService {
                 .orElseThrow(() -> new EngarrafamentoException("Engarrafamento não encontrado."));
         if (p.getEstado() == EstadoProcesso.ABERTO) return;
 
-        // Retirar as garrafas dos contentores onde foram colocadas
+        // Retirar as unidades dos contentores onde foram colocadas
         for (Map.Entry<Long, Integer> e : parseDistribuicao(p.getDistribuicaoContentores()).entrySet()) {
-            ContentorGarrafas c = contentorRepo.findById(e.getKey()).orElse(null);
-            if (c == null) continue;
-            c.setGarrafasAtuais(Math.max(0, c.getGarrafasAtuais() - e.getValue()));
-            if (c.getGarrafasAtuais() == 0) {
-                c.setVinhoEngarrafadoId(null);
-                c.setVinhoNome(null);
-                c.setRotulado(false);
+            if (p.isBagInBox()) {
+                ContentorBagInBox c = bibRepo.findById(e.getKey()).orElse(null);
+                if (c == null) continue;
+                c.setUnidadesAtuais(Math.max(0, c.getUnidadesAtuais() - e.getValue()));
+                if (c.getUnidadesAtuais() == 0) {
+                    c.setVinhoEmbaladoId(null);
+                    c.setVinhoNome(null);
+                    c.setRotulado(false);
+                }
+                bibRepo.save(c);
+            } else {
+                ContentorGarrafas c = contentorRepo.findById(e.getKey()).orElse(null);
+                if (c == null) continue;
+                c.setGarrafasAtuais(Math.max(0, c.getGarrafasAtuais() - e.getValue()));
+                if (c.getGarrafasAtuais() == 0) {
+                    c.setVinhoEngarrafadoId(null);
+                    c.setVinhoNome(null);
+                    c.setRotulado(false);
+                }
+                contentorRepo.save(c);
             }
-            contentorRepo.save(c);
         }
 
         // Apagar produtos acabados gerados

@@ -47,7 +47,12 @@
                     <dt class="col-sm-4">Nome do vinho</dt><dd class="col-sm-8" th:text="${engarrafamento.nomeVinho ?: '—'}"></dd>
                     <dt class="col-sm-4">Vinho a granel</dt><dd class="col-sm-8" th:text="${engarrafamento.vinhoGranel != null ? engarrafamento.vinhoGranel.codigo : '—'}"></dd>
                     <dt class="col-sm-4">Litros utilizados</dt><dd class="col-sm-8"><span th:text="${engarrafamento.litrosUtilizados}"></span> L</dd>
-                    <dt class="col-sm-4">Garrafas</dt><dd class="col-sm-8">
+                    <dt class="col-sm-4">Embalagem</dt><dd class="col-sm-8">
+                        <span th:text="${engarrafamento.tipoEmbalagem.descricao}"></span>
+                        <span th:if="${engarrafamento.bagInBox and engarrafamento.tipoBag != null}"
+                              th:text="'· ' + ${engarrafamento.tipoBag.descricao}"></span></dd>
+                    <dt class="col-sm-4" th:text="${engarrafamento.bagInBox} ? 'Unidades' : 'Garrafas'">Garrafas</dt>
+                    <dd class="col-sm-8">
                         <span th:text="${engarrafamento.numeroGarrafas}"></span> ×
                         <span th:text="${engarrafamento.garrafa != null ? engarrafamento.garrafa.descricao : '—'}"></span></dd>
                     <dt class="col-sm-4">Rolhas</dt><dd class="col-sm-8">

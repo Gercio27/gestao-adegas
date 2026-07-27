@@ -4,6 +4,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pt.acv.adega.fichas.Consumivel;
 import pt.acv.adega.fichas.ConsumivelRepository;
+import pt.acv.adega.fichas.ContentorBagInBox;
+import pt.acv.adega.fichas.ContentorBagInBoxRepository;
 import pt.acv.adega.fichas.ContentorGarrafas;
 import pt.acv.adega.fichas.ContentorGarrafasRepository;
 import pt.acv.adega.processos.EstadoProcesso;
@@ -23,13 +25,16 @@ public class RotulagemService {
     private final ConsumivelRepository consumivelRepo;
     private final VinhoEngarrafadoRepository engarrafadoRepo;
     private final ContentorGarrafasRepository contentorRepo;
+    private final ContentorBagInBoxRepository bibRepo;
 
     public RotulagemService(ProcessoRotulagemRepository repo, ConsumivelRepository consumivelRepo,
-                            VinhoEngarrafadoRepository engarrafadoRepo, ContentorGarrafasRepository contentorRepo) {
+                            VinhoEngarrafadoRepository engarrafadoRepo, ContentorGarrafasRepository contentorRepo,
+                            ContentorBagInBoxRepository bibRepo) {
         this.repo = repo;
         this.consumivelRepo = consumivelRepo;
         this.engarrafadoRepo = engarrafadoRepo;
         this.contentorRepo = contentorRepo;
+        this.bibRepo = bibRepo;
     }
 
     @Transactional
@@ -62,6 +67,11 @@ public class RotulagemService {
             c.setRotulado(true);
             contentorRepo.save(c);
         }
+        // O mesmo para as paletes de bag-in-box do mesmo vinho.
+        for (ContentorBagInBox c : bibRepo.findByVinhoEmbaladoIdOrderByNomeAsc(veg.getId())) {
+            c.setRotulado(true);
+            bibRepo.save(c);
+        }
 
         p.setEstado(EstadoProcesso.FECHADO);
         if (p.getDataHoraFim() == null) p.setDataHoraFim(LocalDateTime.now());
@@ -87,6 +97,10 @@ public class RotulagemService {
                 for (ContentorGarrafas c : contentorRepo.findByVinhoEngarrafadoId(veg.getId())) {
                     c.setRotulado(false);
                     contentorRepo.save(c);
+                }
+                for (ContentorBagInBox c : bibRepo.findByVinhoEmbaladoIdOrderByNomeAsc(veg.getId())) {
+                    c.setRotulado(false);
+                    bibRepo.save(c);
                 }
             }
         }
