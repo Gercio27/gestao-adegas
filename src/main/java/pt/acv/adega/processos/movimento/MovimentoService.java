@@ -69,6 +69,7 @@ public class MovimentoService {
             m.setCodigo(codigoService.proximoCodigo(Mosto.PREFIXO));
             m.setLitros(litros);
             m.setCasta(p.getCasta());
+            m.setVinhoNome(p.getNomeVinho());
             m.setEstado(EstadoMosto.EM_FERMENTACAO);
             m.setOrigemDescricao("Entrada externa " + p.getCodigo()
                     + (p.getContraparte() != null ? " · " + p.getContraparte() : ""));

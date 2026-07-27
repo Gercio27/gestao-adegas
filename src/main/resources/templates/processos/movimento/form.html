@@ -55,6 +55,17 @@
                 </select>
             </div>
 
+            <!-- ENTRADA: nome do vinho comprado (nao vem de nenhuma moagem) -->
+            <div class="col-md-6" id="grpNomeVinho">
+                <label class="form-label">Nome do vinho/mosto *</label>
+                <input type="text" class="form-control" th:field="*{nomeVinho}"
+                       list="mv-nomes-conhecidos" autocomplete="off" placeholder="Ex.: Tinto comprado 2026">
+                <datalist id="mv-nomes-conhecidos">
+                    <option th:each="n : ${nomesConhecidos}" th:value="${n}"></option>
+                </datalist>
+                <div class="form-text">Sem nome, o mosto comprado não aparece nas fases seguintes.</div>
+            </div>
+
             <!-- ENTRADA: para que casta vai este mosto -->
             <div class="col-md-4" id="grpCasta">
                 <label class="form-label">Casta do mosto</label>
@@ -129,6 +140,7 @@
         document.getElementById('grpDestino').style.display = entrada ? '' : 'none';
         // A casta e o PDF do D.A. só fazem sentido na entrada.
         document.getElementById('grpCasta').style.display = entrada ? '' : 'none';
+        document.getElementById('grpNomeVinho').style.display = entrada ? '' : 'none';
         document.getElementById('grpDaPdf').style.display = entrada ? '' : 'none';
         document.getElementById('lblContraparte').textContent = entrada ? 'Fornecedor' : 'Cliente';
     }

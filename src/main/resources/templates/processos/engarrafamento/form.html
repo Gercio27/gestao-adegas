@@ -169,15 +169,15 @@
         const vinho = document.getElementById('eg-vinho').value;
         // Nome automático do vinho
         const nome = document.getElementById('eg-nome');
-        const v = vinhos.find(function (x) { return String(x.id) === vinho; });
-        if (v) nome.value = v.nome;
+        if (vinho) nome.value = vinho;   // a chave do vinho e' o proprio nome
 
         // Depósitos (vinho a granel) da adega + vinho
         const sel = document.getElementById('eg-granel');
         const guardado = sel.dataset.sel || '';
         let lista = granelDisponivel;
         if (adega) lista = lista.filter(function (m) { return String(m.adegaId) === adega; });
-        if (vinho) lista = lista.filter(function (m) { return String(m.vinhoId) === vinho; });
+        // Sem adega escolhida mostra tudo, incluindo o que esta fora de uma adega.
+        if (vinho) lista = lista.filter(function (m) { return m.vinho === vinho; });
         let h = '<option value="">— escolher —</option>';
         lista.forEach(function (m) { h += '<option value="' + m.id + '">' + m.label + '</option>'; });
         sel.innerHTML = h;

@@ -226,29 +226,38 @@ public class EngarrafamentoController {
         for (ProcessoMoagem mo : moagemRepo.findAll()) {
             if (mo.getPlano() != null) moagemPlano.put(mo.getId(), mo.getPlano());
         }
-        Map<Long, String> vinhoNome = new LinkedHashMap<>();
+        // Agrupa pelo NOME do vinho, e nao pelo planeamento: assim o vinho
+        // comprado por fora (que nao tem moagem nem plano) tambem aparece.
+        Set<String> nomes = new LinkedHashSet<>();
         List<Map<String, Object>> granel = new ArrayList<>();
         for (Mosto m : mostoRepo.findByEstadoOrderByDataProducaoDesc(EstadoMosto.VINHO_GRANEL)) {
             Long adegaId = null;
-            String local = "—";
+            String local = m.getLocalizacao();
             if (m.getTalha() != null && m.getTalha().getAdega() != null) { adegaId = m.getTalha().getAdega().getId(); local = "Talha " + m.getTalha().getIdentificacao(); }
-            else if (m.getDeposito() != null && m.getDeposito().getAdega() != null) { adegaId = m.getDeposito().getAdega().getId(); local = "Depósito " + m.getDeposito().getIdentificacao(); }
+            else if (m.getDeposito() != null) {
+                local = "Depósito " + m.getDeposito().getIdentificacao();
+                if (m.getDeposito().getAdega() != null) adegaId = m.getDeposito().getAdega().getId();
+            }
             PlaneamentoVinho w = m.getOrigemMoagemId() != null ? moagemPlano.get(m.getOrigemMoagemId()) : null;
-            if (adegaId == null) continue;
-            Long vinhoId = w != null ? w.getId() : null;
-            if (w != null) vinhoNome.putIfAbsent(w.getId(), w.getNomeVinho());
+            String nome = m.getVinhoNome() != null && !m.getVinhoNome().isBlank()
+                    ? m.getVinhoNome()
+                    : (w != null ? w.getNomeVinho() : null);
+            if (nome == null || nome.isBlank()) nome = "(vinho sem nome)";
+            nomes.add(nome);
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("id", m.getId());
-            row.put("adegaId", adegaId);
-            row.put("vinhoId", vinhoId);
+            // Sem adega (ex.: deposito num armazem) fica a 0: aparece quando nao
+            // se filtra por adega, em vez de desaparecer.
+            row.put("adegaId", adegaId == null ? 0L : adegaId);
+            row.put("vinho", nome);
             row.put("label", m.getCodigo() + " · " + local + " · " + (m.getLitros() == null ? "0" : m.getLitros().toPlainString()) + " L");
             granel.add(row);
         }
         List<Map<String, Object>> vinhos = new ArrayList<>();
-        for (Map.Entry<Long, String> e : vinhoNome.entrySet()) {
+        for (String n : nomes) {
             Map<String, Object> v = new LinkedHashMap<>();
-            v.put("id", e.getKey());
-            v.put("nome", e.getValue());
+            v.put("id", n);      // o proprio nome e' a chave
+            v.put("nome", n);
             vinhos.add(v);
         }
         model.addAttribute("vinhos", vinhos);

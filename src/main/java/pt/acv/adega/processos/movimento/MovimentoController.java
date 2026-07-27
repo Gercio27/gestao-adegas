@@ -212,6 +212,12 @@ public class MovimentoController {
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
         model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
         model.addAttribute("castas", castaRepo.findAllByOrderByNomeAsc());
+        // Nomes de vinho ja conhecidos, para a entrada os poder reaproveitar.
+        TreeSet<String> conhecidos = new TreeSet<>();
+        for (Mosto m : mostoRepo.findAll()) {
+            if (m.getVinhoNome() != null && !m.getVinhoNome().isBlank()) conhecidos.add(m.getVinhoNome());
+        }
+        model.addAttribute("nomesConhecidos", new ArrayList<>(conhecidos));
 
         // Vinhos (da moagem) + mostos em fermentação por vinho, e recipientes por adega.
         Map<Long, PlaneamentoVinho> moagemPlano = new HashMap<>();

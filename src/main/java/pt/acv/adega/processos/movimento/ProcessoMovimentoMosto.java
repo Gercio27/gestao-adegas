@@ -55,6 +55,14 @@ public class ProcessoMovimentoMosto extends Processo {
     private String transporte;
 
     /** Numero do documento de acompanhamento, atribuido no fecho. */
+    /**
+     * Nome do vinho/mosto que entrou. Nas entradas externas nao ha planeamento
+     * nem moagem por tras, por isso e' aqui que o nome fica - sem ele o produto
+     * ficava sem identificacao e nao aparecia nas fases seguintes.
+     */
+    @Column(length = 160)
+    private String nomeVinho;
+
     @Column(length = 20)
     private String numeroDA;
 
@@ -132,4 +140,7 @@ public class ProcessoMovimentoMosto extends Processo {
 
     @Transient
     public boolean isEntrada() { return tipo == TipoMovimento.ENTRADA; }
+
+    public String getNomeVinho() { return nomeVinho; }
+    public void setNomeVinho(String nomeVinho) { this.nomeVinho = nomeVinho; }
 }
