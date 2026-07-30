@@ -88,6 +88,12 @@
     </div>
 
     <!-- ===== MOAGENS EXISTENTES ===== -->
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <div class="fw-bold">Moagens</div>
+        <a th:href="@{/processos/moagem/historico}" class="btn btn-sm btn-outline-info">
+            <i class="bi bi-clock-history"></i> Histórico de moagens
+        </a>
+    </div>
     <div th:if="${moagens.isEmpty()}" class="text-muted small">Ainda não há moagens.</div>
 
     <div th:each="mo : ${moagens}" class="card shadow-sm mb-3">
@@ -99,11 +105,14 @@
                 <span th:if="${mo.aberto}" class="badge bg-warning text-dark ms-1">Em moagem</span>
                 <span th:unless="${mo.aberto}" class="badge bg-success ms-1">Fechada</span>
             </div>
-            <div class="small text-muted">
-                Vindimado: <strong th:text="${mo.totalVindimadoKg} + ' kg'"></strong>
-                · Moído: <strong th:text="${mo.totalMoidoKg} + ' kg'"></strong>
-                · Sobra: <strong th:classappend="${mo.sobraPorMoerKg.signum() gt 0} ? 'text-danger'"
-                                 th:text="${mo.sobraPorMoerKg} + ' kg'"></strong>
+            <div class="small text-muted" th:with="r=${resumos.get(mo.id)}">
+                Vindimado: <strong th:text="${r.vindimado} + ' kg'"></strong>
+                · Moído aqui: <strong th:text="${r.moidoAqui} + ' kg'"></strong>
+                · Por moer: <strong th:classappend="${r.temSobra} ? 'text-danger' : 'text-success'"
+                                    th:text="${r.porMoer} + ' kg'"></strong>
+                <span th:if="${r.partilhada}" class="badge bg-secondary ms-1"
+                      th:title="'Estas vindimas também estão a ser moídas noutra moagem'"
+                      th:text="'total moído nestas vindimas: ' + ${r.moidoTotal} + ' kg'"></span>
             </div>
         </div>
         <div class="card-body">
@@ -113,8 +122,11 @@
             </div>
 
             <!-- Sobra por moer: iniciar nova moagem para o que faltou -->
-            <div th:if="${mo.sobraPorMoerKg.signum() gt 0}" class="alert alert-warning py-2 small d-flex justify-content-between align-items-center">
-                <span>Sobrou <strong th:text="${mo.sobraPorMoerKg} + ' kg'"></strong> por moer (ex.: recipientes cheios).</span>
+            <div th:if="${resumos.get(mo.id).temSobra}" th:with="r=${resumos.get(mo.id)}"
+                 class="alert alert-warning py-2 small d-flex justify-content-between align-items-center">
+                <span>Falta moer <strong th:text="${r.porMoer} + ' kg'"></strong> destas vindimas
+                    (ex.: recipientes cheios). Este valor é o que sobra <em>no total</em>, contando
+                    todas as moagens destas mesmas vindimas.</span>
                 <form th:action="@{/processos/moagem/{id}/nova-sobra(id=${mo.id})}" method="post" class="d-inline">
                     <button class="btn btn-sm btn-warning"><i class="bi bi-plus-lg"></i> Nova moagem para a sobra</button>
                 </form>
@@ -154,7 +166,8 @@
                                 <td class="small" th:text="${v.label} + ' (' + ${v.casta} + ')'"></td>
                                 <td class="text-end fw-bold saldo-vindima"
                                     th:attr="data-vindima=${v.id},data-disponivel=${v.disponivel},data-bloco=${mo.id}"
-                                    th:text="${v.disponivel} + ' kg'"></td>
+                                    th:classappend="${v.disponivel.startsWith('-')} ? 'text-danger'"
+                                    th:text="${v.texto}"></td>
                             </tr>
                             <tr th:if="${vindimasPorMoagem.get(mo.id) == null or vindimasPorMoagem.get(mo.id).isEmpty()}">
                                 <td colspan="2" class="text-muted small">Esta moagem não tem vindimas associadas.</td>
@@ -351,7 +364,7 @@
                 + '<td class="text-end">' + v.vindimado + ' kg</td>'
                 + '<td class="text-end text-muted">' + v.moido + ' kg</td>'
                 + '<td class="text-end fw-bold saldo-vindima" data-bloco="novo" data-vindima="' + v.id + '" data-disponivel="' + v.disponivel + '">'
-                + v.disponivel + ' kg</td>'
+                + (v.texto || (v.disponivel + ' kg')) + '</td>'
                 + '</tr>';
         }).join('');
         reconstruirLinhas('novo', 1);
@@ -402,7 +415,9 @@
                     if (!isNaN(kg)) usado += kg;
                 });
             const resta = disponivel - usado;
-            celula.textContent = resta.toFixed(2) + ' kg';
+            celula.textContent = resta < 0
+                ? '0 kg (moeu ' + Math.abs(resta).toFixed(2) + ' kg a mais)'
+                : resta.toFixed(2) + ' kg';
             celula.classList.toggle('text-danger', resta < 0);
             celula.classList.toggle('text-success', resta >= 0 && usado > 0);
             celula.title = resta < 0

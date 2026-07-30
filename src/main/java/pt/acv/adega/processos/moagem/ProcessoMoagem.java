@@ -52,8 +52,13 @@ public class ProcessoMoagem extends Processo {
     private List<Enchimento> enchimentos = new ArrayList<>();
 
     /**
-     * Objetivo de Kg a moer, definido manualmente (ex.: numa moagem criada para
-     * a "sobra" de outra). Quando definido, sobrepoe-se ao total das vindimas.
+     * Objetivo de Kg a moer, definido a mao. Historico: as moagens criadas a
+     * partir da "sobra" de outra guardavam aqui um retrato dos Kg que faltavam
+     * nesse instante. Esse retrato ficava desatualizado assim que outra moagem
+     * mexia na mesma vindima, e fazia com que a mesma uva fosse contada duas
+     * vezes. Hoje o que falta moer e' sempre calculado a partir das vindimas
+     * (ver MoagemController.resumoDaMoagem), por isso este campo so' e' usado
+     * como ultimo recurso, nas moagens que nao tenham vindima nenhuma associada.
      */
     @Column(precision = 12, scale = 2)
     private BigDecimal objetivoKgManual;
@@ -76,10 +81,14 @@ public class ProcessoMoagem extends Processo {
     public BigDecimal getObjetivoKgManual() { return objetivoKgManual; }
     public void setObjetivoKgManual(BigDecimal objetivoKgManual) { this.objetivoKgManual = objetivoKgManual; }
 
-    /** Total de uva a moer: objetivo manual (se definido) ou soma das vindimas. */
+    /**
+     * Total de uva colhida nas vindimas desta moagem. E' o total da colheita,
+     * partilhado com as outras moagens que moam as mesmas vindimas — nao e' o
+     * que falta moer. Para isso ver o resumo calculado no controlador.
+     */
     @Transient
     public BigDecimal getTotalVindimadoKg() {
-        if (objetivoKgManual != null) return objetivoKgManual;
+        if (vindimas.isEmpty() && objetivoKgManual != null) return objetivoKgManual;
         return vindimas.stream()
                 .map(LinhaPlaneamentoParcela::getTotalVindimadoKg)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -101,9 +110,26 @@ public class ProcessoMoagem extends Processo {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    /** Uva que ainda falta moer (vindimado - moído). */
+    /** Castas das vindimas desta moagem, para as listagens e o histórico. */
     @Transient
-    public BigDecimal getSobraPorMoerKg() {
-        return getTotalVindimadoKg().subtract(getTotalMoidoKg());
+    public String getCastasDescricao() {
+        List<String> nomes = new ArrayList<>();
+        for (LinhaPlaneamentoParcela l : vindimas) {
+            if (l.getParcela() == null || l.getParcela().getCasta() == null) continue;
+            String n = l.getParcela().getCasta().getNome();
+            if (n != null && !nomes.contains(n)) nomes.add(n);
+        }
+        return nomes.isEmpty() ? "—" : String.join(", ", nomes);
+    }
+
+    /** Recipientes cheios nesta moagem ("Talha T1, Depósito D2"). */
+    @Transient
+    public String getRecipientesDescricao() {
+        List<String> nomes = new ArrayList<>();
+        for (Enchimento e : enchimentos) {
+            String n = e.getRecipienteDescricao();
+            if (n != null && !"—".equals(n) && !nomes.contains(n)) nomes.add(n);
+        }
+        return nomes.isEmpty() ? "—" : String.join(", ", nomes);
     }
 }

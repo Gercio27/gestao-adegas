@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-PT">
+<head th:replace="~{fragments/layout :: head('Histórico de moagens')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-1">
+        <div>
+            <h3 class="mb-1"><i class="bi bi-clock-history"></i> Histórico de moagens</h3>
+            <p class="text-muted mb-0">Tudo o que já se moeu, por adega, por vinho e por data.</p>
+        </div>
+        <a th:href="@{/processos/moagem}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Voltar à folha de moagem
+        </a>
+    </div>
+
+    <div class="row g-2 mb-3">
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100"><div class="card-body py-2">
+                <div class="text-muted small">Moagens</div>
+                <div class="fs-4 fw-bold" th:text="${moagens.size()}">0</div>
+            </div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100"><div class="card-body py-2">
+                <div class="text-muted small">Uva moída</div>
+                <div class="fs-4 fw-bold"><span th:text="${totalKg}">0</span> kg</div>
+            </div></div>
+        </div>
+        <div class="col-md-5">
+            <div class="card shadow-sm h-100"><div class="card-body py-2">
+                <div class="text-muted small">Mosto obtido</div>
+                <div class="fs-4 fw-bold"><span th:text="${totalLitros}">0</span> L</div>
+            </div></div>
+        </div>
+    </div>
+
+    <form method="get" th:action="@{/processos/moagem/historico}" class="card shadow-sm mb-3">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small mb-1">Adega</label>
+                <select name="adega" class="form-select form-select-sm">
+                    <option value="">Todas</option>
+                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"
+                            th:selected="${a.id == fAdega}"></option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-1">Vinho</label>
+                <select name="plano" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option th:each="p : ${planos}" th:value="${p.id}" th:text="${p.nomeVinho}"
+                            th:selected="${p.id == fPlano}"></option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">De</label>
+                <input type="date" name="de" class="form-control form-control-sm" th:value="${fDe}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Até</label>
+                <input type="date" name="ate" class="form-control form-control-sm" th:value="${fAte}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Estado</label>
+                <select name="estado" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option value="ABERTA" th:selected="${fEstado == 'ABERTA'}">Em moagem</option>
+                    <option value="FECHADA" th:selected="${fEstado == 'FECHADA'}">Fechada</option>
+                </select>
+            </div>
+            <div class="col-12">
+                <button class="btn btn-sm btn-primary"><i class="bi bi-funnel"></i> Filtrar</button>
+                <a th:href="@{/processos/moagem/historico}" class="btn btn-sm btn-outline-secondary">Limpar</a>
+            </div>
+        </div>
+    </form>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Moagem</th><th>Data</th><th>Adega</th><th>Vinho</th>
+                    <th>Vindimas (parcelas)</th><th>Castas</th>
+                    <th class="text-end">Moído</th><th class="text-end">Mosto</th>
+                    <th>Recipientes</th><th>Estado</th><th>Quem</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="m : ${moagens}">
+                    <td><span class="codigo fw-bold" th:text="${m.codigo}"></span></td>
+                    <td class="small text-nowrap"
+                        th:text="${datas.get(m.id) != null ? #temporals.format(datas.get(m.id), 'dd/MM/yyyy') : '—'}"></td>
+                    <td class="small" th:text="${m.adega != null ? m.adega.nome : '—'}"></td>
+                    <td class="small" th:text="${m.plano != null ? m.plano.nomeVinho : '—'}"></td>
+                    <td class="small">
+                        <span th:each="v,s : ${m.vindimas}" th:text="${(s.first ? '' : ', ') + v.etiqueta}"></span>
+                        <span th:if="${m.vindimas.isEmpty()}" class="text-muted">—</span>
+                    </td>
+                    <td class="small" th:text="${m.castasDescricao}"></td>
+                    <td class="text-end fw-bold text-nowrap" th:text="${m.totalMoidoKg} + ' kg'"></td>
+                    <td class="text-end text-nowrap" th:text="${m.totalLitrosMosto} + ' L'"></td>
+                    <td class="small text-muted" th:text="${m.recipientesDescricao}"></td>
+                    <td>
+                        <span th:if="${m.aberto}" class="badge bg-warning text-dark">Em moagem</span>
+                        <span th:unless="${m.aberto}" class="badge bg-success">Fechada</span>
+                        <div th:if="${resumos.get(m.id).temSobra}" class="small text-danger mt-1"
+                             th:text="'faltam ' + ${resumos.get(m.id).porMoer} + ' kg'"></div>
+                    </td>
+                    <td class="small text-muted" th:text="${m.criadoPor}"></td>
+                </tr>
+                <tr th:if="${moagens.isEmpty()}">
+                    <td colspan="11" class="text-center text-muted py-4">
+                        Nenhuma moagem corresponde a estes filtros.
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

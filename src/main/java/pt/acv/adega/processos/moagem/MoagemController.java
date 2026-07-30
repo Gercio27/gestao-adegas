@@ -16,6 +16,7 @@ import pt.acv.adega.produtos.Mosto;
 import pt.acv.adega.produtos.MostoRepository;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -88,6 +89,7 @@ public class MoagemController {
                 m.put("vindimado", l.getTotalVindimadoKg().toPlainString());
                 m.put("moido", moido.toPlainString());
                 m.put("disponivel", disponivel.toPlainString());
+                m.put("texto", textoSaldo(disponivel));
                 vindimas.add(m);
             }
         }
@@ -100,6 +102,10 @@ public class MoagemController {
 
         List<ProcessoMoagem> moagens = repo.findAllByOrderByDataCriacaoDesc();
         model.addAttribute("moagens", moagens);
+        // Kg de cada moagem, sempre calculados a partir das vindimas.
+        Map<Long, ResumoMoagem> resumos = new HashMap<>();
+        for (ProcessoMoagem mo : moagens) resumos.put(mo.getId(), resumoDaMoagem(mo, usado));
+        model.addAttribute("resumos", resumos);
         Map<Long, List<Mosto>> mostosPorMoagem = new HashMap<>();
         for (ProcessoMoagem mo : moagens) {
             if (!mo.isAberto()) mostosPorMoagem.put(mo.getId(), mostoRepo.findByOrigemMoagemId(mo.getId()));
@@ -119,13 +125,80 @@ public class MoagemController {
                 v.put("label", l.getEtiqueta());
                 v.put("casta", l.getParcela() != null && l.getParcela().getCasta() != null
                         ? l.getParcela().getCasta().getNome() : "—");
-                v.put("disponivel", l.getTotalVindimadoKg().subtract(moido).toPlainString());
+                BigDecimal disp = l.getTotalVindimadoKg().subtract(moido);
+                v.put("disponivel", disp.toPlainString());
+                v.put("texto", textoSaldo(disp));
                 linhas.add(v);
             }
             vindimasPorMoagem.put(mo.getId(), linhas);
         }
         model.addAttribute("vindimasPorMoagem", vindimasPorMoagem);
         return "processos/moagem/folha";
+    }
+
+    /**
+     * Histórico das moagens: todas as que já se fizeram, com filtro por adega,
+     * vinho e datas. Serve para responder a "o que se moeu na adega X, do vinho
+     * Y, em setembro" sem ter de percorrer a folha de trabalho toda.
+     */
+    @GetMapping("/historico")
+    public String historico(@RequestParam(required = false) Long adega,
+                            @RequestParam(required = false) Long plano,
+                            @RequestParam(required = false) String de,
+                            @RequestParam(required = false) String ate,
+                            @RequestParam(required = false) String estado,
+                            Model model) {
+        LocalDate dDe = data(de);
+        LocalDate dAte = data(ate);
+        Map<Long, BigDecimal> usado = kgUsadoPorVindima();
+
+        List<ProcessoMoagem> linhas = new ArrayList<>();
+        for (ProcessoMoagem m : repo.findAllByOrderByDataCriacaoDesc()) {
+            if (adega != null && (m.getAdega() == null || !adega.equals(m.getAdega().getId()))) continue;
+            if (plano != null && (m.getPlano() == null || !plano.equals(m.getPlano().getId()))) continue;
+            LocalDate d = dataDaMoagem(m);
+            if (dDe != null && (d == null || d.isBefore(dDe))) continue;
+            if (dAte != null && (d == null || d.isAfter(dAte))) continue;
+            if ("ABERTA".equals(estado) && !m.isAberto()) continue;
+            if ("FECHADA".equals(estado) && m.isAberto()) continue;
+            linhas.add(m);
+        }
+
+        BigDecimal totalKg = BigDecimal.ZERO;
+        BigDecimal totalLitros = BigDecimal.ZERO;
+        Map<Long, ResumoMoagem> resumos = new HashMap<>();
+        Map<Long, LocalDate> datas = new HashMap<>();
+        for (ProcessoMoagem m : linhas) {
+            totalKg = totalKg.add(m.getTotalMoidoKg());
+            totalLitros = totalLitros.add(m.getTotalLitrosMosto());
+            resumos.put(m.getId(), resumoDaMoagem(m, usado));
+            datas.put(m.getId(), dataDaMoagem(m));
+        }
+
+        model.addAttribute("moagens", linhas);
+        model.addAttribute("resumos", resumos);
+        model.addAttribute("datas", datas);
+        model.addAttribute("totalKg", totalKg);
+        model.addAttribute("totalLitros", totalLitros);
+        model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
+        model.addAttribute("planos", planeamentoRepo.findAllByOrderByNomeVinhoAsc());
+        model.addAttribute("fAdega", adega);
+        model.addAttribute("fPlano", plano);
+        model.addAttribute("fDe", de);
+        model.addAttribute("fAte", ate);
+        model.addAttribute("fEstado", estado);
+        return "processos/moagem/historico";
+    }
+
+    /** Data que conta para o histórico: a de início, ou a de criação. */
+    private LocalDate dataDaMoagem(ProcessoMoagem m) {
+        if (m.getDataHoraInicio() != null) return m.getDataHoraInicio().toLocalDate();
+        return m.getDataCriacao() != null ? m.getDataCriacao().toLocalDate() : null;
+    }
+
+    private LocalDate data(String s) {
+        if (s == null || s.isBlank()) return null;
+        try { return LocalDate.parse(s.trim()); } catch (Exception e) { return null; }
     }
 
     @PostMapping("/nova")
@@ -184,14 +257,32 @@ public class MoagemController {
         return "redirect:/processos/moagem";
     }
 
-    /** Inicia uma nova moagem para a uva que ainda faltou moer (sobra) desta. */
+    /**
+     * Inicia uma nova moagem para a uva que ainda faltou moer. A quantidade nao
+     * fica gravada: a nova moagem herda as mesmas vindimas e o que falta moer e'
+     * recalculado sempre a partir delas. Assim a mesma uva nunca aparece a
+     * dobrar em duas moagens.
+     */
     @PostMapping("/{id}/nova-sobra")
     @Transactional
     public String novaSobra(@PathVariable Long id, Authentication auth, RedirectAttributes ra) {
         ProcessoMoagem orig = repo.findById(id).orElse(null);
         if (orig == null || !podeAceder(orig, auth)) { ra.addFlashAttribute("erro", "Sem acesso a esta moagem."); return "redirect:/processos/moagem"; }
-        BigDecimal sobra = orig.getSobraPorMoerKg();
-        if (sobra.signum() <= 0) { ra.addFlashAttribute("erro", "Esta moagem não tem sobra por moer."); return "redirect:/processos/moagem"; }
+
+        BigDecimal sobra = resumoDaMoagem(orig, kgUsadoPorVindima()).porMoer();
+        if (sobra.signum() <= 0) {
+            ra.addFlashAttribute("erro", "Já não há uva por moer nestas vindimas — não é preciso outra moagem.");
+            return "redirect:/processos/moagem";
+        }
+        // Se ja existe uma moagem aberta e vazia para estas mesmas vindimas, e'
+        // essa que deve ser usada. Evita a lista encher-se de moagens iguais.
+        ProcessoMoagem jaExiste = moagemVaziaParaAsMesmasVindimas(orig);
+        if (jaExiste != null) {
+            ra.addFlashAttribute("aviso", "Já tinha criado a moagem " + jaExiste.getCodigo()
+                    + " para estas vindimas e ainda está vazia. Use essa — sobram "
+                    + sobra.toPlainString() + " kg por moer.");
+            return "redirect:/processos/moagem";
+        }
 
         ProcessoMoagem nova = new ProcessoMoagem();
         nova.setCodigo(codigoService.proximoCodigo(ProcessoMoagem.PREFIXO));
@@ -200,11 +291,26 @@ public class MoagemController {
         nova.setPlano(orig.getPlano());
         nova.setResponsavel(orig.getResponsavel());
         nova.getVindimas().addAll(orig.getVindimas());
-        nova.setObjetivoKgManual(sobra); // só falta moer esta quantidade
         nova.setDataHoraInicio(LocalDateTime.now());
         repo.save(nova);
-        ra.addFlashAttribute("sucesso", "Nova moagem criada para a sobra (" + sobra.toPlainString() + " kg): " + nova.getCodigo());
+        ra.addFlashAttribute("sucesso", "Nova moagem criada para o que falta moer ("
+                + sobra.toPlainString() + " kg): " + nova.getCodigo());
         return "redirect:/processos/moagem";
+    }
+
+    /** Moagem aberta, sem enchimentos, com exatamente as mesmas vindimas. */
+    private ProcessoMoagem moagemVaziaParaAsMesmasVindimas(ProcessoMoagem orig) {
+        Set<Long> alvo = new HashSet<>();
+        orig.getVindimas().forEach(l -> alvo.add(l.getId()));
+        if (alvo.isEmpty()) return null;
+        for (ProcessoMoagem m : repo.findAllByOrderByDataCriacaoDesc()) {
+            if (m.getId().equals(orig.getId()) || !m.isAberto()) continue;
+            if (!m.getEnchimentos().isEmpty()) continue;
+            Set<Long> dela = new HashSet<>();
+            m.getVindimas().forEach(l -> dela.add(l.getId()));
+            if (dela.equals(alvo)) return m;
+        }
+        return null;
     }
 
     @PostMapping("/{id}/fechar")
@@ -240,6 +346,59 @@ public class MoagemController {
         repo.delete(m);
         ra.addFlashAttribute("sucesso", "Moagem eliminada.");
         return "redirect:/processos/moagem";
+    }
+
+    /**
+     * Retrato dos Kg de uma moagem. O que <b>falta moer</b> nao sai desta
+     * moagem: sai das vindimas dela, descontando tudo o que qualquer moagem ja
+     * lhes tirou. Duas moagens da mesma vindima veem, por isso, o mesmo saldo —
+     * que e' o correto, porque a uva e' a mesma.
+     *
+     * @param vindimado  total colhido nas vindimas desta moagem
+     * @param moidoAqui  Kg moidos nesta moagem
+     * @param moidoTotal Kg moidos por todas as moagens nestas vindimas
+     * @param porMoer    uva destas vindimas que ainda ninguem moeu
+     */
+    public record ResumoMoagem(BigDecimal vindimado, BigDecimal moidoAqui,
+                               BigDecimal moidoTotal, BigDecimal porMoer) {
+        public boolean isTemSobra() { return porMoer.signum() > 0; }
+        /** Ha' outra moagem a moer as mesmas vindimas? */
+        public boolean isPartilhada() { return moidoTotal.compareTo(moidoAqui) != 0; }
+    }
+
+    /**
+     * Saldo de uma vindima em linguagem corrente. Negativo quer dizer que se
+     * moeu mais do que o que ficou registado na colheita — e' permitido (a
+     * pesagem no campo nem sempre bate certo), mas tem de se ver.
+     */
+    private String textoSaldo(BigDecimal disponivel) {
+        if (disponivel.signum() < 0) {
+            return "0 kg (moeu " + disponivel.abs().toPlainString() + " kg a mais)";
+        }
+        return disponivel.toPlainString() + " kg";
+    }
+
+    private ResumoMoagem resumoDaMoagem(ProcessoMoagem m, Map<Long, BigDecimal> usado) {
+        BigDecimal vindimado = BigDecimal.ZERO;
+        BigDecimal moidoTotal = BigDecimal.ZERO;
+        BigDecimal porMoer = BigDecimal.ZERO;
+        for (LinhaPlaneamentoParcela l : m.getVindimas()) {
+            BigDecimal colhido = l.getTotalVindimadoKg();
+            BigDecimal jaMoido = usado.getOrDefault(l.getId(), BigDecimal.ZERO);
+            vindimado = vindimado.add(colhido);
+            moidoTotal = moidoTotal.add(jaMoido);
+            BigDecimal falta = colhido.subtract(jaMoido);
+            if (falta.signum() > 0) porMoer = porMoer.add(falta);
+        }
+        BigDecimal moidoAqui = m.getTotalMoidoKg();
+        if (m.getVindimas().isEmpty()) {
+            // Moagem sem vindimas (dados antigos): so' se pode contar o que tem.
+            BigDecimal objetivo = m.getObjetivoKgManual() != null ? m.getObjetivoKgManual() : moidoAqui;
+            BigDecimal falta = objetivo.subtract(moidoAqui);
+            return new ResumoMoagem(objetivo, moidoAqui, moidoAqui,
+                    falta.signum() > 0 ? falta : BigDecimal.ZERO);
+        }
+        return new ResumoMoagem(vindimado, moidoAqui, moidoTotal, porMoer);
     }
 
     // ----- auxiliares -----
