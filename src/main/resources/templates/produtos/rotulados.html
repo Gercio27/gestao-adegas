@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-PT">
+<head th:replace="~{fragments/layout :: head('Vinho rotulado')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <h3 class="mb-1"><i class="bi bi-box-seam"></i> Vinho rotulado — pronto a entregar</h3>
+    <p class="text-muted">Garrafas que já saíram dos contentores na rotulagem e estão em caixas,
+        por vinho e por local. É daqui que o comercial entrega.</p>
+
+    <div class="row g-3 mb-3" th:if="${!stock.isEmpty()}">
+        <div class="col-md-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-body py-2">
+                    <div class="text-muted small">Total por entregar</div>
+                    <div class="fs-4 fw-bold"><span th:text="${totalGarrafas}">0</span> garrafas</div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-body py-2">
+                    <div class="text-muted small mb-1">Por vinho</div>
+                    <span th:each="e,s : ${totaisPorVinho}" class="badge bg-secondary me-1">
+                        <span th:text="${e.key}"></span>: <span th:text="${e.value}"></span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0 align-middle">
+                <thead>
+                <tr><th>Vinho</th><th>Local</th><th class="text-end">Garrafas</th>
+                    <th class="text-end">Caixas</th><th class="text-end">Garrafas/caixa</th></tr>
+                </thead>
+                <tbody>
+                <tr th:each="s : ${stock}">
+                    <td th:text="${s.vinhoNome ?: '(vinho sem nome)'}"></td>
+                    <td th:text="${s.localNome}"></td>
+                    <td class="text-end fw-bold" th:text="${s.garrafas}"></td>
+                    <td class="text-end" th:text="${s.caixasInteiras}"></td>
+                    <td class="text-end text-muted" th:text="${s.garrafasPorCaixa}"></td>
+                </tr>
+                <tr th:if="${stock.isEmpty()}">
+                    <td colspan="5" class="text-center text-muted py-4">
+                        Ainda não há vinho rotulado. Faça uma rotulagem (Fase 7).
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

@@ -9,6 +9,8 @@ import pt.acv.adega.fichas.ContentorBagInBoxRepository;
 import pt.acv.adega.fichas.ContentorGarrafas;
 import pt.acv.adega.fichas.ContentorGarrafasRepository;
 import pt.acv.adega.processos.EstadoProcesso;
+import pt.acv.adega.produtos.StockRotulado;
+import pt.acv.adega.produtos.StockRotuladoRepository;
 import pt.acv.adega.produtos.VinhoEngarrafado;
 import pt.acv.adega.produtos.VinhoEngarrafadoRepository;
 
@@ -29,15 +31,23 @@ public class RotulagemService {
     private final VinhoEngarrafadoRepository engarrafadoRepo;
     private final ContentorGarrafasRepository contentorRepo;
     private final ContentorBagInBoxRepository bibRepo;
+    private final StockRotuladoRepository stockRepo;
+    private final pt.acv.adega.fichas.AdegaRepository adegaRepo;
+    private final pt.acv.adega.fichas.ArmazemRepository armazemRepo;
 
     public RotulagemService(ProcessoRotulagemRepository repo, ConsumivelRepository consumivelRepo,
                             VinhoEngarrafadoRepository engarrafadoRepo, ContentorGarrafasRepository contentorRepo,
-                            ContentorBagInBoxRepository bibRepo) {
+                            ContentorBagInBoxRepository bibRepo, StockRotuladoRepository stockRepo,
+                            pt.acv.adega.fichas.AdegaRepository adegaRepo,
+                            pt.acv.adega.fichas.ArmazemRepository armazemRepo) {
         this.repo = repo;
         this.consumivelRepo = consumivelRepo;
         this.engarrafadoRepo = engarrafadoRepo;
         this.contentorRepo = contentorRepo;
         this.bibRepo = bibRepo;
+        this.stockRepo = stockRepo;
+        this.adegaRepo = adegaRepo;
+        this.armazemRepo = armazemRepo;
     }
 
     @Transactional
@@ -78,6 +88,14 @@ public class RotulagemService {
         // do(s) contentor(es) desse vinho, no local escolhido.
         p.setSaidaContentores(retirarDosContentores(p, veg, garrafas));
 
+        // As garrafas rotuladas ficam em caixas, no mesmo local. E' daqui que
+        // o comercial as vai entregar.
+        StockRotulado stock = stockDoVinhoNoLocal(veg, p.getLocalRef(), true);
+        stock.setGarrafas(stock.getGarrafas() + garrafas);
+        stock.setCaixas(stock.getCaixas() + p.getCaixasRotuladas());
+        stock.setGarrafasPorCaixa(p.getGarrafasPorCaixa());
+        stockRepo.save(stock);
+
         // O bag-in-box nao vai para caixas: fica onde esta, so' marcado.
         for (ContentorBagInBox c : bibRepo.findByVinhoEmbaladoIdOrderByNomeAsc(veg.getId())) {
             c.setRotulado(true);
@@ -95,6 +113,16 @@ public class RotulagemService {
         ProcessoRotulagem p = repo.findById(id)
                 .orElseThrow(() -> new RotulagemException("Rotulagem não encontrada."));
         if (p.getEstado() == EstadoProcesso.ABERTO) return;
+
+        // Tira as garrafas do stock rotulado (voltam ao contentor).
+        if (p.getEngarrafado() != null) {
+            StockRotulado stock = stockDoVinhoNoLocal(p.getEngarrafado(), p.getLocalRef(), false);
+            if (stock != null) {
+                stock.setGarrafas(Math.max(0, stock.getGarrafas() - p.getNumeroGarrafas()));
+                stock.setCaixas(Math.max(0, stock.getCaixas() - p.getCaixasRotuladas()));
+                if (stock.getGarrafas() == 0) stockRepo.delete(stock); else stockRepo.save(stock);
+            }
+        }
 
         // Devolve as garrafas aos contentores de onde sairam.
         for (Map.Entry<Long, Integer> e : parseSaida(p.getSaidaContentores()).entrySet()) {
@@ -166,6 +194,27 @@ public class RotulagemService {
                     garrafas, p.getCaixasRotuladas(), p.getGarrafasPorCaixa()));
         }
         return csv.toString();
+    }
+
+    /** Linha de stock rotulado desse vinho nesse local (cria se for preciso). */
+    private StockRotulado stockDoVinhoNoLocal(VinhoEngarrafado veg, String localRef, boolean criar) {
+        for (StockRotulado s : stockRepo.findByVinhoEngarrafadoId(veg.getId())) {
+            if (s.getLocalRef().equals(localRef)) return s;
+        }
+        if (!criar) return null;
+        StockRotulado s = new StockRotulado();
+        s.setVinhoEngarrafadoId(veg.getId());
+        s.setVinhoNome(veg.getNome());
+        if (localRef != null && localRef.contains(":")) {
+            String[] partes = localRef.split(":", 2);
+            Long id;
+            try { id = Long.valueOf(partes[1].trim()); } catch (Exception e) { id = null; }
+            if (id != null) {
+                if ("ADEGA".equals(partes[0])) adegaRepo.findById(id).ifPresent(s::setAdega);
+                else if ("ARMAZEM".equals(partes[0])) armazemRepo.findById(id).ifPresent(s::setArmazem);
+            }
+        }
+        return s;
     }
 
     private String localDe(ContentorGarrafas c) {

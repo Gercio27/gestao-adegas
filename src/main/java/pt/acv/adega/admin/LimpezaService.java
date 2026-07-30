@@ -64,6 +64,7 @@ public class LimpezaService {
             "mosto_casta",
             "mosto",
             "vinho_engarrafado",
+            "stock_rotulado",
             // Fases 1 e 2 — planeamento e vindima
             "registo_vindima",
             "processo_vindima",

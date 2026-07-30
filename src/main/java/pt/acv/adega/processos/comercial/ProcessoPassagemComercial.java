@@ -30,6 +30,13 @@ public class ProcessoPassagemComercial extends Processo {
     @Column(name = "contentor_id")
     private Long contentorId;
 
+    /**
+     * Linha de stock rotulado de onde saem as garrafas. Depois da rotulagem as
+     * garrafas ja nao estao no contentor - estao em caixas, no local.
+     */
+    @Column(name = "stock_rotulado_id")
+    private Long stockRotuladoId;
+
     /** Vinho + local (armazem/adega) de onde saiu, para a nota de entrega. */
     @Column(length = 250)
     private String origemDescricao;
@@ -83,4 +90,7 @@ public class ProcessoPassagemComercial extends Processo {
 
     public String getNumeroNota() { return numeroNota; }
     public void setNumeroNota(String numeroNota) { this.numeroNota = numeroNota; }
+
+    public Long getStockRotuladoId() { return stockRotuladoId; }
+    public void setStockRotuladoId(Long stockRotuladoId) { this.stockRotuladoId = stockRotuladoId; }
 }

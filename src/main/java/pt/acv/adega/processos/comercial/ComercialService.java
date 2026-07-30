@@ -6,6 +6,8 @@ import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.fichas.ContentorService;
 import pt.acv.adega.fichas.TipoEmbalagem;
 import pt.acv.adega.processos.EstadoProcesso;
+import pt.acv.adega.produtos.StockRotulado;
+import pt.acv.adega.produtos.StockRotuladoRepository;
 import pt.acv.adega.produtos.VinhoEngarrafado;
 import pt.acv.adega.produtos.VinhoEngarrafadoRepository;
 
@@ -24,14 +26,17 @@ public class ComercialService {
     private final ProcessoPassagemComercialRepository repo;
     private final VinhoEngarrafadoRepository engarrafadoRepo;
     private final ContentorService contentorService;
+    private final StockRotuladoRepository stockRepo;
     private final CodigoService codigoService;
 
     public ComercialService(ProcessoPassagemComercialRepository repo,
                             VinhoEngarrafadoRepository engarrafadoRepo, ContentorService contentorService,
+                            StockRotuladoRepository stockRepo,
                             CodigoService codigoService) {
         this.repo = repo;
         this.engarrafadoRepo = engarrafadoRepo;
         this.contentorService = contentorService;
+        this.stockRepo = stockRepo;
         this.codigoService = codigoService;
     }
 
@@ -45,10 +50,24 @@ public class ComercialService {
             throw new ComercialException("Indique a quantidade de " + tipo.getUnidade() + " (> 0).");
         }
 
-        // Preferencialmente a entrega sai de um contentor rotulado (define vinho + local).
-        ContentorService.Opcao c = contentorService.procurar(tipo, p.getContentorId());
-        if (c != null) {
-            if (!c.rotulado()) throw new ComercialException("O contentor " + c.nome() + " ainda não está rotulado (Fase 7).");
+        if (tipo == TipoEmbalagem.GARRAFA) {
+            // As garrafas rotuladas estao em caixas, no local — nao no contentor.
+            StockRotulado s = p.getStockRotuladoId() != null
+                    ? stockRepo.findById(p.getStockRotuladoId()).orElse(null) : null;
+            if (s == null) throw new ComercialException("Indique de que stock rotulado saem as garrafas.");
+            if (p.getQuantidadeGarrafas() > s.getGarrafas()) {
+                throw new ComercialException(String.format(
+                        "%s só tem %d garrafa(s) rotuladas — não pode entregar %d.",
+                        s.getDescricao(), s.getGarrafas(), p.getQuantidadeGarrafas()));
+            }
+            s.setGarrafas(s.getGarrafas() - p.getQuantidadeGarrafas());
+            s.setCaixas(s.getCaixasInteiras());
+            if (s.getGarrafas() == 0) stockRepo.delete(s); else stockRepo.save(s);
+        } else {
+            // Bag-in-box continua a sair da palete onde esta.
+            ContentorService.Opcao c = contentorService.procurar(tipo, p.getContentorId());
+            if (c == null) throw new ComercialException("Indique a palete de onde saem as unidades.");
+            if (!c.rotulado()) throw new ComercialException("A palete " + c.nome() + " ainda não está rotulada (Fase 7).");
             if (p.getQuantidadeGarrafas() > c.stock()) {
                 throw new ComercialException(String.format(
                         "%s só tem %d %s — não pode entregar %d.",
@@ -63,13 +82,6 @@ public class ComercialService {
         if (!veg.isRotulado()) {
             throw new ComercialException("O vinho " + veg.getCodigo() + " ainda não está rotulado (Fase 7).");
         }
-        // Sem contentor (registos antigos): valida contra o disponivel do produto acabado.
-        if (c == null && p.getQuantidadeGarrafas() > veg.getDisponiveis()) {
-            throw new ComercialException(String.format(
-                    "%s só tem %d garrafas disponíveis — não pode entregar %d.",
-                    veg.getCodigo(), veg.getDisponiveis(), p.getQuantidadeGarrafas()));
-        }
-
         veg.setGarrafasEntregues(veg.getGarrafasEntregues() + p.getQuantidadeGarrafas());
         engarrafadoRepo.save(veg);
 
@@ -95,9 +107,20 @@ public class ComercialService {
                 engarrafadoRepo.save(veg);
             }
         }
-        // Repor as unidades no contentor de origem.
+        // Repor: nas garrafas volta ao stock rotulado, no bag-in-box a' palete.
         TipoEmbalagem tipo = p.getTipoEmbalagem() != null ? p.getTipoEmbalagem() : TipoEmbalagem.GARRAFA;
-        contentorService.ajustar(tipo, p.getContentorId(), p.getQuantidadeGarrafas());
+        if (tipo == TipoEmbalagem.GARRAFA) {
+            if (p.getStockRotuladoId() != null) {
+                StockRotulado s = stockRepo.findById(p.getStockRotuladoId()).orElse(null);
+                if (s != null) {
+                    s.setGarrafas(s.getGarrafas() + p.getQuantidadeGarrafas());
+                    s.setCaixas(s.getCaixasInteiras());
+                    stockRepo.save(s);
+                }
+            }
+        } else {
+            contentorService.ajustar(tipo, p.getContentorId(), p.getQuantidadeGarrafas());
+        }
         p.setEstado(EstadoProcesso.ABERTO);
         p.setDataFecho(null);
         repo.save(p);

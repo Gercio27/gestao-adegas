@@ -42,11 +42,15 @@
                 <div class="form-text">Só vinhos rotulados com stock nesse local.</div>
             </div>
             <div class="col-md-4">
-                <label class="form-label">De que contentor sai *</label>
-                <select class="form-select" th:field="*{contentorId}" id="co-contentor"
-                        th:attr="data-sel=${comercial.contentorId}" required>
-                    <option th:value="${null}">—</option>
+                <label class="form-label"><span id="lblOrigem">De que stock sai</span> *</label>
+                <select class="form-select" id="co-contentor" onchange="guardarOrigem()"
+                        th:attr="data-sel=${comercial.stockRotuladoId != null ? comercial.stockRotuladoId : comercial.contentorId}"
+                        required>
+                    <option value="">—</option>
                 </select>
+                <!-- Garrafas saem do stock rotulado (caixas); bag-in-box sai da palete. -->
+                <input type="hidden" th:field="*{stockRotuladoId}" id="co-stock">
+                <input type="hidden" th:field="*{contentorId}" id="co-cont-id">
             </div>
             <div class="col-md-4">
                 <label class="form-label"><span id="lblQtd">Garrafas</span> a entregar *</label>
@@ -151,6 +155,16 @@
         sel.innerHTML = h;
         if (guardado) sel.value = guardado;
         else if (lista.length === 1) sel.value = lista[0].id;
+        guardarOrigem();
+    }
+
+    /** Manda o id escolhido para o campo certo, conforme a embalagem. */
+    function guardarOrigem() {
+        const bib = tipoEscolhido() === 'BAG_IN_BOX';
+        const v = document.getElementById('co-contentor').value;
+        document.getElementById('co-stock').value = bib ? '' : v;
+        document.getElementById('co-cont-id').value = bib ? v : '';
+        document.getElementById('lblOrigem').textContent = bib ? 'De que palete sai' : 'De que stock sai';
     }
 
     document.addEventListener('DOMContentLoaded', function () {

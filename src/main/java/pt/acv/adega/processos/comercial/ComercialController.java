@@ -11,6 +11,8 @@ import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.fichas.ContentorService;
 import pt.acv.adega.fichas.TipoEmbalagem;
 import pt.acv.adega.fichas.TrabalhadorRepository;
+import pt.acv.adega.produtos.StockRotulado;
+import pt.acv.adega.produtos.StockRotuladoRepository;
 import pt.acv.adega.produtos.VinhoEngarrafadoRepository;
 
 import java.time.LocalDateTime;
@@ -25,16 +27,19 @@ public class ComercialController {
     private final VinhoEngarrafadoRepository engarrafadoRepo;
     private final TrabalhadorRepository trabalhadorRepo;
     private final ContentorService contentorService;
+    private final StockRotuladoRepository stockRepo;
     private final CodigoService codigoService;
 
     public ComercialController(ProcessoPassagemComercialRepository repo, ComercialService service,
                                VinhoEngarrafadoRepository engarrafadoRepo, TrabalhadorRepository trabalhadorRepo,
-                               ContentorService contentorService, CodigoService codigoService) {
+                               ContentorService contentorService, StockRotuladoRepository stockRepo,
+                               CodigoService codigoService) {
         this.repo = repo;
         this.service = service;
         this.engarrafadoRepo = engarrafadoRepo;
         this.trabalhadorRepo = trabalhadorRepo;
         this.contentorService = contentorService;
+        this.stockRepo = stockRepo;
         this.codigoService = codigoService;
     }
 
@@ -93,7 +98,16 @@ public class ComercialController {
         }
         // A partir do contentor escolhido, resolve o vinho engarrafado e o local de origem.
         TipoEmbalagem tipo = com.getTipoEmbalagem() != null ? com.getTipoEmbalagem() : TipoEmbalagem.GARRAFA;
-        if (com.getContentorId() != null) {
+        if (tipo == TipoEmbalagem.GARRAFA) {
+            com.setContentorId(null);
+            StockRotulado st = com.getStockRotuladoId() != null
+                    ? stockRepo.findById(com.getStockRotuladoId()).orElse(null) : null;
+            if (st != null) {
+                com.setOrigemDescricao(st.getDescricao());
+                com.setEngarrafado(engarrafadoRepo.findById(st.getVinhoEngarrafadoId()).orElse(null));
+            }
+        } else {
+            com.setStockRotuladoId(null);
             ContentorService.Opcao c = contentorService.procurar(tipo, com.getContentorId());
             if (c != null) {
                 com.setOrigemDescricao(c.label());
@@ -164,15 +178,32 @@ public class ComercialController {
         for (TipoEmbalagem tipo : TipoEmbalagem.values()) {
             Map<String, String> nomesLocais = contentorService.nomesDosLocais(tipo);
             Map<String, Map<String, List<Map<String, Object>>>> porLocal = new LinkedHashMap<>();
+            if (tipo == TipoEmbalagem.GARRAFA) {
+                // Garrafas: ja estao rotuladas e em caixas, no local — vem do stock rotulado.
+                for (StockRotulado st : stockRepo.findByGarrafasGreaterThanOrderByVinhoNomeAsc(0)) {
+                    String ref = st.getLocalRef();
+                    if (ref.isEmpty()) continue;
+                    nomesLocais.putIfAbsent(ref, st.getLocalNome());
+                    String vinho = st.getVinhoNome() != null ? st.getVinhoNome() : "(vinho sem nome)";
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    row.put("id", st.getId());
+                    row.put("engarrafadoId", st.getVinhoEngarrafadoId());
+                    row.put("label", st.getGarrafas() + " garrafas (" + st.getCaixasInteiras() + " caixas) · " + st.getLocalNome());
+                    porLocal.computeIfAbsent(ref, k -> new LinkedHashMap<>())
+                            .computeIfAbsent(vinho, k -> new ArrayList<>()).add(row);
+                }
+            } else {
             for (ContentorService.Opcao o : contentorService.rotuladosComStock(tipo)) {
                 String ref = contentorService.localDe(tipo, o.id());
                 if (ref == null || ref.isEmpty()) continue;
                 String vinho = o.vinhoNome() != null ? o.vinhoNome() : "(vinho sem nome)";
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("id", o.id());
+                row.put("engarrafadoId", contentorService.vinhoDe(tipo, o.id()));
                 row.put("label", o.label());
                 porLocal.computeIfAbsent(ref, k -> new LinkedHashMap<>())
                         .computeIfAbsent(vinho, k -> new ArrayList<>()).add(row);
+            }
             }
             List<Map<String, Object>> locais = new ArrayList<>();
             for (String ref : porLocal.keySet()) {
