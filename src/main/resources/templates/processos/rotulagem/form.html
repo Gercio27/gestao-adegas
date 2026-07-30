@@ -6,7 +6,7 @@
 
 <div class="container">
     <h3 class="mb-1" th:text="${rotulagem.id == null} ? 'Nova rotulagem' : 'Editar rotulagem'">Rotulagem</h3>
-    <p class="text-muted">Fase 7. Ao <strong>fechar</strong>, dá baixa de rótulos/cápsulas/caixas e marca o vinho engarrafado como rotulado.</p>
+    <p class="text-muted">Fase 7. As garrafas <strong>saem do contentor</strong> e ficam em caixas. Ao <strong>fechar</strong>, dá baixa das garrafas no contentor e dos rótulos, etiquetas, cápsulas e caixas.</p>
 
     <div class="card shadow-sm"><div class="card-body">
         <form th:action="@{/processos/rotulagem}" th:object="${rotulagem}" method="post" class="row g-3">
@@ -19,7 +19,7 @@
             </div>
             <div class="col-md-4">
                 <label class="form-label">Adega / armazém *</label>
-                <select class="form-select" id="rot-local" onchange="popularVinhos()">
+                <select class="form-select" name="localRef" id="rot-local" onchange="popularVinhos()" required>
                     <option value="">— escolher local —</option>
                     <option th:each="l : ${locais}" th:value="${l.ref}" th:text="${l.nome}"></option>
                 </select>
@@ -43,11 +43,18 @@
                 </select>
             </div>
             <div class="col-md-3">
-                <label class="form-label">Nº garrafas rotuladas</label>
-                <input type="number" min="0" class="form-control" th:field="*{numeroGarrafas}">
+                <label class="form-label">Caixas rotuladas *</label>
+                <input type="number" min="1" class="form-control" th:field="*{caixasRotuladas}"
+                       id="rot-caixas" oninput="calcularGarrafas()" required>
+                <div class="form-text" id="rot-total"></div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Garrafas por caixa</label>
+                <input type="number" min="1" class="form-control" th:field="*{garrafasPorCaixa}"
+                       id="rot-porcaixa" oninput="calcularGarrafas()">
             </div>
             <div class="col-12">
-                <label class="form-label">Onde está (contentores)</label>
+                <label class="form-label">De onde saem as garrafas (contentores)</label>
                 <div class="border rounded p-2" id="rot-contentores"><span class="text-muted small">Escolha o vinho engarrafado.</span></div>
             </div>
 
@@ -75,15 +82,16 @@
             </div>
 
             <div class="col-md-4">
-                <label class="form-label">Caixas</label>
+                <label class="form-label">Caixas (ficha de consumível)</label>
                 <select class="form-select" th:field="*{caixa}">
                     <option th:value="${null}">— (sem caixa)</option>
                     <option th:each="c : ${caixas}" th:value="${c.id}" th:text="${c.codigo} + ' · ' + ${c.descricao} + ' · stock ' + ${c.stock}"></option>
                 </select>
             </div>
             <div class="col-md-2">
-                <label class="form-label">Nº caixas</label>
-                <input type="number" min="0" class="form-control" th:field="*{numeroCaixas}">
+                <label class="form-label">Nº caixas gastas</label>
+                <input type="number" class="form-control bg-light" th:field="*{numeroCaixas}" readonly>
+                <div class="form-text">Igual às caixas rotuladas.</div>
             </div>
             <div class="col-md-2">
                 <label class="form-label">Responsável</label>
@@ -169,6 +177,16 @@
         mostrarContentores();
     }
 
+    /** As garrafas rotuladas sao as que cabem nas caixas cheias. */
+    function calcularGarrafas() {
+        const caixas = parseInt(document.getElementById('rot-caixas').value, 10) || 0;
+        const por = parseInt(document.getElementById('rot-porcaixa').value, 10) || 0;
+        const box = document.getElementById('rot-total');
+        box.textContent = (caixas && por)
+            ? (caixas * por) + ' garrafas saem do contentor para as caixas.'
+            : '';
+    }
+
     function mostrarContentores() {
         const veg = document.getElementById('rot-veg').value;
         const box = document.getElementById('rot-contentores');
@@ -193,6 +211,7 @@
             });
         }
         popularEngarrafados();
+        calcularGarrafas();
     });
 </script>
 </body>

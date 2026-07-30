@@ -8,6 +8,8 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
+import pt.acv.adega.fichas.AdegaRepository;
+import pt.acv.adega.fichas.ArmazemRepository;
 import pt.acv.adega.fichas.ContentorBagInBox;
 import pt.acv.adega.fichas.ContentorBagInBoxRepository;
 import pt.acv.adega.fichas.ContentorGarrafas;
@@ -30,19 +32,24 @@ public class RotulagemController {
     private final VinhoEngarrafadoRepository engarrafadoRepo;
     private final ConsumivelRepository consumivelRepo;
     private final TrabalhadorRepository trabalhadorRepo;
+    private final AdegaRepository adegaRepo;
+    private final ArmazemRepository armazemRepo;
     private final ContentorGarrafasRepository contentorRepo;
     private final ContentorBagInBoxRepository bibRepo;
     private final CodigoService codigoService;
 
     public RotulagemController(ProcessoRotulagemRepository repo, RotulagemService service,
                               VinhoEngarrafadoRepository engarrafadoRepo, ConsumivelRepository consumivelRepo,
-                              TrabalhadorRepository trabalhadorRepo, ContentorGarrafasRepository contentorRepo, ContentorBagInBoxRepository bibRepo,
+                              TrabalhadorRepository trabalhadorRepo, AdegaRepository adegaRepo, ArmazemRepository armazemRepo,
+                               ContentorGarrafasRepository contentorRepo, ContentorBagInBoxRepository bibRepo,
                               CodigoService codigoService) {
         this.repo = repo;
         this.service = service;
         this.engarrafadoRepo = engarrafadoRepo;
         this.consumivelRepo = consumivelRepo;
         this.trabalhadorRepo = trabalhadorRepo;
+        this.adegaRepo = adegaRepo;
+        this.armazemRepo = armazemRepo;
         this.contentorRepo = contentorRepo;
         this.bibRepo = bibRepo;
         this.codigoService = codigoService;
@@ -87,6 +94,7 @@ public class RotulagemController {
     @PostMapping
     public String guardar(@Valid @ModelAttribute("rotulagem") ProcessoRotulagem rot, BindingResult result,
                           Authentication auth, Model model, RedirectAttributes ra) {
+        aplicarLocal(rot);
         if (result.hasErrors()) {
             preencherOpcoes(model);
             return "processos/rotulagem/form";
@@ -213,5 +221,18 @@ public class RotulagemController {
 
     private boolean podeAceder(ProcessoRotulagem p, Authentication auth) {
         return isAdmin(auth) || auth.getName().equals(p.getCriadoPor());
+    }
+
+    /** Poe a adega ou o armazem a partir da referencia "ADEGA:id"/"ARMAZEM:id". */
+    private void aplicarLocal(ProcessoRotulagem p) {
+        String ref = p.getLocalRef();
+        p.setAdega(null);
+        p.setArmazem(null);
+        if (ref == null || !ref.contains(":")) return;
+        String[] partes = ref.split(":", 2);
+        Long id;
+        try { id = Long.valueOf(partes[1].trim()); } catch (Exception e) { return; }
+        if ("ADEGA".equals(partes[0])) adegaRepo.findById(id).ifPresent(p::setAdega);
+        else if ("ARMAZEM".equals(partes[0])) armazemRepo.findById(id).ifPresent(p::setArmazem);
     }
 }
