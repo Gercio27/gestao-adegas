@@ -49,6 +49,7 @@
                         <a th:href="@{/fichas/talhas/{id}/etiqueta(id=${t.id})}" target="_blank" class="btn btn-sm btn-outline-dark" title="Etiqueta">
                             <i class="bi bi-printer"></i>
                         </a>
+                        <a th:href="@{/movimentos/TALHA/{id}(id=${t.id})}" class="btn btn-sm btn-outline-info" title="Histórico de movimentos"><i class="bi bi-clock-history"></i></a>
                         <a th:href="@{/fichas/talhas/{id}/editar(id=${t.id})}" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-pencil"></i>
                         </a>

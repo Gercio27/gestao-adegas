@@ -7,6 +7,7 @@ import pt.acv.adega.fichas.Deposito;
 import pt.acv.adega.fichas.DepositoRepository;
 import pt.acv.adega.fichas.Talha;
 import pt.acv.adega.fichas.TalhaRepository;
+import pt.acv.adega.movimentos.MovimentoStockService;
 import pt.acv.adega.processos.EstadoProcesso;
 import pt.acv.adega.produtos.EstadoMosto;
 import pt.acv.adega.produtos.Mosto;
@@ -31,15 +32,17 @@ public class MoagemService {
     private final TalhaRepository talhaRepo;
     private final DepositoRepository depositoRepo;
     private final CodigoService codigoService;
+    private final MovimentoStockService movimentos;
 
     public MoagemService(ProcessoMoagemRepository moagemRepo, MostoRepository mostoRepo,
                          TalhaRepository talhaRepo, DepositoRepository depositoRepo,
-                         CodigoService codigoService) {
+                         CodigoService codigoService, MovimentoStockService movimentos) {
         this.moagemRepo = moagemRepo;
         this.mostoRepo = mostoRepo;
         this.talhaRepo = talhaRepo;
         this.depositoRepo = depositoRepo;
         this.codigoService = codigoService;
+        this.movimentos = movimentos;
     }
 
     /**
@@ -106,11 +109,15 @@ public class MoagemService {
                 t.setVolumeAtualLitros(somar(t.getVolumeAtualLitros(), e.getLitros()));
                 talhaRepo.save(t);
                 mosto.setTalha(t);
+                movimentos.talha(t, e.getLitros(), "Moagem " + m.getCodigo(),
+                        "Enchimento de mosto após moagem", nomeVinho);
             } else {
                 Deposito d = depositoRepo.findById(e.getDeposito().getId()).orElseThrow();
                 d.setVolumeAtualLitros(somar(d.getVolumeAtualLitros(), e.getLitros()));
                 depositoRepo.save(d);
                 mosto.setDeposito(d);
+                movimentos.deposito(d, e.getLitros(), "Moagem " + m.getCodigo(),
+                        "Enchimento de mosto após moagem", nomeVinho);
             }
             mostoRepo.save(mosto);
         }
@@ -135,10 +142,14 @@ public class MoagemService {
                 Talha t = mosto.getTalha();
                 t.setVolumeAtualLitros(subtrair(t.getVolumeAtualLitros(), mosto.getLitros()));
                 talhaRepo.save(t);
+                movimentos.talha(t, mosto.getLitros().negate(), "Moagem " + m.getCodigo(),
+                        "Moagem reaberta — mosto anulado", mosto.getVinhoNome());
             } else if (mosto.getDeposito() != null) {
                 Deposito d = mosto.getDeposito();
                 d.setVolumeAtualLitros(subtrair(d.getVolumeAtualLitros(), mosto.getLitros()));
                 depositoRepo.save(d);
+                movimentos.deposito(d, mosto.getLitros().negate(), "Moagem " + m.getCodigo(),
+                        "Moagem reaberta — mosto anulado", mosto.getVinhoNome());
             }
             mostoRepo.delete(mosto);
         }

@@ -8,6 +8,7 @@ import pt.acv.adega.fichas.ContentorBagInBox;
 import pt.acv.adega.fichas.ContentorBagInBoxRepository;
 import pt.acv.adega.fichas.ContentorGarrafas;
 import pt.acv.adega.fichas.ContentorGarrafasRepository;
+import pt.acv.adega.movimentos.MovimentoStockService;
 import pt.acv.adega.processos.EstadoProcesso;
 import pt.acv.adega.produtos.StockRotulado;
 import pt.acv.adega.produtos.StockRotuladoRepository;
@@ -34,12 +35,15 @@ public class RotulagemService {
     private final StockRotuladoRepository stockRepo;
     private final pt.acv.adega.fichas.AdegaRepository adegaRepo;
     private final pt.acv.adega.fichas.ArmazemRepository armazemRepo;
+    private final MovimentoStockService movimentos;
 
     public RotulagemService(ProcessoRotulagemRepository repo, ConsumivelRepository consumivelRepo,
                             VinhoEngarrafadoRepository engarrafadoRepo, ContentorGarrafasRepository contentorRepo,
                             ContentorBagInBoxRepository bibRepo, StockRotuladoRepository stockRepo,
                             pt.acv.adega.fichas.AdegaRepository adegaRepo,
-                            pt.acv.adega.fichas.ArmazemRepository armazemRepo) {
+                            pt.acv.adega.fichas.ArmazemRepository armazemRepo,
+                            MovimentoStockService movimentos) {
+        this.movimentos = movimentos;
         this.repo = repo;
         this.consumivelRepo = consumivelRepo;
         this.engarrafadoRepo = engarrafadoRepo;
@@ -73,11 +77,22 @@ public class RotulagemService {
         Consumivel etiqueta = p.getEtiqueta() != null ? carregar(p.getEtiqueta().getId(), "Etiqueta") : null;
         if (etiqueta != null) exigirStock(etiqueta, p.getNumeroEtiquetas());
 
+        String proc = "Rotulagem " + p.getCodigo();
         rotulo.setStock(rotulo.getStock() - p.getNumeroRotulos());
         consumivelRepo.save(rotulo);
-        if (capsula != null) { capsula.setStock(capsula.getStock() - p.getNumeroCapsulas()); consumivelRepo.save(capsula); }
-        if (caixa != null) { caixa.setStock(caixa.getStock() - p.getNumeroCaixas()); consumivelRepo.save(caixa); }
-        if (etiqueta != null) { etiqueta.setStock(etiqueta.getStock() - p.getNumeroEtiquetas()); consumivelRepo.save(etiqueta); }
+        movimentos.consumivel(rotulo, -p.getNumeroRotulos(), proc, "Rótulos aplicados");
+        if (capsula != null) {
+            capsula.setStock(capsula.getStock() - p.getNumeroCapsulas()); consumivelRepo.save(capsula);
+            movimentos.consumivel(capsula, -p.getNumeroCapsulas(), proc, "Cápsulas aplicadas");
+        }
+        if (caixa != null) {
+            caixa.setStock(caixa.getStock() - p.getNumeroCaixas()); consumivelRepo.save(caixa);
+            movimentos.consumivel(caixa, -p.getNumeroCaixas(), proc, "Caixas usadas para arrumar as garrafas");
+        }
+        if (etiqueta != null) {
+            etiqueta.setStock(etiqueta.getStock() - p.getNumeroEtiquetas()); consumivelRepo.save(etiqueta);
+            movimentos.consumivel(etiqueta, -p.getNumeroEtiquetas(), proc, "Etiquetas aplicadas");
+        }
 
         VinhoEngarrafado veg = engarrafadoRepo.findById(p.getEngarrafado().getId())
                 .orElseThrow(() -> new RotulagemException("Vinho engarrafado não encontrado."));
@@ -95,6 +110,8 @@ public class RotulagemService {
         stock.setCaixas(stock.getCaixas() + p.getCaixasRotuladas());
         stock.setGarrafasPorCaixa(p.getGarrafasPorCaixa());
         stockRepo.save(stock);
+        movimentos.rotulado(stock, garrafas, proc,
+                p.getCaixasRotuladas() + " caixa(s) de " + p.getGarrafasPorCaixa() + " garrafas rotuladas");
 
         // O bag-in-box nao vai para caixas: fica onde esta, so' marcado.
         for (ContentorBagInBox c : bibRepo.findByVinhoEmbaladoIdOrderByNomeAsc(veg.getId())) {
@@ -121,6 +138,8 @@ public class RotulagemService {
                 stock.setGarrafas(Math.max(0, stock.getGarrafas() - p.getNumeroGarrafas()));
                 stock.setCaixas(Math.max(0, stock.getCaixas() - p.getCaixasRotuladas()));
                 if (stock.getGarrafas() == 0) stockRepo.delete(stock); else stockRepo.save(stock);
+                movimentos.rotulado(stock, -p.getNumeroGarrafas(), "Rotulagem " + p.getCodigo(),
+                        "Rotulagem reaberta — garrafas devolvidas aos contentores");
             }
         }
 
@@ -135,13 +154,15 @@ public class RotulagemService {
             }
             c.setRotulado(false);
             contentorRepo.save(c);
+            movimentos.contentor(c, e.getValue(), "Rotulagem " + p.getCodigo(),
+                    "Rotulagem reaberta — garrafas devolvidas", c.getVinhoNome());
         }
         p.setSaidaContentores(null);
 
-        repor(p.getRotulo(), p.getNumeroRotulos());
-        repor(p.getCapsula(), p.getNumeroCapsulas());
-        repor(p.getCaixa(), p.getNumeroCaixas());
-        repor(p.getEtiqueta(), p.getNumeroEtiquetas());
+        repor(p.getRotulo(), p.getNumeroRotulos(), p.getCodigo());
+        repor(p.getCapsula(), p.getNumeroCapsulas(), p.getCodigo());
+        repor(p.getCaixa(), p.getNumeroCaixas(), p.getCodigo());
+        repor(p.getEtiqueta(), p.getNumeroEtiquetas(), p.getCodigo());
 
         if (p.getEngarrafado() != null) {
             VinhoEngarrafado veg = engarrafadoRepo.findById(p.getEngarrafado().getId()).orElse(null);
@@ -183,6 +204,8 @@ public class RotulagemService {
                 c.setRotulado(false);
             }
             contentorRepo.save(c);
+            movimentos.contentor(c, -tira, "Rotulagem " + p.getCodigo(),
+                    "Garrafas retiradas para rotular e encaixotar", veg.getNome());
             csv.add(c.getId() + ":" + tira);
             porTirar -= tira;
         }
@@ -254,9 +277,12 @@ public class RotulagemService {
         }
     }
 
-    private void repor(Consumivel ref, int qtd) {
+    private void repor(Consumivel ref, int qtd, String codigo) {
         if (ref == null) return;
         Consumivel c = consumivelRepo.findById(ref.getId()).orElse(null);
-        if (c != null) { c.setStock(c.getStock() + qtd); consumivelRepo.save(c); }
+        if (c != null) {
+            c.setStock(c.getStock() + qtd); consumivelRepo.save(c);
+            movimentos.consumivel(c, qtd, "Rotulagem " + codigo, "Rotulagem reaberta — devolvido ao stock");
+        }
     }
 }

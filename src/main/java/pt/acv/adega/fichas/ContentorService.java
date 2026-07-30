@@ -1,6 +1,7 @@
 package pt.acv.adega.fichas;
 
 import org.springframework.stereotype.Service;
+import pt.acv.adega.movimentos.MovimentoStockService;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -18,10 +19,13 @@ public class ContentorService {
 
     private final ContentorGarrafasRepository garrafasRepo;
     private final ContentorBagInBoxRepository bibRepo;
+    private final MovimentoStockService movimentos;
 
-    public ContentorService(ContentorGarrafasRepository garrafasRepo, ContentorBagInBoxRepository bibRepo) {
+    public ContentorService(ContentorGarrafasRepository garrafasRepo, ContentorBagInBoxRepository bibRepo,
+                            MovimentoStockService movimentos) {
         this.garrafasRepo = garrafasRepo;
         this.bibRepo = bibRepo;
+        this.movimentos = movimentos;
     }
 
     /** Um contentor visto de fora, sem interessar de que tipo e'. */
@@ -125,6 +129,51 @@ public class ContentorService {
             garrafasRepo.save(o);
             garrafasRepo.save(d);
         }
+    }
+
+    /**
+     * O mesmo que ajustar(), mas deixando rasto no historico da ficha. E' esta a
+     * versao que as fases devem usar, dizendo de onde vem o movimento.
+     */
+    public void ajustar(TipoEmbalagem tipo, Long id, int delta, String origem, String descricao) {
+        String vinho = nomeDoVinho(tipo, id);
+        ajustar(tipo, id, delta);
+        registar(tipo, id, delta, origem, descricao, vinho);
+    }
+
+    /** O mesmo que transferir(), deixando rasto nos dois contentores. */
+    public void transferir(TipoEmbalagem tipo, Long origemId, Long destinoId, int quantidade,
+                           String origem, String descricao) {
+        String vinho = nomeDoVinho(tipo, origemId);
+        String nomeOrigem = nomeDoContentor(tipo, origemId);
+        String nomeDestino = nomeDoContentor(tipo, destinoId);
+        transferir(tipo, origemId, destinoId, quantidade);
+        registar(tipo, origemId, -quantidade, origem, descricao + " — saída para " + nomeDestino, vinho);
+        registar(tipo, destinoId, quantidade, origem, descricao + " — entrada vinda de " + nomeOrigem, vinho);
+    }
+
+    /** Escreve a linha no historico, ja com o contentor no estado final. */
+    private void registar(TipoEmbalagem tipo, Long id, int delta, String origem, String descricao, String vinho) {
+        if (id == null || delta == 0) return;
+        if (tipo == TipoEmbalagem.BAG_IN_BOX) {
+            bibRepo.findById(id).ifPresent(c -> movimentos.palete(c, delta, origem, descricao, vinho));
+        } else {
+            garrafasRepo.findById(id).ifPresent(c -> movimentos.contentor(c, delta, origem, descricao, vinho));
+        }
+    }
+
+    /** Nome do vinho antes do movimento (depois de esvaziar, o contentor esquece-o). */
+    private String nomeDoVinho(TipoEmbalagem tipo, Long id) {
+        if (id == null) return null;
+        if (tipo == TipoEmbalagem.BAG_IN_BOX) {
+            return bibRepo.findById(id).map(ContentorBagInBox::getVinhoNome).orElse(null);
+        }
+        return garrafasRepo.findById(id).map(ContentorGarrafas::getVinhoNome).orElse(null);
+    }
+
+    private String nomeDoContentor(TipoEmbalagem tipo, Long id) {
+        Opcao o = procurar(tipo, id);
+        return o == null ? "?" : o.nome();
     }
 
     /** Opções agrupadas pelo local (armazém/adega) onde o contentor está. */

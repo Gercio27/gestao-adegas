@@ -47,6 +47,7 @@
                         <a th:href="@{/fichas/depositos/{id}/etiqueta(id=${d.id})}" target="_blank" class="btn btn-sm btn-outline-dark" title="Etiqueta">
                             <i class="bi bi-printer"></i>
                         </a>
+                        <a th:href="@{/movimentos/DEPOSITO/{id}(id=${d.id})}" class="btn btn-sm btn-outline-info" title="Histórico de movimentos"><i class="bi bi-clock-history"></i></a>
                         <a th:href="@{/fichas/depositos/{id}/editar(id=${d.id})}" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-pencil"></i>
                         </a>

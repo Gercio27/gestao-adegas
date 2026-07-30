@@ -7,6 +7,7 @@ import pt.acv.adega.fichas.DepositoRepository;
 import pt.acv.adega.fichas.Talha;
 import pt.acv.adega.fichas.TalhaRepository;
 import pt.acv.adega.common.CodigoService;
+import pt.acv.adega.movimentos.MovimentoStockService;
 import pt.acv.adega.processos.EstadoProcesso;
 import pt.acv.adega.produtos.EstadoMosto;
 import pt.acv.adega.produtos.Mosto;
@@ -31,10 +32,12 @@ public class PassagemService {
     private final TalhaRepository talhaRepo;
     private final DepositoRepository depositoRepo;
     private final CodigoService codigoService;
+    private final MovimentoStockService movimentos;
 
     public PassagemService(ProcessoPassagemVinhoRepository repo, MostoRepository mostoRepo,
                            TalhaRepository talhaRepo, DepositoRepository depositoRepo,
-                           CodigoService codigoService) {
+                           CodigoService codigoService, MovimentoStockService movimentos) {
+        this.movimentos = movimentos;
         this.repo = repo;
         this.mostoRepo = mostoRepo;
         this.talhaRepo = talhaRepo;
@@ -87,7 +90,8 @@ public class PassagemService {
 
             if (fica) {
                 // Fica no mesmo recipiente: só desce o volume se a sobra for perda.
-                if (!guardarSobra) ajustarRecipiente(m, efet.subtract(orig));
+                if (!guardarSobra) ajustarRecipiente(m, efet.subtract(orig),
+                        "Passagem a limpo " + p.getCodigo(), "Perda/borras assumida ao passar a limpo");
                 it.setMovido(false);
             } else {
                 Talha destino = talhaRepo.findById(destinoId)
@@ -95,10 +99,14 @@ public class PassagemService {
                 String excesso = avisoCapacidade(destino, efet);
                 if (excesso != null) avisos.add(excesso);
                 // Tira da origem os litros que saem (tudo, se a sobra for perda).
-                ajustarRecipiente(m, guardarSobra ? efet.negate() : orig.negate());
+                ajustarRecipiente(m, guardarSobra ? efet.negate() : orig.negate(),
+                        "Passagem a limpo " + p.getCodigo(),
+                        "Saída para Talha " + destino.getIdentificacao());
                 // ...e poe os litros efetivos na talha de destino.
                 destino.setVolumeAtualLitros(naoNeg(v(destino.getVolumeAtualLitros()).add(efet)));
                 talhaRepo.save(destino);
+                movimentos.talha(destino, efet, "Passagem a limpo " + p.getCodigo(),
+                        "Entrada de vinho a granel passado a limpo", m.getVinhoNome());
             }
 
             // A sobra fica no recipiente de origem, como mosto ainda por passar.
@@ -165,23 +173,33 @@ public class PassagemService {
 
             if (it.isMovido()) {
                 // Tira os litros efetivos da talha de destino (onde o mosto esta agora).
-                ajustarRecipiente(m, efet.negate());
+                ajustarRecipiente(m, efet.negate(), "Passagem a limpo " + p.getCodigo(),
+                        "Passagem reaberta — vinho devolvido à origem");
                 // Devolve ao recipiente de origem exatamente o que de la' saiu:
                 // so' os litros passados, se a sobra tiver ficado la'.
                 BigDecimal devolver = sobraFicou ? efet : orig;
                 if (it.getTalhaOrigemId() != null) {
                     Talha to = talhaRepo.findById(it.getTalhaOrigemId()).orElse(null);
                     m.setTalha(to); m.setDeposito(null);
-                    if (to != null) { to.setVolumeAtualLitros(naoNeg(v(to.getVolumeAtualLitros()).add(devolver))); talhaRepo.save(to); }
+                    if (to != null) {
+                        to.setVolumeAtualLitros(naoNeg(v(to.getVolumeAtualLitros()).add(devolver))); talhaRepo.save(to);
+                        movimentos.talha(to, devolver, "Passagem a limpo " + p.getCodigo(),
+                                "Passagem reaberta — vinho devolvido", m.getVinhoNome());
+                    }
                 } else if (it.getDepositoOrigemId() != null) {
                     Deposito dep = depositoRepo.findById(it.getDepositoOrigemId()).orElse(null);
                     m.setDeposito(dep); m.setTalha(null);
-                    if (dep != null) { dep.setVolumeAtualLitros(naoNeg(v(dep.getVolumeAtualLitros()).add(devolver))); depositoRepo.save(dep); }
+                    if (dep != null) {
+                        dep.setVolumeAtualLitros(naoNeg(v(dep.getVolumeAtualLitros()).add(devolver))); depositoRepo.save(dep);
+                        movimentos.deposito(dep, devolver, "Passagem a limpo " + p.getCodigo(),
+                                "Passagem reaberta — vinho devolvido", m.getVinhoNome());
+                    }
                 }
             } else {
                 // Ficou no mesmo recipiente: se a sobra ficou la', o volume nunca
                 // desceu e nao ha nada a devolver; senao devolve-se a perda.
-                if (!sobraFicou) ajustarRecipiente(m, orig.subtract(efet));
+                if (!sobraFicou) ajustarRecipiente(m, orig.subtract(efet),
+                        "Passagem a limpo " + p.getCodigo(), "Passagem reaberta — perda anulada");
             }
 
             m.setLitros(orig);
@@ -210,13 +228,19 @@ public class PassagemService {
     }
 
     /** Soma delta ao volume do recipiente onde o mosto se encontra (talha ou deposito). */
-    private void ajustarRecipiente(Mosto m, BigDecimal delta) {
+    private void ajustarRecipiente(Mosto m, BigDecimal delta, String origem, String descricao) {
         if (m.getTalha() != null) {
             Talha t = talhaRepo.findById(m.getTalha().getId()).orElse(null);
-            if (t != null) { t.setVolumeAtualLitros(naoNeg(v(t.getVolumeAtualLitros()).add(delta))); talhaRepo.save(t); }
+            if (t != null) {
+                t.setVolumeAtualLitros(naoNeg(v(t.getVolumeAtualLitros()).add(delta))); talhaRepo.save(t);
+                movimentos.talha(t, delta, origem, descricao, m.getVinhoNome());
+            }
         } else if (m.getDeposito() != null) {
             Deposito d = depositoRepo.findById(m.getDeposito().getId()).orElse(null);
-            if (d != null) { d.setVolumeAtualLitros(naoNeg(v(d.getVolumeAtualLitros()).add(delta))); depositoRepo.save(d); }
+            if (d != null) {
+                d.setVolumeAtualLitros(naoNeg(v(d.getVolumeAtualLitros()).add(delta))); depositoRepo.save(d);
+                movimentos.deposito(d, delta, origem, descricao, m.getVinhoNome());
+            }
         }
     }
 

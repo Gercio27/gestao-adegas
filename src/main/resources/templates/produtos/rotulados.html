@@ -36,7 +36,8 @@
             <table class="table table-hover mb-0 align-middle">
                 <thead>
                 <tr><th>Vinho</th><th>Local</th><th class="text-end">Garrafas</th>
-                    <th class="text-end">Caixas</th><th class="text-end">Garrafas/caixa</th></tr>
+                    <th class="text-end">Caixas</th><th class="text-end">Garrafas/caixa</th>
+                    <th class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
                 <tr th:each="s : ${stock}">
@@ -45,9 +46,15 @@
                     <td class="text-end fw-bold" th:text="${s.garrafas}"></td>
                     <td class="text-end" th:text="${s.caixasInteiras}"></td>
                     <td class="text-end text-muted" th:text="${s.garrafasPorCaixa}"></td>
+                    <td class="text-end">
+                        <a th:href="@{/movimentos/STOCK_ROTULADO/{id}(id=${s.id})}"
+                           class="btn btn-sm btn-outline-info" title="Histórico de movimentos">
+                            <i class="bi bi-clock-history"></i>
+                        </a>
+                    </td>
                 </tr>
                 <tr th:if="${stock.isEmpty()}">
-                    <td colspan="5" class="text-center text-muted py-4">
+                    <td colspan="6" class="text-center text-muted py-4">
                         Ainda não há vinho rotulado. Faça uma rotulagem (Fase 7).
                     </td>
                 </tr>

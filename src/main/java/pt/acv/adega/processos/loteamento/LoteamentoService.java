@@ -2,6 +2,7 @@ package pt.acv.adega.processos.loteamento;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import pt.acv.adega.movimentos.MovimentoStockService;
 import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.fichas.*;
 import pt.acv.adega.produtos.EstadoMosto;
@@ -27,10 +28,13 @@ public class LoteamentoService {
     private final DepositoRepository depositoRepo;
     private final RecipienteService recipienteService;
     private final CodigoService codigoService;
+    private final MovimentoStockService movimentos;
 
     public LoteamentoService(LoteamentoRepository loteRepo, LoteConstrucaoRepository construcaoRepo,
                              MostoRepository mostoRepo, TalhaRepository talhaRepo, DepositoRepository depositoRepo,
-                             RecipienteService recipienteService, CodigoService codigoService) {
+                             RecipienteService recipienteService, CodigoService codigoService,
+                             MovimentoStockService movimentos) {
+        this.movimentos = movimentos;
         this.loteRepo = loteRepo;
         this.construcaoRepo = construcaoRepo;
         this.mostoRepo = mostoRepo;
@@ -64,7 +68,8 @@ public class LoteamentoService {
         // Baixa na origem
         origem.setLitros(v(origem.getLitros()).subtract(litros));
         mostoRepo.save(origem);
-        ajustarRecipiente(origem, litros.negate());
+        ajustarRecipiente(origem, litros.negate(), "Lote " + lote.getCodigo(),
+                "Saída para construir o lote " + lote.getNome());
 
         // Destino: o vinho do lote (por codigo do lote) neste recipiente, ou cria.
         List<Mosto> noDestino = t != null ? mostoRepo.findByTalhaId(t.getId()) : mostoRepo.findByDepositoId(d.getId());
@@ -88,8 +93,14 @@ public class LoteamentoService {
         }
         destino.setLitros(v(destino.getLitros()).add(litros));
         mostoRepo.save(destino);
-        if (t != null) { t.setVolumeAtualLitros(naoNeg(v(t.getVolumeAtualLitros()).add(litros))); talhaRepo.save(t); }
-        else { d.setVolumeAtualLitros(naoNeg(v(d.getVolumeAtualLitros()).add(litros))); depositoRepo.save(d); }
+        String descDest = "Entrada de " + origem.getCodigo() + " para o lote " + lote.getNome();
+        if (t != null) {
+            t.setVolumeAtualLitros(naoNeg(v(t.getVolumeAtualLitros()).add(litros))); talhaRepo.save(t);
+            movimentos.talha(t, litros, "Lote " + lote.getCodigo(), descDest, lote.getNome());
+        } else {
+            d.setVolumeAtualLitros(naoNeg(v(d.getVolumeAtualLitros()).add(litros))); depositoRepo.save(d);
+            movimentos.deposito(d, litros, "Lote " + lote.getCodigo(), descDest, lote.getNome());
+        }
 
         LoteConstrucao c = new LoteConstrucao();
         c.setLoteamentoId(loteId);
@@ -113,14 +124,15 @@ public class LoteamentoService {
         // Repor na origem
         if (c.getMostoOrigemId() != null) {
             Mosto origem = mostoRepo.findById(c.getMostoOrigemId()).orElse(null);
-            if (origem != null) { origem.setLitros(v(origem.getLitros()).add(litros)); mostoRepo.save(origem); ajustarRecipiente(origem, litros); }
+            if (origem != null) { origem.setLitros(v(origem.getLitros()).add(litros)); mostoRepo.save(origem);
+                ajustarRecipiente(origem, litros, "Lote", "Construção anulada — vinho devolvido"); }
         }
         // Retirar do destino
         if (c.getMostoDestinoId() != null) {
             Mosto destino = mostoRepo.findById(c.getMostoDestinoId()).orElse(null);
             if (destino != null) {
                 destino.setLitros(naoNeg(v(destino.getLitros()).subtract(litros)));
-                ajustarRecipiente(destino, litros.negate());
+                ajustarRecipiente(destino, litros.negate(), "Lote", "Construção anulada — vinho retirado do lote");
                 if (c.isDestinoCriado() && v(destino.getLitros()).signum() <= 0) mostoRepo.delete(destino);
                 else mostoRepo.save(destino);
             }
@@ -141,13 +153,19 @@ public class LoteamentoService {
         }
     }
 
-    private void ajustarRecipiente(Mosto m, BigDecimal delta) {
+    private void ajustarRecipiente(Mosto m, BigDecimal delta, String origem, String descricao) {
         if (m.getTalha() != null) {
             Talha t = talhaRepo.findById(m.getTalha().getId()).orElse(null);
-            if (t != null) { t.setVolumeAtualLitros(naoNeg(v(t.getVolumeAtualLitros()).add(delta))); talhaRepo.save(t); }
+            if (t != null) {
+                t.setVolumeAtualLitros(naoNeg(v(t.getVolumeAtualLitros()).add(delta))); talhaRepo.save(t);
+                movimentos.talha(t, delta, origem, descricao, m.getVinhoNome());
+            }
         } else if (m.getDeposito() != null) {
             Deposito d = depositoRepo.findById(m.getDeposito().getId()).orElse(null);
-            if (d != null) { d.setVolumeAtualLitros(naoNeg(v(d.getVolumeAtualLitros()).add(delta))); depositoRepo.save(d); }
+            if (d != null) {
+                d.setVolumeAtualLitros(naoNeg(v(d.getVolumeAtualLitros()).add(delta))); depositoRepo.save(d);
+                movimentos.deposito(d, delta, origem, descricao, m.getVinhoNome());
+            }
         }
     }
 

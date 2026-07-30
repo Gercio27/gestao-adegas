@@ -9,6 +9,7 @@ import pt.acv.adega.fichas.Deposito;
 import pt.acv.adega.fichas.DepositoRepository;
 import pt.acv.adega.fichas.Talha;
 import pt.acv.adega.fichas.TalhaRepository;
+import pt.acv.adega.movimentos.MovimentoStockService;
 import pt.acv.adega.processos.EstadoProcesso;
 import pt.acv.adega.produtos.EstadoMosto;
 import pt.acv.adega.produtos.Mosto;
@@ -34,10 +35,13 @@ public class MovimentoVinhoService {
     private final DepositoRepository depositoRepo;
     private final ContentorService contentorService;
     private final CodigoService codigoService;
+    private final MovimentoStockService movimentos;
 
     public MovimentoVinhoService(ProcessoMovimentoVinhoRepository repo, MostoRepository mostoRepo,
                                  TalhaRepository talhaRepo, DepositoRepository depositoRepo,
-                                 ContentorService contentorService, CodigoService codigoService) {
+                                 ContentorService contentorService, CodigoService codigoService,
+                                 MovimentoStockService movimentos) {
+        this.movimentos = movimentos;
         this.repo = repo;
         this.mostoRepo = mostoRepo;
         this.talhaRepo = talhaRepo;
@@ -93,8 +97,10 @@ public class MovimentoVinhoService {
                 + (p.getContraparte() != null ? " · " + p.getContraparte() : ""));
         m.setOrigemMovimentoId(p.getId());
         m.setDataProducao(LocalDateTime.now());
-        if (talha) { m.setTalha(t); somarVolume(t, null, litros); }
-        else { m.setDeposito(d); somarVolume(null, d, litros); }
+        String proc = "Entrada de vinho " + p.getCodigo();
+        String desc = "Entrada externa" + (p.getContraparte() != null ? " de " + p.getContraparte() : "");
+        if (talha) { m.setTalha(t); somarVolume(t, null, litros, proc, desc, p.getNomeVinho()); }
+        else { m.setDeposito(d); somarVolume(null, d, litros, proc, desc, p.getNomeVinho()); }
         mostoRepo.save(m);
     }
 
@@ -108,7 +114,8 @@ public class MovimentoVinhoService {
         }
         m.setLitros(v(m.getLitros()).subtract(litros));
         mostoRepo.save(m);
-        ajustarRecipiente(m, litros.negate());
+        ajustarRecipiente(m, litros.negate(), "Saída de vinho " + p.getCodigo(),
+                "Saída externa" + (p.getContraparte() != null ? " para " + p.getContraparte() : ""));
     }
 
     private void transfega(ProcessoMovimentoVinho p, BigDecimal litros) {
@@ -130,7 +137,11 @@ public class MovimentoVinhoService {
         // Baixa na origem
         origem.setLitros(v(origem.getLitros()).subtract(litros));
         mostoRepo.save(origem);
-        ajustarRecipiente(origem, litros.negate());
+        boolean interna = p.getTipo() == TipoMovimentoVinho.INTRA_EMP;
+        String proc = (interna ? "Saída intra-empresa " : "Transfega ") + p.getCodigo();
+        ajustarRecipiente(origem, litros.negate(), proc,
+                "Saída para " + (talha ? "Talha " + t.getIdentificacao() : "Depósito " + d.getIdentificacao())
+                        + (p.getMatriculaCamiao() != null ? " (camião " + p.getMatriculaCamiao() + ")" : ""));
 
         // Destino: junta a um mosto do mesmo vinho no recipiente, ou cria um novo.
         String nome = p.getNomeVinho() != null ? p.getNomeVinho() : origem.getVinhoNome();
@@ -157,7 +168,7 @@ public class MovimentoVinhoService {
         }
         destino.setLitros(v(destino.getLitros()).add(litros));
         mostoRepo.save(destino);
-        somarVolume(t, d, litros);
+        somarVolume(t, d, litros, proc, "Entrada vinda de " + origem.getCodigo(), nome);
 
         p.setMostoDestinoId(destino.getId());
         p.setDestinoCriado(criado);
@@ -214,7 +225,8 @@ public class MovimentoVinhoService {
             throw new MovimentoVinhoException("O contentor de destino já tem outro vinho. Escolha um vazio ou com o mesmo vinho.");
         }
 
-        contentorService.transferir(tipo, p.getContentorOrigemId(), p.getContentorDestinoId(), qtd);
+        contentorService.transferir(tipo, p.getContentorOrigemId(), p.getContentorDestinoId(), qtd,
+                "Saída intra-empresa " + p.getCodigo(), "Transferência interna entre locais");
 
         p.setGarrafas(qtd);
         if (p.getNomeVinho() == null) p.setNomeVinho(orig.vinhoNome());
@@ -224,7 +236,8 @@ public class MovimentoVinhoService {
         int qtd = p.getGarrafas() == null ? 0 : p.getGarrafas();
         if (qtd <= 0) return;
         // Devolve ao contentor de origem o que tinha ido para o destino.
-        contentorService.transferir(p.getTipoEmbalagem(), p.getContentorDestinoId(), p.getContentorOrigemId(), qtd);
+        contentorService.transferir(p.getTipoEmbalagem(), p.getContentorDestinoId(), p.getContentorOrigemId(), qtd,
+                "Saída intra-empresa " + p.getCodigo(), "Movimento reaberto — devolvido");
     }
 
     @Transactional
@@ -238,24 +251,30 @@ public class MovimentoVinhoService {
             reverterIntraEngarrafado(p);
         } else if (p.getTipo() == TipoMovimentoVinho.ENTRADA) {
             for (Mosto m : mostoRepo.findByOrigemMovimentoId(p.getId())) {
-                ajustarRecipiente(m, v(m.getLitros()).negate());
+                ajustarRecipiente(m, v(m.getLitros()).negate(), "Entrada de vinho " + p.getCodigo(),
+                        "Entrada reaberta — vinho anulado");
                 mostoRepo.delete(m);
             }
         } else if (p.getTipo() == TipoMovimentoVinho.SAIDA) {
             if (p.getMostoOrigem() != null) {
                 Mosto m = mostoRepo.findById(p.getMostoOrigem().getId()).orElse(null);
-                if (m != null) { m.setLitros(v(m.getLitros()).add(litros)); mostoRepo.save(m); ajustarRecipiente(m, litros); }
+                if (m != null) { m.setLitros(v(m.getLitros()).add(litros)); mostoRepo.save(m);
+                    ajustarRecipiente(m, litros, "Saída de vinho " + p.getCodigo(),
+                            "Saída reaberta — vinho devolvido"); }
             }
         } else { // TRANSFEGA
             if (p.getMostoOrigem() != null) {
                 Mosto origem = mostoRepo.findById(p.getMostoOrigem().getId()).orElse(null);
-                if (origem != null) { origem.setLitros(v(origem.getLitros()).add(litros)); mostoRepo.save(origem); ajustarRecipiente(origem, litros); }
+                if (origem != null) { origem.setLitros(v(origem.getLitros()).add(litros)); mostoRepo.save(origem);
+                    ajustarRecipiente(origem, litros, "Transfega " + p.getCodigo(),
+                            "Transfega reaberta — vinho devolvido"); }
             }
             if (p.getMostoDestinoId() != null) {
                 Mosto destino = mostoRepo.findById(p.getMostoDestinoId()).orElse(null);
                 if (destino != null) {
                     destino.setLitros(naoNeg(v(destino.getLitros()).subtract(litros)));
-                    ajustarRecipiente(destino, litros.negate());
+                    ajustarRecipiente(destino, litros.negate(), "Transfega " + p.getCodigo(),
+                            "Transfega reaberta — vinho retirado do destino");
                     if (p.isDestinoCriado() && v(destino.getLitros()).signum() <= 0) mostoRepo.delete(destino);
                     else mostoRepo.save(destino);
                 }
@@ -279,18 +298,29 @@ public class MovimentoVinhoService {
         }
     }
 
-    private void somarVolume(Talha t, Deposito d, BigDecimal delta) {
-        if (t != null) { t.setVolumeAtualLitros(naoNeg(v(t.getVolumeAtualLitros()).add(delta))); talhaRepo.save(t); }
-        else if (d != null) { d.setVolumeAtualLitros(naoNeg(v(d.getVolumeAtualLitros()).add(delta))); depositoRepo.save(d); }
+    private void somarVolume(Talha t, Deposito d, BigDecimal delta, String origem, String descricao, String vinho) {
+        if (t != null) {
+            t.setVolumeAtualLitros(naoNeg(v(t.getVolumeAtualLitros()).add(delta))); talhaRepo.save(t);
+            movimentos.talha(t, delta, origem, descricao, vinho);
+        } else if (d != null) {
+            d.setVolumeAtualLitros(naoNeg(v(d.getVolumeAtualLitros()).add(delta))); depositoRepo.save(d);
+            movimentos.deposito(d, delta, origem, descricao, vinho);
+        }
     }
 
-    private void ajustarRecipiente(Mosto m, BigDecimal delta) {
+    private void ajustarRecipiente(Mosto m, BigDecimal delta, String origem, String descricao) {
         if (m.getTalha() != null) {
             Talha t = talhaRepo.findById(m.getTalha().getId()).orElse(null);
-            if (t != null) { t.setVolumeAtualLitros(naoNeg(v(t.getVolumeAtualLitros()).add(delta))); talhaRepo.save(t); }
+            if (t != null) {
+                t.setVolumeAtualLitros(naoNeg(v(t.getVolumeAtualLitros()).add(delta))); talhaRepo.save(t);
+                movimentos.talha(t, delta, origem, descricao, m.getVinhoNome());
+            }
         } else if (m.getDeposito() != null) {
             Deposito d = depositoRepo.findById(m.getDeposito().getId()).orElse(null);
-            if (d != null) { d.setVolumeAtualLitros(naoNeg(v(d.getVolumeAtualLitros()).add(delta))); depositoRepo.save(d); }
+            if (d != null) {
+                d.setVolumeAtualLitros(naoNeg(v(d.getVolumeAtualLitros()).add(delta))); depositoRepo.save(d);
+                movimentos.deposito(d, delta, origem, descricao, m.getVinhoNome());
+            }
         }
     }
 

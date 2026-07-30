@@ -5,6 +5,7 @@ import org.springframework.transaction.annotation.Transactional;
 import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.fichas.ContentorService;
 import pt.acv.adega.fichas.TipoEmbalagem;
+import pt.acv.adega.movimentos.MovimentoStockService;
 import pt.acv.adega.processos.EstadoProcesso;
 import pt.acv.adega.produtos.StockRotulado;
 import pt.acv.adega.produtos.StockRotuladoRepository;
@@ -28,11 +29,13 @@ public class ComercialService {
     private final ContentorService contentorService;
     private final StockRotuladoRepository stockRepo;
     private final CodigoService codigoService;
+    private final MovimentoStockService movimentos;
 
     public ComercialService(ProcessoPassagemComercialRepository repo,
                             VinhoEngarrafadoRepository engarrafadoRepo, ContentorService contentorService,
                             StockRotuladoRepository stockRepo,
-                            CodigoService codigoService) {
+                            CodigoService codigoService, MovimentoStockService movimentos) {
+        this.movimentos = movimentos;
         this.repo = repo;
         this.engarrafadoRepo = engarrafadoRepo;
         this.contentorService = contentorService;
@@ -63,6 +66,8 @@ public class ComercialService {
             s.setGarrafas(s.getGarrafas() - p.getQuantidadeGarrafas());
             s.setCaixas(s.getCaixasInteiras());
             if (s.getGarrafas() == 0) stockRepo.delete(s); else stockRepo.save(s);
+            movimentos.rotulado(s, -p.getQuantidadeGarrafas(), "Entrega ao comercial " + p.getCodigo(),
+                    "Entrega a " + (p.getDestinatario() != null ? p.getDestinatario() : "cliente"));
         } else {
             // Bag-in-box continua a sair da palete onde esta.
             ContentorService.Opcao c = contentorService.procurar(tipo, p.getContentorId());
@@ -73,7 +78,9 @@ public class ComercialService {
                         "%s só tem %d %s — não pode entregar %d.",
                         c.nome(), c.stock(), tipo.getUnidade(), p.getQuantidadeGarrafas()));
             }
-            contentorService.ajustar(tipo, p.getContentorId(), -p.getQuantidadeGarrafas());
+            contentorService.ajustar(tipo, p.getContentorId(), -p.getQuantidadeGarrafas(),
+                    "Entrega ao comercial " + p.getCodigo(),
+                    "Entrega a " + (p.getDestinatario() != null ? p.getDestinatario() : "cliente"));
         }
 
         if (p.getEngarrafado() == null) throw new ComercialException("Indique o vinho a entregar.");
@@ -116,10 +123,13 @@ public class ComercialService {
                     s.setGarrafas(s.getGarrafas() + p.getQuantidadeGarrafas());
                     s.setCaixas(s.getCaixasInteiras());
                     stockRepo.save(s);
+                    movimentos.rotulado(s, p.getQuantidadeGarrafas(), "Entrega ao comercial " + p.getCodigo(),
+                            "Entrega reaberta — garrafas devolvidas ao stock");
                 }
             }
         } else {
-            contentorService.ajustar(tipo, p.getContentorId(), p.getQuantidadeGarrafas());
+            contentorService.ajustar(tipo, p.getContentorId(), p.getQuantidadeGarrafas(),
+                    "Entrega ao comercial " + p.getCodigo(), "Entrega reaberta — unidades devolvidas");
         }
         p.setEstado(EstadoProcesso.ABERTO);
         p.setDataFecho(null);

@@ -44,6 +44,7 @@
                         <span th:if="${c.propriedade.name() == 'TERCEIRO'}" class="text-muted small" th:text="'(' + ${c.terceiro} + ')'"></span>
                     </td>
                     <td class="text-end">
+                        <a th:href="@{/movimentos/CONSUMIVEL/{id}(id=${c.id})}" class="btn btn-sm btn-outline-info" title="Histórico de movimentos"><i class="bi bi-clock-history"></i></a>
                         <a th:href="@{/fichas/consumiveis/{id}/editar(id=${c.id})}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-pencil"></i></a>
                         <form th:action="@{/fichas/consumiveis/{id}/eliminar(id=${c.id})}" method="post" class="d-inline"
                               onsubmit="return confirm('Eliminar este consumível?');">

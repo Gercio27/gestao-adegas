@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.fichas.*;
+import pt.acv.adega.movimentos.MovimentoStockService;
 import pt.acv.adega.processos.EstadoProcesso;
 import pt.acv.adega.produtos.*;
 
@@ -31,12 +32,14 @@ public class EngarrafamentoService {
     private final ContentorGarrafasRepository contentorRepo;
     private final ContentorBagInBoxRepository bibRepo;
     private final CodigoService codigoService;
+    private final MovimentoStockService movimentos;
 
     public EngarrafamentoService(ProcessoEngarrafamentoRepository repo, MostoRepository mostoRepo,
                                  ConsumivelRepository consumivelRepo, TalhaRepository talhaRepo,
                                  DepositoRepository depositoRepo, VinhoEngarrafadoRepository engarrafadoRepo,
                                  ContentorGarrafasRepository contentorRepo, ContentorBagInBoxRepository bibRepo,
-                                 CodigoService codigoService) {
+                                 CodigoService codigoService, MovimentoStockService movimentos) {
+        this.movimentos = movimentos;
         this.repo = repo;
         this.mostoRepo = mostoRepo;
         this.consumivelRepo = consumivelRepo;
@@ -97,12 +100,18 @@ public class EngarrafamentoService {
         // Baixas
         vinho.setLitros(v(vinho.getLitros()).subtract(litros));
         mostoRepo.save(vinho);
-        ajustarRecipiente(vinho, litros.negate());          // liberta volume da talha/deposito
+        String proc = "Engarrafamento " + p.getCodigo();
+        // liberta volume da talha/deposito
+        ajustarRecipiente(vinho, litros.negate(), proc,
+                (bib ? "Vinho usado no enchimento de bag-in-box" : "Vinho usado no engarrafamento"));
         garrafa.setStock(garrafa.getStock() - p.getNumeroGarrafas());
         consumivelRepo.save(garrafa);
+        movimentos.consumivel(garrafa, -p.getNumeroGarrafas(), proc,
+                (bib ? "Bag-in-box usadas no enchimento" : "Garrafas usadas no engarrafamento"));
         if (rolha != null) {
             rolha.setStock(rolha.getStock() - p.getNumeroRolhas());
             consumivelRepo.save(rolha);
+            movimentos.consumivel(rolha, -p.getNumeroRolhas(), proc, "Rolhas usadas no engarrafamento");
         }
 
         // Criar produto acabado
@@ -161,6 +170,8 @@ public class EngarrafamentoService {
                 c.setVinhoNome(veg.getNome());
                 c.setRotulado(false);   // fica por rotular até à Fase 7
                 bibRepo.save(c);
+                movimentos.palete(c, e.getValue(), "Engarrafamento " + p.getCodigo(),
+                        "Bag-in-box cheias arrumadas na palete", veg.getNome());
             } else {
                 ContentorGarrafas c = contentorRepo.findById(e.getKey()).orElse(null);
                 if (c == null) continue;
@@ -169,6 +180,8 @@ public class EngarrafamentoService {
                 c.setVinhoNome(veg.getNome());
                 c.setRotulado(false);
                 contentorRepo.save(c);
+                movimentos.contentor(c, e.getValue(), "Engarrafamento " + p.getCodigo(),
+                        "Garrafas cheias arrumadas no contentor", veg.getNome());
             }
         }
 
@@ -196,9 +209,12 @@ public class EngarrafamentoService {
                     c.setRotulado(false);
                 }
                 bibRepo.save(c);
+                movimentos.palete(c, -e.getValue(), "Engarrafamento " + p.getCodigo(),
+                        "Engarrafamento reaberto — unidades retiradas", p.getNomeVinho());
             } else {
                 ContentorGarrafas c = contentorRepo.findById(e.getKey()).orElse(null);
                 if (c == null) continue;
+                String vinhoNome = c.getVinhoNome();
                 c.setGarrafasAtuais(Math.max(0, c.getGarrafasAtuais() - e.getValue()));
                 if (c.getGarrafasAtuais() == 0) {
                     c.setVinhoEngarrafadoId(null);
@@ -206,6 +222,8 @@ public class EngarrafamentoService {
                     c.setRotulado(false);
                 }
                 contentorRepo.save(c);
+                movimentos.contentor(c, -e.getValue(), "Engarrafamento " + p.getCodigo(),
+                        "Engarrafamento reaberto — garrafas retiradas", vinhoNome);
             }
         }
 
@@ -219,17 +237,26 @@ public class EngarrafamentoService {
             if (vinho != null) {
                 vinho.setLitros(v(vinho.getLitros()).add(litros));
                 mostoRepo.save(vinho);
-                ajustarRecipiente(vinho, litros);
+                ajustarRecipiente(vinho, litros, "Engarrafamento " + p.getCodigo(),
+                        "Engarrafamento reaberto — vinho devolvido");
             }
         }
         // Repor stocks
         if (p.getGarrafa() != null) {
             Consumivel g = consumivelRepo.findById(p.getGarrafa().getId()).orElse(null);
-            if (g != null) { g.setStock(g.getStock() + p.getNumeroGarrafas()); consumivelRepo.save(g); }
+            if (g != null) {
+                g.setStock(g.getStock() + p.getNumeroGarrafas()); consumivelRepo.save(g);
+                movimentos.consumivel(g, p.getNumeroGarrafas(), "Engarrafamento " + p.getCodigo(),
+                        "Engarrafamento reaberto — devolvido ao stock");
+            }
         }
         if (p.getRolha() != null) {
             Consumivel r = consumivelRepo.findById(p.getRolha().getId()).orElse(null);
-            if (r != null) { r.setStock(r.getStock() + p.getNumeroRolhas()); consumivelRepo.save(r); }
+            if (r != null) {
+                r.setStock(r.getStock() + p.getNumeroRolhas()); consumivelRepo.save(r);
+                movimentos.consumivel(r, p.getNumeroRolhas(), "Engarrafamento " + p.getCodigo(),
+                        "Engarrafamento reaberto — devolvido ao stock");
+            }
         }
 
         p.setEstado(EstadoProcesso.ABERTO);
@@ -238,13 +265,19 @@ public class EngarrafamentoService {
     }
 
     /** Soma 'delta' litros ao recipiente (talha/deposito) onde o vinho esta. */
-    private void ajustarRecipiente(Mosto vinho, BigDecimal delta) {
+    private void ajustarRecipiente(Mosto vinho, BigDecimal delta, String origem, String descricao) {
         if (vinho.getTalha() != null) {
             Talha t = talhaRepo.findById(vinho.getTalha().getId()).orElse(null);
-            if (t != null) { t.setVolumeAtualLitros(naoNegativo(v(t.getVolumeAtualLitros()).add(delta))); talhaRepo.save(t); }
+            if (t != null) {
+                t.setVolumeAtualLitros(naoNegativo(v(t.getVolumeAtualLitros()).add(delta))); talhaRepo.save(t);
+                movimentos.talha(t, delta, origem, descricao, vinho.getVinhoNome());
+            }
         } else if (vinho.getDeposito() != null) {
             Deposito d = depositoRepo.findById(vinho.getDeposito().getId()).orElse(null);
-            if (d != null) { d.setVolumeAtualLitros(naoNegativo(v(d.getVolumeAtualLitros()).add(delta))); depositoRepo.save(d); }
+            if (d != null) {
+                d.setVolumeAtualLitros(naoNegativo(v(d.getVolumeAtualLitros()).add(delta))); depositoRepo.save(d);
+                movimentos.deposito(d, delta, origem, descricao, vinho.getVinhoNome());
+            }
         }
     }
 

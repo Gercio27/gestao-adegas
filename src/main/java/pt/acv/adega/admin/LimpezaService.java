@@ -30,6 +30,8 @@ public class LimpezaService {
      * tabelas-mae, para nao esbarrar nas chaves estrangeiras.
      */
     private static final List<String> TABELAS_A_APAGAR = List.of(
+            // Historico de movimentos das fichas
+            "movimento_stock",
             // Fase 3 — moagem e enchimentos
             "enchimento_casta",
             "enchimento_vindima",

@@ -42,7 +42,6 @@
                         <li><a class="dropdown-item" th:href="@{/produtos/mostos/vinhos-granel}">Vinhos a granel</a></li>
                         <li><a class="dropdown-item" th:href="@{/produtos/engarrafados}">Vinhos engarrafados</a></li>
                         <li><a class="dropdown-item" th:href="@{/produtos/rotulados}">Vinho rotulado (por entregar)</a></li>
-                        <li><a class="dropdown-item" th:href="@{/produtos/lotes}">Lotes</a></li>
                     </ul>
                 </li>
                 <li class="nav-item dropdown">
@@ -73,6 +72,9 @@
                         <li><a class="dropdown-item" th:href="@{/tratamentos}">Tratamentos enológicos</a></li>
                         <li><a class="dropdown-item" th:href="@{/analises}">Análise aos vinhos</a></li>
                     </ul>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" th:href="@{/movimentos}"><i class="bi bi-clock-history"></i> Movimentos</a>
                 </li>
                 <li class="nav-item"><a class="nav-link" th:href="@{/listagens}">Listagens</a></li>
                 <li class="nav-item" sec:authorize="hasRole('ADMIN')">

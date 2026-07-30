@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-PT">
+<head th:replace="~{fragments/layout :: head('Histórico de movimentos')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-1">
+        <div>
+            <h3 class="mb-1"><i class="bi bi-clock-history"></i> <span th:text="${titulo}">Histórico</span></h3>
+            <p class="text-muted mb-0" th:text="${subtitulo}"></p>
+        </div>
+        <div>
+            <a th:if="${voltarUrl != null}" th:href="@{${voltarUrl}}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Voltar à ficha
+            </a>
+            <a th:unless="${filtrosVisiveis}" th:href="@{/movimentos}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-list-ul"></i> Ver tudo
+            </a>
+        </div>
+    </div>
+
+    <!-- Resumo: quanto entrou e quanto saiu, por unidade -->
+    <div class="row g-2 mb-3" th:if="${!totais.isEmpty()}">
+        <div class="col-md-4" th:each="e : ${totais}">
+            <div class="card shadow-sm">
+                <div class="card-body py-2">
+                    <div class="text-muted small" th:text="${e.key}">unidade</div>
+                    <span class="badge bg-success me-1">
+                        Entrou <span th:text="${e.value[0].stripTrailingZeros().toPlainString()}">0</span>
+                    </span>
+                    <span class="badge bg-danger">
+                        Saiu <span th:text="${e.value[1].stripTrailingZeros().toPlainString()}">0</span>
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <form th:if="${filtrosVisiveis}" method="get" th:action="@{/movimentos}" class="card shadow-sm mb-3">
+        <div class="card-body row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small mb-1">Tipo de ficha</label>
+                <select name="tipo" class="form-select form-select-sm">
+                    <option value="">Todas</option>
+                    <option th:each="t : ${tipos}" th:value="${t.name()}" th:text="${t.descricao}"
+                            th:selected="${fTipo != null and fTipo.name() == t.name()}"></option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-1">Adega / armazém</label>
+                <select name="local" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option th:each="l : ${locais}" th:value="${l}" th:text="${l}"
+                            th:selected="${l == fLocal}"></option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">De</label>
+                <input type="date" name="de" class="form-control form-control-sm" th:value="${fDe}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Até</label>
+                <input type="date" name="ate" class="form-control form-control-sm" th:value="${fAte}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Procurar</label>
+                <input type="text" name="texto" class="form-control form-control-sm"
+                       placeholder="vinho, ficha, fase…" th:value="${fTexto}">
+            </div>
+            <div class="col-12">
+                <button class="btn btn-sm btn-primary"><i class="bi bi-funnel"></i> Filtrar</button>
+                <a th:href="@{/movimentos}" class="btn btn-sm btn-outline-secondary">Limpar</a>
+            </div>
+        </div>
+    </form>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Data</th>
+                    <th th:if="${mostrarFicha}">Ficha</th>
+                    <th th:if="${filtrosVisiveis}">Local</th>
+                    <th class="text-end">Movimento</th>
+                    <th class="text-end">Ficou com</th>
+                    <th>Vinho</th>
+                    <th>Fase / processo</th>
+                    <th>O que aconteceu</th>
+                    <th>Quem</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="m : ${linhas}">
+                    <td class="small text-nowrap"
+                        th:text="${#temporals.format(m.dataHora, 'dd/MM/yyyy HH:mm')}"></td>
+                    <td th:if="${mostrarFicha}" class="small">
+                        <a th:href="@{/movimentos/{t}/{id}(t=${m.tipoAlvo.name()},id=${m.alvoId})}"
+                           th:text="${m.alvoNome}">ficha</a>
+                        <div class="text-muted" th:text="${m.tipoAlvo.descricao}"></div>
+                    </td>
+                    <td th:if="${filtrosVisiveis}" class="small text-muted" th:text="${m.local}"></td>
+                    <td class="text-end fw-bold text-nowrap"
+                        th:classappend="${m.entrada} ? 'text-success' : 'text-danger'"
+                        th:text="${m.quantidadeTexto}">+0</td>
+                    <td class="text-end small text-muted text-nowrap">
+                        <span th:if="${m.saldo != null}"
+                              th:text="${m.saldo.stripTrailingZeros().toPlainString()} + ' ' + ${m.unidade}"></span>
+                        <span th:if="${m.saldo == null}">—</span>
+                    </td>
+                    <td class="small" th:text="${m.vinhoNome != null ? m.vinhoNome : '—'}"></td>
+                    <td class="small" th:text="${m.origem}"></td>
+                    <td class="small text-muted" th:text="${m.descricao}"></td>
+                    <td class="small text-muted" th:text="${m.utilizador}"></td>
+                </tr>
+                <tr th:if="${linhas.isEmpty()}">
+                    <td colspan="10" class="text-center text-muted py-4">
+                        Ainda não há movimentos registados.
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <p class="text-muted small mt-2" th:if="${filtrosVisiveis}">
+        Sem filtro de tipo mostram-se os 300 movimentos mais recentes.
+    </p>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

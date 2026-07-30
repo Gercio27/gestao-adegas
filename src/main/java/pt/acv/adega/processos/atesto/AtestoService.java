@@ -7,6 +7,7 @@ import pt.acv.adega.fichas.DepositoRepository;
 import pt.acv.adega.fichas.Talha;
 import pt.acv.adega.fichas.TalhaRepository;
 import pt.acv.adega.common.CodigoService;
+import pt.acv.adega.movimentos.MovimentoStockService;
 import pt.acv.adega.processos.EstadoProcesso;
 import pt.acv.adega.produtos.Mosto;
 import pt.acv.adega.produtos.MostoRepository;
@@ -28,9 +29,12 @@ public class AtestoService {
     private final DepositoRepository depositoRepo;
     private final MostoRepository mostoRepo;
     private final CodigoService codigoService;
+    private final MovimentoStockService movimentos;
 
     public AtestoService(ProcessoAtestoRepository repo, TalhaRepository talhaRepo, DepositoRepository depositoRepo,
-                         MostoRepository mostoRepo, CodigoService codigoService) {
+                         MostoRepository mostoRepo, CodigoService codigoService,
+                         MovimentoStockService movimentos) {
+        this.movimentos = movimentos;
         this.repo = repo;
         this.talhaRepo = talhaRepo;
         this.depositoRepo = depositoRepo;
@@ -101,6 +105,13 @@ public class AtestoService {
         // mas sem se saber o que lá está dentro.
         moverVinho(a, tOrig, dOrig, tDest, dDest, litros);
 
+        // Historico dos dois recipientes.
+        String vinho = a.getMostoOrigemId() != null
+                ? mostoRepo.findById(a.getMostoOrigemId()).map(Mosto::getVinhoNome).orElse(null) : null;
+        String proc = "Atesto " + a.getCodigo();
+        movimentos.recipiente(tOrig, dOrig, saiuDaOrigem.negate(), proc, "Saída para " + nomeDestino, vinho);
+        movimentos.recipiente(tDest, dDest, litros, proc, "Entrada vinda de " + nomeOrigem, vinho);
+
         a.setEstado(EstadoProcesso.FECHADO);
         if (a.getDataHoraFim() == null) a.setDataHoraFim(LocalDateTime.now());
         a.setDataFecho(LocalDateTime.now());
@@ -118,19 +129,27 @@ public class AtestoService {
         // do que os litros do atesto, se tiver ficado a zero), e tirar do destino
         // tudo o que la' entrou.
         BigDecimal devolverOrigem = a.getLitrosDaOrigem() != null ? a.getLitrosDaOrigem() : litros;
+        String proc = "Atesto " + a.getCodigo();
+        String motivo = "Atesto reaberto — movimento anulado";
+        String vinho = a.getMostoOrigemId() != null
+                ? mostoRepo.findById(a.getMostoOrigemId()).map(Mosto::getVinhoNome).orElse(null) : null;
         if (a.getTalhaOrigem() != null) {
             Talha t = talhaRepo.findById(a.getTalhaOrigem().getId()).orElseThrow();
             t.setVolumeAtualLitros(vol(t.getVolumeAtualLitros()).add(devolverOrigem)); talhaRepo.save(t);
+            movimentos.talha(t, devolverOrigem, proc, motivo, vinho);
         } else if (a.getDepositoOrigem() != null) {
             Deposito d = depositoRepo.findById(a.getDepositoOrigem().getId()).orElseThrow();
             d.setVolumeAtualLitros(vol(d.getVolumeAtualLitros()).add(devolverOrigem)); depositoRepo.save(d);
+            movimentos.deposito(d, devolverOrigem, proc, motivo, vinho);
         }
         if (a.getTalhaDestino() != null) {
             Talha t = talhaRepo.findById(a.getTalhaDestino().getId()).orElseThrow();
             t.setVolumeAtualLitros(naoNegativo(vol(t.getVolumeAtualLitros()).subtract(litros))); talhaRepo.save(t);
+            movimentos.talha(t, litros.negate(), proc, motivo, vinho);
         } else if (a.getDepositoDestino() != null) {
             Deposito d = depositoRepo.findById(a.getDepositoDestino().getId()).orElseThrow();
             d.setVolumeAtualLitros(naoNegativo(vol(d.getVolumeAtualLitros()).subtract(litros))); depositoRepo.save(d);
+            movimentos.deposito(d, litros.negate(), proc, motivo, vinho);
         }
         reverterVinho(a, litros);
         a.setEstado(EstadoProcesso.ABERTO);

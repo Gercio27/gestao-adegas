@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.fichas.*;
+import pt.acv.adega.movimentos.MovimentoStockService;
 import pt.acv.adega.processos.EstadoProcesso;
 import pt.acv.adega.produtos.EstadoMosto;
 import pt.acv.adega.produtos.Mosto;
@@ -27,9 +28,12 @@ public class MovimentoService {
     private final TalhaRepository talhaRepo;
     private final DepositoRepository depositoRepo;
     private final CodigoService codigoService;
+    private final MovimentoStockService movimentos;
 
     public MovimentoService(ProcessoMovimentoMostoRepository repo, MostoRepository mostoRepo,
-                            TalhaRepository talhaRepo, DepositoRepository depositoRepo, CodigoService codigoService) {
+                            TalhaRepository talhaRepo, DepositoRepository depositoRepo, CodigoService codigoService,
+                            MovimentoStockService movimentos) {
+        this.movimentos = movimentos;
         this.repo = repo;
         this.mostoRepo = mostoRepo;
         this.talhaRepo = talhaRepo;
@@ -78,6 +82,9 @@ public class MovimentoService {
             if (talha) { m.setTalha(t); t.setVolumeAtualLitros(volAtual.add(litros)); talhaRepo.save(t); }
             else { m.setDeposito(d); d.setVolumeAtualLitros(volAtual.add(litros)); depositoRepo.save(d); }
             mostoRepo.save(m);
+            movimentos.recipiente(t, d, litros, "Entrada de mosto " + p.getCodigo(),
+                    "Entrada externa" + (p.getContraparte() != null ? " de " + p.getContraparte() : ""),
+                    p.getNomeVinho());
 
         } else { // SAIDA
             if (p.getMostoOrigem() == null) throw new MovimentoException("Indique o mosto de origem a dar saída.");
@@ -90,7 +97,8 @@ public class MovimentoService {
             }
             m.setLitros(v(m.getLitros()).subtract(litros));
             mostoRepo.save(m);
-            ajustarRecipiente(m, litros.negate());
+            ajustarRecipiente(m, litros.negate(), "Saída de mosto " + p.getCodigo(),
+                    "Saída externa" + (p.getContraparte() != null ? " para " + p.getContraparte() : ""));
         }
 
         // O DA só é emitido nas SAÍDAS. Nas entradas o documento vem do
@@ -113,7 +121,9 @@ public class MovimentoService {
 
         if (p.getTipo() == TipoMovimento.ENTRADA) {
             for (Mosto m : mostoRepo.findByOrigemMovimentoId(p.getId())) {
-                ajustarRecipiente(m, v(m.getLitros()).negate()); // retira o volume que este mosto ocupa
+                // retira o volume que este mosto ocupa
+                ajustarRecipiente(m, v(m.getLitros()).negate(), "Entrada de mosto " + p.getCodigo(),
+                        "Entrada reaberta — mosto anulado");
                 mostoRepo.delete(m);
             }
         } else if (p.getMostoOrigem() != null) {
@@ -121,7 +131,8 @@ public class MovimentoService {
             if (m != null) {
                 m.setLitros(v(m.getLitros()).add(litros));
                 mostoRepo.save(m);
-                ajustarRecipiente(m, litros);
+                ajustarRecipiente(m, litros, "Saída de mosto " + p.getCodigo(),
+                        "Saída reaberta — mosto devolvido");
             }
         }
         p.setEstado(EstadoProcesso.ABERTO);
@@ -129,13 +140,19 @@ public class MovimentoService {
         repo.save(p);
     }
 
-    private void ajustarRecipiente(Mosto m, BigDecimal delta) {
+    private void ajustarRecipiente(Mosto m, BigDecimal delta, String origem, String descricao) {
         if (m.getTalha() != null) {
             Talha t = talhaRepo.findById(m.getTalha().getId()).orElse(null);
-            if (t != null) { t.setVolumeAtualLitros(naoNeg(v(t.getVolumeAtualLitros()).add(delta))); talhaRepo.save(t); }
+            if (t != null) {
+                t.setVolumeAtualLitros(naoNeg(v(t.getVolumeAtualLitros()).add(delta))); talhaRepo.save(t);
+                movimentos.talha(t, delta, origem, descricao, m.getVinhoNome());
+            }
         } else if (m.getDeposito() != null) {
             Deposito d = depositoRepo.findById(m.getDeposito().getId()).orElse(null);
-            if (d != null) { d.setVolumeAtualLitros(naoNeg(v(d.getVolumeAtualLitros()).add(delta))); depositoRepo.save(d); }
+            if (d != null) {
+                d.setVolumeAtualLitros(naoNeg(v(d.getVolumeAtualLitros()).add(delta))); depositoRepo.save(d);
+                movimentos.deposito(d, delta, origem, descricao, m.getVinhoNome());
+            }
         }
     }
 

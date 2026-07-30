@@ -26,6 +26,10 @@
                     <td th:text="${a.localizacao}"></td>
                     <td th:text="${a.morada}"></td>
                     <td class="text-end">
+                        <a th:href="@{/movimentos/local(nome='Adega ' + ${a.nome})}"
+                           class="btn btn-sm btn-outline-info" title="Histórico de movimentos desta adega">
+                            <i class="bi bi-clock-history"></i>
+                        </a>
                         <a th:href="@{/fichas/adegas/{id}/editar(id=${a.id})}" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-pencil"></i>
                         </a>

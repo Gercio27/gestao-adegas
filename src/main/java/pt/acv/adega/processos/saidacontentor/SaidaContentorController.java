@@ -82,11 +82,13 @@ public class SaidaContentorController {
             return "redirect:/processos/saida-contentor/nova";
         }
         // Baixa no contentor
-        contentorService.ajustar(tipo, saida.getContentorId(), -saida.getQuantidade());
+        saida.setCodigo(codigoService.proximoCodigo(SaidaContentor.PREFIXO));
+        contentorService.ajustar(tipo, saida.getContentorId(), -saida.getQuantidade(),
+                "Saída de contentor " + saida.getCodigo(),
+                saida.getMotivo() != null ? saida.getMotivo().getDescricao() : "Saída do contentor");
 
         saida.setContentorNome(c.nome());
         saida.setVinhoNome(c.vinhoNome());
-        saida.setCodigo(codigoService.proximoCodigo(SaidaContentor.PREFIXO));
         saida.setCriadoPor(auth.getName());
         if (saida.getDataSaida() == null) saida.setDataSaida(LocalDateTime.now());
         repo.save(saida);
@@ -104,7 +106,8 @@ public class SaidaContentorController {
         }
         // Repor as unidades no contentor
         TipoEmbalagem tipo = s.getTipoEmbalagem() != null ? s.getTipoEmbalagem() : TipoEmbalagem.GARRAFA;
-        contentorService.ajustar(tipo, s.getContentorId(), s.getQuantidade());
+        contentorService.ajustar(tipo, s.getContentorId(), s.getQuantidade(),
+                "Saída de contentor " + s.getCodigo(), "Saída anulada — unidades repostas");
         repo.delete(s);
         ra.addFlashAttribute("sucesso", "Saída anulada. " + s.getQuantidade() + " " + tipo.getUnidade() + " repostas no contentor.");
         return "redirect:/processos/saida-contentor";

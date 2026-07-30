@@ -53,6 +53,7 @@
                         <span th:if="${c.garrafasAtuais <= 0}" class="badge bg-secondary">Vazio</span>
                     </td>
                     <td class="text-end">
+                        <a th:href="@{/movimentos/CONTENTOR_GARRAFAS/{id}(id=${c.id})}" class="btn btn-sm btn-outline-info" title="Histórico de movimentos"><i class="bi bi-clock-history"></i></a>
                         <a th:href="@{/fichas/contentores/{id}/editar(id=${c.id})}" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-pencil"></i>
                         </a>
