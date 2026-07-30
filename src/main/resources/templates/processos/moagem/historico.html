@@ -92,8 +92,11 @@
                 <tbody>
                 <tr th:each="m : ${moagens}">
                     <td><span class="codigo fw-bold" th:text="${m.codigo}"></span></td>
-                    <td class="small text-nowrap"
-                        th:text="${datas.get(m.id) != null ? #temporals.format(datas.get(m.id), 'dd/MM/yyyy') : '—'}"></td>
+                    <td class="small text-nowrap">
+                        <span th:text="${m.dataDaMoagem != null ? #temporals.format(m.dataDaMoagem, 'dd/MM/yyyy') : '—'}">—</span>
+                        <div th:if="${m.dataDoFecho != null}" class="text-muted"
+                             th:text="'fechada a ' + ${#temporals.format(m.dataDoFecho, 'dd/MM/yyyy')}"></div>
+                    </td>
                     <td class="small" th:text="${m.adega != null ? m.adega.nome : '—'}"></td>
                     <td class="small" th:text="${m.plano != null ? m.plano.nomeVinho : '—'}"></td>
                     <td class="small">

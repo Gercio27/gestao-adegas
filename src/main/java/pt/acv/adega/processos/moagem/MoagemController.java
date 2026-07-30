@@ -156,7 +156,7 @@ public class MoagemController {
         for (ProcessoMoagem m : repo.findAllByOrderByDataCriacaoDesc()) {
             if (adega != null && (m.getAdega() == null || !adega.equals(m.getAdega().getId()))) continue;
             if (plano != null && (m.getPlano() == null || !plano.equals(m.getPlano().getId()))) continue;
-            LocalDate d = dataDaMoagem(m);
+            LocalDate d = m.getDataDaMoagem();
             if (dDe != null && (d == null || d.isBefore(dDe))) continue;
             if (dAte != null && (d == null || d.isAfter(dAte))) continue;
             if ("ABERTA".equals(estado) && !m.isAberto()) continue;
@@ -167,17 +167,14 @@ public class MoagemController {
         BigDecimal totalKg = BigDecimal.ZERO;
         BigDecimal totalLitros = BigDecimal.ZERO;
         Map<Long, ResumoMoagem> resumos = new HashMap<>();
-        Map<Long, LocalDate> datas = new HashMap<>();
         for (ProcessoMoagem m : linhas) {
             totalKg = totalKg.add(m.getTotalMoidoKg());
             totalLitros = totalLitros.add(m.getTotalLitrosMosto());
             resumos.put(m.getId(), resumoDaMoagem(m, usado));
-            datas.put(m.getId(), dataDaMoagem(m));
         }
 
         model.addAttribute("moagens", linhas);
         model.addAttribute("resumos", resumos);
-        model.addAttribute("datas", datas);
         model.addAttribute("totalKg", totalKg);
         model.addAttribute("totalLitros", totalLitros);
         model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
@@ -188,12 +185,6 @@ public class MoagemController {
         model.addAttribute("fAte", ate);
         model.addAttribute("fEstado", estado);
         return "processos/moagem/historico";
-    }
-
-    /** Data que conta para o histórico: a de início, ou a de criação. */
-    private LocalDate dataDaMoagem(ProcessoMoagem m) {
-        if (m.getDataHoraInicio() != null) return m.getDataHoraInicio().toLocalDate();
-        return m.getDataCriacao() != null ? m.getDataCriacao().toLocalDate() : null;
     }
 
     private LocalDate data(String s) {

@@ -101,9 +101,18 @@
             <div>
                 <span class="codigo fw-bold" th:text="${mo.codigo}"></span>
                 <span class="ms-2" th:text="${mo.plano != null ? mo.plano.nomeVinho : '—'}"></span>
-                <span class="text-muted small" th:text="'· ' + (mo.adega != null ? mo.adega.nome : '—')"></span>
+                <!-- Data em que a moagem foi feita, logo a seguir ao nome do vinho. -->
+                <span class="badge bg-light text-dark border ms-2" th:if="${mo.dataDaMoagem != null}">
+                    <i class="bi bi-calendar-event"></i>
+                    <span th:text="${#temporals.format(mo.dataDaMoagem, 'dd/MM/yyyy')}">—</span>
+                </span>
+                <span class="text-muted small" th:text="'· ' + ${mo.adega != null ? mo.adega.nome : '—'}"></span>
                 <span th:if="${mo.aberto}" class="badge bg-warning text-dark ms-1">Em moagem</span>
-                <span th:unless="${mo.aberto}" class="badge bg-success ms-1">Fechada</span>
+                <span th:unless="${mo.aberto}" class="badge bg-success ms-1"
+                      th:title="${mo.dataDoFecho != null ? 'Fechada a ' + #temporals.format(mo.dataDoFecho, 'dd/MM/yyyy') : ''}"
+                      th:text="${mo.dataDoFecho != null
+                                ? 'Fechada a ' + #temporals.format(mo.dataDoFecho, 'dd/MM/yyyy')
+                                : 'Fechada'}">Fechada</span>
             </div>
             <div class="small text-muted" th:with="r=${resumos.get(mo.id)}">
                 Vindimado: <strong th:text="${r.vindimado} + ' kg'"></strong>

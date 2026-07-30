@@ -9,6 +9,7 @@ import pt.acv.adega.processos.Fase;
 import pt.acv.adega.processos.Processo;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -108,6 +109,23 @@ public class ProcessoMoagem extends Processo {
         return enchimentos.stream()
                 .map(e -> e.getLitros() == null ? BigDecimal.ZERO : e.getLitros())
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * Data em que a moagem foi feita. E' a data de inicio indicada pelo
+     * utilizador; se ele nao a preencheu, vale o dia em que a moagem foi
+     * criada, para o ecra nunca ficar sem data.
+     */
+    @Transient
+    public LocalDate getDataDaMoagem() {
+        if (getDataHoraInicio() != null) return getDataHoraInicio().toLocalDate();
+        return getDataCriacao() != null ? getDataCriacao().toLocalDate() : null;
+    }
+
+    /** Dia em que a moagem foi fechada (null enquanto estiver aberta). */
+    @Transient
+    public LocalDate getDataDoFecho() {
+        return getDataFecho() != null ? getDataFecho().toLocalDate() : null;
     }
 
     /** Castas das vindimas desta moagem, para as listagens e o histórico. */
