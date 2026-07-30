@@ -17,14 +17,30 @@
                 <label class="form-label">Código</label>
                 <input class="form-control" th:value="*{codigo}" disabled>
             </div>
-            <div class="col-md-6">
-                <label class="form-label">Vinho engarrafado *</label>
-                <select class="form-select" th:field="*{engarrafado}" id="rot-veg" onchange="mostrarContentores()" required>
-                    <option th:value="${null}">—</option>
-                    <option th:each="v : ${engarrafados}" th:value="${v.id}"
-                            th:text="${v.codigo} + ' · ' + ${v.nome} + ' · ' + ${v.numeroGarrafas} + ' garrafas'"></option>
+            <div class="col-md-4">
+                <label class="form-label">Adega / armazém *</label>
+                <select class="form-select" id="rot-local" onchange="popularVinhos()">
+                    <option value="">— escolher local —</option>
+                    <option th:each="l : ${locais}" th:value="${l.ref}" th:text="${l.nome}"></option>
                 </select>
-                <div class="form-text" th:if="${engarrafados.isEmpty()}">Não há vinhos engarrafados por rotular. Faça um engarrafamento (Fase 6).</div>
+                <div class="form-text" th:if="${locais.isEmpty()}">Não há nada por rotular. Faça um engarrafamento (Fase 6).</div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Nome do vinho *</label>
+                <select class="form-select" id="rot-nome" onchange="popularEngarrafados()">
+                    <option value="">— escolher vinho —</option>
+                </select>
+                <div class="form-text">Vinhos por rotular nesse local.</div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Vinho engarrafado *</label>
+                <select class="form-select" th:field="*{engarrafado}" id="rot-veg"
+                        th:attr="data-sel=${rotulagem.engarrafado != null ? rotulagem.engarrafado.id : ''}"
+                        onchange="mostrarContentores()" required>
+                    <option th:value="${null}">—</option>
+                    <option th:if="${rotulagem.engarrafado != null}" th:value="${rotulagem.engarrafado.id}"
+                            th:text="${rotulagem.engarrafado.codigo} + ' · ' + ${rotulagem.engarrafado.nome}"></option>
+                </select>
             </div>
             <div class="col-md-3">
                 <label class="form-label">Nº garrafas rotuladas</label>
@@ -98,6 +114,20 @@
                 <textarea class="form-control" th:field="*{observacoes}" rows="2"></textarea>
             </div>
 
+            <div class="col-md-4">
+                <label class="form-label">Etiquetas</label>
+                <select class="form-select" th:field="*{etiqueta}">
+                    <option th:value="${null}">— (sem etiquetas)</option>
+                    <option th:each="e : ${etiquetas}" th:value="${e.id}"
+                            th:text="${e.codigo} + ' · ' + ${e.descricao} + ' · stock ' + ${e.stock}"></option>
+                </select>
+                <div class="form-text" th:if="${etiquetas.isEmpty()}">Crie um consumível do tipo Etiqueta.</div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Nº de etiquetas</label>
+                <input type="number" min="0" class="form-control" th:field="*{numeroEtiquetas}">
+            </div>
+
             <div class="col-12">
                 <button class="btn text-white" style="background-color:#6b1f2a;" type="submit">Guardar</button>
                 <a th:href="@{/processos/rotulagem}" class="btn btn-outline-secondary">Cancelar</a>
@@ -109,15 +139,61 @@
 <div th:replace="~{fragments/layout :: scripts}"></div>
 <script th:inline="javascript">
     const contentoresPorEngarrafado = /*[[${contentoresPorEngarrafado}]]*/ {};
+    const porLocalEVinho = /*[[${porLocalEVinho}]]*/ {};
+
+    /** Local escolhido -> nomes de vinho por rotular nesse local. */
+    function popularVinhos() {
+        const local = document.getElementById('rot-local').value;
+        const sel = document.getElementById('rot-nome');
+        const porVinho = porLocalEVinho[local] || {};
+        const nomes = Object.keys(porVinho);
+        let h = '<option value="">— escolher vinho —</option>';
+        nomes.forEach(function (n) { h += '<option value="' + n + '">' + n + '</option>'; });
+        sel.innerHTML = h;
+        if (nomes.length === 1) sel.value = nomes[0];   // só há um: escolhe-o
+        popularEngarrafados();
+    }
+
+    /** Nome do vinho -> lotes engarrafados desse vinho, prontos a rotular. */
+    function popularEngarrafados() {
+        const local = document.getElementById('rot-local').value;
+        const nome = document.getElementById('rot-nome').value;
+        const sel = document.getElementById('rot-veg');
+        const guardado = sel.dataset.sel || '';
+        const lista = ((porLocalEVinho[local] || {})[nome]) || [];
+        let h = '<option value="">—</option>';
+        lista.forEach(function (v) { h += '<option value="' + v.id + '">' + v.label + '</option>'; });
+        sel.innerHTML = h;
+        if (guardado) sel.value = guardado;
+        else if (lista.length === 1) sel.value = lista[0].id;
+        mostrarContentores();
+    }
+
     function mostrarContentores() {
         const veg = document.getElementById('rot-veg').value;
         const box = document.getElementById('rot-contentores');
         const locais = veg ? contentoresPorEngarrafado[veg] : null;
-        if (!veg) { box.innerHTML = '<span class="text-muted small">Escolha o vinho engarrafado.</span>'; return; }
+        if (!veg) { box.innerHTML = '<span class="text-muted small">Escolha o local e o vinho.</span>'; return; }
         if (!locais || !locais.length) { box.innerHTML = '<span class="text-muted small">Sem contentores associados a este vinho.</span>'; return; }
         box.innerHTML = locais.map(function (l) { return '<div class="small">• ' + l + '</div>'; }).join('');
     }
-    document.addEventListener('DOMContentLoaded', mostrarContentores);
+
+    document.addEventListener('DOMContentLoaded', function () {
+        // Ao editar, encontra o local onde o vinho guardado está e repõe a cadeia.
+        const guardado = document.getElementById('rot-veg').dataset.sel || '';
+        if (guardado) {
+            Object.keys(porLocalEVinho).forEach(function (ref) {
+                Object.keys(porLocalEVinho[ref]).forEach(function (nome) {
+                    if (porLocalEVinho[ref][nome].some(function (v) { return String(v.id) === guardado; })) {
+                        document.getElementById('rot-local').value = ref;
+                        popularVinhos();
+                        document.getElementById('rot-nome').value = nome;
+                    }
+                });
+            });
+        }
+        popularEngarrafados();
+    });
 </script>
 </body>
 </html>

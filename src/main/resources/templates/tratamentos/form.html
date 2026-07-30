@@ -6,7 +6,7 @@
 
 <div class="container">
     <h3 class="mb-1">Novo tratamento enológico</h3>
-    <p class="text-muted">Transversal a qualquer fase. Escolha a adega e o vinho (mosto ou a granel); vê onde está e em que
+    <p class="text-muted">Transversal a qualquer fase. Escolha a adega ou o armazém e o vinho (mosto ou a granel); vê onde está e em que
         quantidades. Registe a <strong>data</strong> e o <strong>tratamento aplicado</strong>. Pode registar vários ao longo do tempo.</p>
 
     <div class="card shadow-sm"><div class="card-body">
@@ -22,9 +22,9 @@
                 </select>
             </div>
             <div class="col-md-4">
-                <label class="form-label">Adega *</label>
-                <select class="form-select" name="adega" id="sel-adega" onchange="popularVinhos()" required>
-                    <option value="">— escolher adega —</option>
+                <label class="form-label">Adega / armazém *</label>
+                <select class="form-select" name="localRef" id="sel-adega" onchange="popularVinhos()" required>
+                    <option value="">— escolher local —</option>
                 </select>
             </div>
             <div class="col-md-4">
@@ -37,7 +37,7 @@
 
             <div class="col-12">
                 <label class="form-label">Onde está (talhas/depósitos e quantidades)</label>
-                <div class="border rounded p-2" id="recip-box"><span class="text-muted small">Escolha adega e vinho.</span></div>
+                <div class="border rounded p-2" id="recip-box"><span class="text-muted small">Escolha o local e o vinho.</span></div>
             </div>
 
             <div class="col-md-4">
@@ -78,7 +78,7 @@
     function popularAdegas() {
         const d = dadosAtuais();
         const sel = document.getElementById('sel-adega');
-        let h = '<option value="">— escolher adega —</option>';
+        let h = '<option value="">— escolher local —</option>';
         (d.adegas || []).forEach(function (a) { h += '<option value="' + a.id + '">' + esc(a.nome) + '</option>'; });
         sel.innerHTML = h;
         const hint = document.getElementById('sel-hint');
@@ -104,7 +104,7 @@
         document.getElementById('vinhoNome').value = vinho || '';
         const recs = (adega && vinho && d.recipientes[adega + '|' + vinho]) ? d.recipientes[adega + '|' + vinho] : [];
         if (!recs.length) {
-            box.innerHTML = '<span class="text-muted small">Escolha adega e vinho.</span>';
+            box.innerHTML = '<span class="text-muted small">Escolha o local e o vinho.</span>';
             document.getElementById('recipientesDescricao').value = '';
             return;
         }

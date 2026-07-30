@@ -6,6 +6,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
+import pt.acv.adega.fichas.AdegaRepository;
+import pt.acv.adega.fichas.ArmazemRepository;
 
 import java.time.LocalDate;
 
@@ -20,12 +22,17 @@ public class TratamentoEnologicoController {
 
     private final TratamentoEnologicoRepository repo;
     private final LocalizacaoVinhoService localizacaoService;
+    private final AdegaRepository adegaRepo;
+    private final ArmazemRepository armazemRepo;
     private final CodigoService codigoService;
 
     public TratamentoEnologicoController(TratamentoEnologicoRepository repo,
+                                         AdegaRepository adegaRepo, ArmazemRepository armazemRepo,
                                          LocalizacaoVinhoService localizacaoService, CodigoService codigoService) {
         this.repo = repo;
         this.localizacaoService = localizacaoService;
+        this.adegaRepo = adegaRepo;
+        this.armazemRepo = armazemRepo;
         this.codigoService = codigoService;
     }
 
@@ -47,6 +54,7 @@ public class TratamentoEnologicoController {
     @PostMapping
     public String guardar(@ModelAttribute("tratamento") TratamentoEnologico tratamento,
                           Authentication auth, RedirectAttributes ra) {
+        aplicarLocal(tratamento);
         if (tratamento.getId() == null) {
             tratamento.setCodigo(codigoService.proximoCodigo(TratamentoEnologico.PREFIXO));
             tratamento.setCriadoPor(auth.getName());
@@ -76,5 +84,18 @@ public class TratamentoEnologicoController {
     private void preencherOpcoes(Model model) {
         model.addAttribute("categorias", CategoriaVinho.values());
         model.addAttribute("dadosPorCategoria", localizacaoService.dadosPorCategoria());
+    }
+
+    /** Poe a adega ou o armazem a partir da referencia "ADEGA:id"/"ARMAZEM:id". */
+    private void aplicarLocal(TratamentoEnologico e) {
+        String ref = e.getLocalRef();
+        e.setAdega(null);
+        e.setArmazem(null);
+        if (ref == null || !ref.contains(":")) return;
+        String[] partes = ref.split(":", 2);
+        Long id;
+        try { id = Long.valueOf(partes[1].trim()); } catch (Exception ex) { return; }
+        if ("ADEGA".equals(partes[0])) adegaRepo.findById(id).ifPresent(e::setAdega);
+        else if ("ARMAZEM".equals(partes[0])) armazemRepo.findById(id).ifPresent(e::setArmazem);
     }
 }

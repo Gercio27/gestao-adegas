@@ -18,6 +18,7 @@ import pt.acv.adega.fichas.TipoConsumivel;
 import pt.acv.adega.fichas.TipoEmbalagem;
 import pt.acv.adega.fichas.TrabalhadorRepository;
 import pt.acv.adega.fichas.AdegaRepository;
+import pt.acv.adega.fichas.ArmazemRepository;
 import pt.acv.adega.planeamento.PlaneamentoVinho;
 import pt.acv.adega.processos.moagem.ProcessoMoagem;
 import pt.acv.adega.processos.moagem.ProcessoMoagemRepository;
@@ -40,6 +41,7 @@ public class EngarrafamentoController {
     private final TrabalhadorRepository trabalhadorRepo;
     private final VinhoEngarrafadoRepository engarrafadoRepo;
     private final AdegaRepository adegaRepo;
+    private final ArmazemRepository armazemRepo;
     private final ProcessoMoagemRepository moagemRepo;
     private final ContentorGarrafasRepository contentorRepo;
     private final ContentorBagInBoxRepository bibRepo;
@@ -48,7 +50,8 @@ public class EngarrafamentoController {
     public EngarrafamentoController(ProcessoEngarrafamentoRepository repo, EngarrafamentoService service,
                                     MostoRepository mostoRepo, ConsumivelRepository consumivelRepo,
                                     TrabalhadorRepository trabalhadorRepo, VinhoEngarrafadoRepository engarrafadoRepo,
-                                    AdegaRepository adegaRepo, ProcessoMoagemRepository moagemRepo,
+                                    AdegaRepository adegaRepo, ArmazemRepository armazemRepo,
+                                    ProcessoMoagemRepository moagemRepo,
                                     ContentorGarrafasRepository contentorRepo, ContentorBagInBoxRepository bibRepo,
                                     CodigoService codigoService) {
         this.repo = repo;
@@ -58,6 +61,7 @@ public class EngarrafamentoController {
         this.trabalhadorRepo = trabalhadorRepo;
         this.engarrafadoRepo = engarrafadoRepo;
         this.adegaRepo = adegaRepo;
+        this.armazemRepo = armazemRepo;
         this.moagemRepo = moagemRepo;
         this.contentorRepo = contentorRepo;
         this.bibRepo = bibRepo;
@@ -219,7 +223,17 @@ public class EngarrafamentoController {
         model.addAttribute("garrafas", consumivelRepo.findByTipoOrderByDescricaoAsc(TipoConsumivel.GARRAFA));
         model.addAttribute("rolhas", consumivelRepo.findByTipoOrderByDescricaoAsc(TipoConsumivel.ROLHA));
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
-        model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
+        // Locais possiveis: adegas e armazens.
+        List<Map<String, Object>> locais = new ArrayList<>();
+        adegaRepo.findAllByOrderByNomeAsc().forEach(a -> {
+            Map<String, Object> l = new LinkedHashMap<>();
+            l.put("ref", "ADEGA:" + a.getId()); l.put("nome", "Adega " + a.getNome()); locais.add(l);
+        });
+        armazemRepo.findAllByOrderByNomeAsc().forEach(a -> {
+            Map<String, Object> l = new LinkedHashMap<>();
+            l.put("ref", "ARMAZEM:" + a.getId()); l.put("nome", "Armazém " + a.getNome()); locais.add(l);
+        });
+        model.addAttribute("locais", locais);
 
         // Vinhos prontos a granel (nao certificados nao e requisito aqui), por adega + vinho.
         Map<Long, PlaneamentoVinho> moagemPlano = new HashMap<>();
@@ -231,12 +245,15 @@ public class EngarrafamentoController {
         Set<String> nomes = new LinkedHashSet<>();
         List<Map<String, Object>> granel = new ArrayList<>();
         for (Mosto m : mostoRepo.findByEstadoOrderByDataProducaoDesc(EstadoMosto.VINHO_GRANEL)) {
-            Long adegaId = null;
+            // O vinho pode estar numa adega ou num armazem: agrupa-se por local.
+            String localRef = null;
             String local = m.getLocalizacao();
-            if (m.getTalha() != null && m.getTalha().getAdega() != null) { adegaId = m.getTalha().getAdega().getId(); local = "Talha " + m.getTalha().getIdentificacao(); }
-            else if (m.getDeposito() != null) {
+            if (m.getTalha() != null && m.getTalha().getAdega() != null) {
+                localRef = "ADEGA:" + m.getTalha().getAdega().getId();
+                local = "Talha " + m.getTalha().getIdentificacao();
+            } else if (m.getDeposito() != null) {
                 local = "Depósito " + m.getDeposito().getIdentificacao();
-                if (m.getDeposito().getAdega() != null) adegaId = m.getDeposito().getAdega().getId();
+                if (!m.getDeposito().getLocalRef().isEmpty()) localRef = m.getDeposito().getLocalRef();
             }
             PlaneamentoVinho w = m.getOrigemMoagemId() != null ? moagemPlano.get(m.getOrigemMoagemId()) : null;
             String nome = m.getVinhoNome() != null && !m.getVinhoNome().isBlank()
@@ -248,7 +265,7 @@ public class EngarrafamentoController {
             row.put("id", m.getId());
             // Sem adega (ex.: deposito num armazem) fica a 0: aparece quando nao
             // se filtra por adega, em vez de desaparecer.
-            row.put("adegaId", adegaId == null ? 0L : adegaId);
+            row.put("localRef", localRef == null ? "" : localRef);
             row.put("vinho", nome);
             row.put("label", m.getCodigo() + " · " + local + " · " + (m.getLitros() == null ? "0" : m.getLitros().toPlainString()) + " L");
             granel.add(row);

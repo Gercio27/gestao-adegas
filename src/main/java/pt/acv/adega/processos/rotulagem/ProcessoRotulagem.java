@@ -43,6 +43,14 @@ public class ProcessoRotulagem extends Processo {
     @JoinColumn(name = "caixa_id")
     private Consumivel caixa;
 
+    /** Etiquetas (contra-rotulo, selo, etc.) aplicadas nesta rotulagem. */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "etiqueta_id")
+    private Consumivel etiqueta;
+
+    @Column(nullable = false)
+    private int numeroEtiquetas;
+
     @Column(nullable = false)
     private int numeroCaixas;
 
@@ -69,4 +77,10 @@ public class ProcessoRotulagem extends Processo {
 
     public int getNumeroCaixas() { return numeroCaixas; }
     public void setNumeroCaixas(int numeroCaixas) { this.numeroCaixas = numeroCaixas; }
+
+    public Consumivel getEtiqueta() { return etiqueta; }
+    public void setEtiqueta(Consumivel etiqueta) { this.etiqueta = etiqueta; }
+
+    public int getNumeroEtiquetas() { return numeroEtiquetas; }
+    public void setNumeroEtiquetas(int numeroEtiquetas) { this.numeroEtiquetas = numeroEtiquetas; }
 }

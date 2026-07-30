@@ -156,19 +156,36 @@ public class ComercialController {
     }
 
     private void preencherOpcoes(Model model) {
-        // Disponivel para entrega: contentores rotulados com stock, por tipo.
-        Map<String, List<Map<String, Object>>> porTipo = new LinkedHashMap<>();
+        // Disponivel para entrega: contentores rotulados com stock, organizados
+        // por tipo → local (adega/armazém) → nome do vinho. Sem isto vinha tudo
+        // de todos os armazéns numa lista só, misturado.
+        Map<String, Object> porTipo = new LinkedHashMap<>();
+        Map<String, Object> locaisPorTipo = new LinkedHashMap<>();
         for (TipoEmbalagem tipo : TipoEmbalagem.values()) {
-            List<Map<String, Object>> lista = new ArrayList<>();
+            Map<String, String> nomesLocais = contentorService.nomesDosLocais(tipo);
+            Map<String, Map<String, List<Map<String, Object>>>> porLocal = new LinkedHashMap<>();
             for (ContentorService.Opcao o : contentorService.rotuladosComStock(tipo)) {
+                String ref = contentorService.localDe(tipo, o.id());
+                if (ref == null || ref.isEmpty()) continue;
+                String vinho = o.vinhoNome() != null ? o.vinhoNome() : "(vinho sem nome)";
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("id", o.id());
                 row.put("label", o.label());
-                lista.add(row);
+                porLocal.computeIfAbsent(ref, k -> new LinkedHashMap<>())
+                        .computeIfAbsent(vinho, k -> new ArrayList<>()).add(row);
             }
-            porTipo.put(tipo.name(), lista);
+            List<Map<String, Object>> locais = new ArrayList<>();
+            for (String ref : porLocal.keySet()) {
+                Map<String, Object> l = new LinkedHashMap<>();
+                l.put("ref", ref);
+                l.put("nome", nomesLocais.getOrDefault(ref, ref));
+                locais.add(l);
+            }
+            porTipo.put(tipo.name(), porLocal);
+            locaisPorTipo.put(tipo.name(), locais);
         }
-        model.addAttribute("contentoresPorTipo", porTipo);
+        model.addAttribute("porTipoLocalEVinho", porTipo);
+        model.addAttribute("locaisPorTipo", locaisPorTipo);
         model.addAttribute("tiposEmbalagem", TipoEmbalagem.values());
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
     }

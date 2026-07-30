@@ -42,33 +42,35 @@ public class LocalizacaoVinhoService {
             if (mo.getPlano() != null) plano.put(mo.getId(), mo.getPlano());
         }
 
-        Map<Long, String> adegaNomes = new LinkedHashMap<>();
-        Map<Long, LinkedHashSet<String>> vinhosTmp = new LinkedHashMap<>();
+        // Chave do local: "ADEGA:id" ou "ARMAZEM:id" — os depositos podem
+        // estar num armazem, e nesse caso tem de aparecer na mesma.
+        Map<String, String> adegaNomes = new LinkedHashMap<>();
+        Map<String, LinkedHashSet<String>> vinhosTmp = new LinkedHashMap<>();
         Map<String, List<Map<String, Object>>> recipientes = new LinkedHashMap<>();
 
         for (EstadoMosto est : estados) {
             for (Mosto m : mostoRepo.findByEstadoOrderByDataProducaoDesc(est)) {
-                Long adegaId = null;
+                String localRef = null;
                 String local = "—";
                 if (m.getTalha() != null && m.getTalha().getAdega() != null) {
-                    adegaId = m.getTalha().getAdega().getId();
+                    localRef = "ADEGA:" + m.getTalha().getAdega().getId();
                     local = "Talha " + m.getTalha().getIdentificacao();
-                    adegaNomes.putIfAbsent(adegaId, m.getTalha().getAdega().getNome());
-                } else if (m.getDeposito() != null && m.getDeposito().getAdega() != null) {
-                    adegaId = m.getDeposito().getAdega().getId();
+                    adegaNomes.putIfAbsent(localRef, "Adega " + m.getTalha().getAdega().getNome());
+                } else if (m.getDeposito() != null && !m.getDeposito().getLocalRef().isEmpty()) {
+                    localRef = m.getDeposito().getLocalRef();
                     local = "Depósito " + m.getDeposito().getIdentificacao();
-                    adegaNomes.putIfAbsent(adegaId, m.getDeposito().getAdega().getNome());
+                    adegaNomes.putIfAbsent(localRef, m.getDeposito().getLocalizacao());
                 }
-                if (adegaId == null) continue;
+                if (localRef == null) continue;
                 String nome = nomeVinho(m, plano);
                 if (nome == null || nome.isBlank()) continue;
 
-                vinhosTmp.computeIfAbsent(adegaId, k -> new LinkedHashSet<>()).add(nome);
+                vinhosTmp.computeIfAbsent(localRef, k -> new LinkedHashSet<>()).add(nome);
                 Map<String, Object> r = new LinkedHashMap<>();
                 r.put("local", local);
                 r.put("codigo", m.getCodigo());
                 r.put("litros", m.getLitros() == null ? "0" : m.getLitros().toPlainString());
-                recipientes.computeIfAbsent(adegaId + "|" + nome, k -> new ArrayList<>()).add(r);
+                recipientes.computeIfAbsent(localRef + "|" + nome, k -> new ArrayList<>()).add(r);
             }
         }
 
@@ -82,8 +84,8 @@ public class LocalizacaoVinhoService {
                     adegas.add(a);
                 });
         Map<String, List<String>> vinhosPorAdega = new LinkedHashMap<>();
-        for (Map.Entry<Long, LinkedHashSet<String>> e : vinhosTmp.entrySet()) {
-            vinhosPorAdega.put(String.valueOf(e.getKey()), new ArrayList<>(e.getValue()));
+        for (Map.Entry<String, LinkedHashSet<String>> e : vinhosTmp.entrySet()) {
+            vinhosPorAdega.put(e.getKey(), new ArrayList<>(e.getValue()));
         }
 
         Map<String, Object> out = new LinkedHashMap<>();

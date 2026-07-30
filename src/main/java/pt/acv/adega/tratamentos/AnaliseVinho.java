@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import org.springframework.format.annotation.DateTimeFormat;
 import pt.acv.adega.common.BaseEntity;
 import pt.acv.adega.fichas.Adega;
+import pt.acv.adega.fichas.Armazem;
 
 import java.time.LocalDate;
 
@@ -21,6 +22,20 @@ public class AnaliseVinho extends BaseEntity {
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "adega_id")
     private Adega adega;
+
+    /**
+     * O vinho pode estar numa adega ou num armazem (os depositos podem ficar
+     * nos dois). Guarda-se o que for, e o formulario trabalha com a referencia
+     * "ADEGA:id" / "ARMAZEM:id".
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "armazem_id")
+    private Armazem armazem;
+
+    /** Referencia do local vinda do formulario. Nao persiste. */
+    @Transient
+    private String localRef;
+
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 10)
@@ -86,4 +101,23 @@ public class AnaliseVinho extends BaseEntity {
 
     @Transient
     public boolean isTemPdf() { return analisePdf != null && analisePdf.length > 0; }
+
+    public Armazem getArmazem() { return armazem; }
+    public void setArmazem(Armazem armazem) { this.armazem = armazem; }
+
+    public String getLocalRef() {
+        if (localRef != null) return localRef;
+        if (adega != null) return "ADEGA:" + adega.getId();
+        if (armazem != null) return "ARMAZEM:" + armazem.getId();
+        return "";
+    }
+    public void setLocalRef(String localRef) { this.localRef = localRef; }
+
+    /** Nome legivel do local (adega ou armazem). */
+    @Transient
+    public String getLocalNome() {
+        if (adega != null) return "Adega " + adega.getNome();
+        if (armazem != null) return "Armazem " + armazem.getNome();
+        return "\u2014";
+    }
 }

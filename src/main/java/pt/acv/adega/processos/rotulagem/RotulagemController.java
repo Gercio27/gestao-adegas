@@ -8,6 +8,8 @@ import org.springframework.validation.BindingResult;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
+import pt.acv.adega.fichas.ContentorBagInBox;
+import pt.acv.adega.fichas.ContentorBagInBoxRepository;
 import pt.acv.adega.fichas.ContentorGarrafas;
 import pt.acv.adega.fichas.ContentorGarrafasRepository;
 import pt.acv.adega.fichas.ConsumivelRepository;
@@ -29,11 +31,12 @@ public class RotulagemController {
     private final ConsumivelRepository consumivelRepo;
     private final TrabalhadorRepository trabalhadorRepo;
     private final ContentorGarrafasRepository contentorRepo;
+    private final ContentorBagInBoxRepository bibRepo;
     private final CodigoService codigoService;
 
     public RotulagemController(ProcessoRotulagemRepository repo, RotulagemService service,
                               VinhoEngarrafadoRepository engarrafadoRepo, ConsumivelRepository consumivelRepo,
-                              TrabalhadorRepository trabalhadorRepo, ContentorGarrafasRepository contentorRepo,
+                              TrabalhadorRepository trabalhadorRepo, ContentorGarrafasRepository contentorRepo, ContentorBagInBoxRepository bibRepo,
                               CodigoService codigoService) {
         this.repo = repo;
         this.service = service;
@@ -41,6 +44,7 @@ public class RotulagemController {
         this.consumivelRepo = consumivelRepo;
         this.trabalhadorRepo = trabalhadorRepo;
         this.contentorRepo = contentorRepo;
+        this.bibRepo = bibRepo;
         this.codigoService = codigoService;
     }
 
@@ -146,19 +150,61 @@ public class RotulagemController {
         model.addAttribute("rotulos", consumivelRepo.findByTipoOrderByDescricaoAsc(TipoConsumivel.ROTULO));
         model.addAttribute("capsulas", consumivelRepo.findByTipoOrderByDescricaoAsc(TipoConsumivel.CAPSULA));
         model.addAttribute("caixas", consumivelRepo.findByTipoOrderByDescricaoAsc(TipoConsumivel.CAIXA));
+        model.addAttribute("etiquetas", consumivelRepo.findByTipoOrderByDescricaoAsc(TipoConsumivel.ETIQUETA));
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
 
-        // Contentores onde cada vinho engarrafado se encontra (para mostrar na rotulagem).
+        // Onde é que cada vinho engarrafado está (garrafas e bag-in-box) e a que
+        // local pertence — para o formulário guiar por local → nome do vinho →
+        // vinhos disponíveis para rotular.
         Map<Long, List<String>> contentoresPorEngarrafado = new LinkedHashMap<>();
+        Map<String, String> nomesLocais = new LinkedHashMap<>();
+        Map<String, Map<String, List<Map<String, Object>>>> porLocalEVinho = new LinkedHashMap<>();
+
         for (VinhoEngarrafado v : naoRotulados) {
-            List<String> locais = new ArrayList<>();
+            List<String> onde = new ArrayList<>();
+            Set<String> locaisDoVinho = new LinkedHashSet<>();
+            int unidades = 0;
+
             for (ContentorGarrafas c : contentorRepo.findByVinhoEngarrafadoIdOrderByNomeAsc(v.getId())) {
-                locais.add(c.getCodigo() + " · " + c.getNome() + " · " + c.getLocalizacao()
+                if (c.getGarrafasAtuais() <= 0) continue;
+                onde.add(c.getCodigo() + " · " + c.getNome() + " · " + c.getLocalizacao()
                         + " · " + c.getGarrafasAtuais() + " garrafas");
+                String ref = c.getArmazem() != null ? "ARMAZEM:" + c.getArmazem().getId()
+                        : (c.getAdega() != null ? "ADEGA:" + c.getAdega().getId() : null);
+                if (ref != null) { locaisDoVinho.add(ref); nomesLocais.putIfAbsent(ref, c.getLocalizacao()); }
+                unidades += c.getGarrafasAtuais();
             }
-            contentoresPorEngarrafado.put(v.getId(), locais);
+            for (ContentorBagInBox c : bibRepo.findByVinhoEmbaladoIdOrderByNomeAsc(v.getId())) {
+                if (c.getUnidadesAtuais() <= 0) continue;
+                onde.add(c.getCodigo() + " · " + c.getNome() + " · " + c.getLocalizacao()
+                        + " · " + c.getUnidadesAtuais() + " unidades (bag-in-box)");
+                String ref = c.getArmazem() != null ? "ARMAZEM:" + c.getArmazem().getId()
+                        : (c.getAdega() != null ? "ADEGA:" + c.getAdega().getId() : null);
+                if (ref != null) { locaisDoVinho.add(ref); nomesLocais.putIfAbsent(ref, c.getLocalizacao()); }
+                unidades += c.getUnidadesAtuais();
+            }
+            contentoresPorEngarrafado.put(v.getId(), onde);
+
+            String nome = v.getNome() != null ? v.getNome() : v.getCodigo();
+            Map<String, Object> linha = new LinkedHashMap<>();
+            linha.put("id", v.getId());
+            linha.put("label", v.getCodigo() + " · " + nome + " · " + unidades + " por rotular");
+            for (String ref : locaisDoVinho) {
+                porLocalEVinho.computeIfAbsent(ref, k -> new LinkedHashMap<>())
+                        .computeIfAbsent(nome, k -> new ArrayList<>()).add(linha);
+            }
         }
         model.addAttribute("contentoresPorEngarrafado", contentoresPorEngarrafado);
+        model.addAttribute("porLocalEVinho", porLocalEVinho);
+
+        List<Map<String, Object>> locais = new ArrayList<>();
+        for (Map.Entry<String, String> e : nomesLocais.entrySet()) {
+            Map<String, Object> l = new LinkedHashMap<>();
+            l.put("ref", e.getKey());
+            l.put("nome", e.getValue());
+            locais.add(l);
+        }
+        model.addAttribute("locais", locais);
     }
 
     private boolean isAdmin(Authentication auth) {

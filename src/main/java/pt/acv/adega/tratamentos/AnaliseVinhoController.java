@@ -12,6 +12,8 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 import pt.acv.adega.common.CodigoService;
+import pt.acv.adega.fichas.AdegaRepository;
+import pt.acv.adega.fichas.ArmazemRepository;
 
 import java.io.IOException;
 import java.time.LocalDate;
@@ -27,12 +29,17 @@ public class AnaliseVinhoController {
 
     private final AnaliseVinhoRepository repo;
     private final LocalizacaoVinhoService localizacaoService;
+    private final AdegaRepository adegaRepo;
+    private final ArmazemRepository armazemRepo;
     private final CodigoService codigoService;
 
     public AnaliseVinhoController(AnaliseVinhoRepository repo,
+                                         AdegaRepository adegaRepo, ArmazemRepository armazemRepo,
                                   LocalizacaoVinhoService localizacaoService, CodigoService codigoService) {
         this.repo = repo;
         this.localizacaoService = localizacaoService;
+        this.adegaRepo = adegaRepo;
+        this.armazemRepo = armazemRepo;
         this.codigoService = codigoService;
     }
 
@@ -55,6 +62,7 @@ public class AnaliseVinhoController {
     public String guardar(@ModelAttribute("analise") AnaliseVinho analise,
                           @RequestParam(value = "analiseFicheiro", required = false) MultipartFile analiseFicheiro,
                           Authentication auth, RedirectAttributes ra) {
+        aplicarLocal(analise);
         if (analise.getId() == null) {
             analise.setCodigo(codigoService.proximoCodigo(AnaliseVinho.PREFIXO));
             analise.setCriadoPor(auth.getName());
@@ -113,5 +121,18 @@ public class AnaliseVinhoController {
     private void preencherOpcoes(Model model) {
         model.addAttribute("categorias", CategoriaVinho.values());
         model.addAttribute("dadosPorCategoria", localizacaoService.dadosPorCategoria());
+    }
+
+    /** Poe a adega ou o armazem a partir da referencia "ADEGA:id"/"ARMAZEM:id". */
+    private void aplicarLocal(AnaliseVinho e) {
+        String ref = e.getLocalRef();
+        e.setAdega(null);
+        e.setArmazem(null);
+        if (ref == null || !ref.contains(":")) return;
+        String[] partes = ref.split(":", 2);
+        Long id;
+        try { id = Long.valueOf(partes[1].trim()); } catch (Exception ex) { return; }
+        if ("ADEGA".equals(partes[0])) adegaRepo.findById(id).ifPresent(e::setAdega);
+        else if ("ARMAZEM".equals(partes[0])) armazemRepo.findById(id).ifPresent(e::setArmazem);
     }
 }

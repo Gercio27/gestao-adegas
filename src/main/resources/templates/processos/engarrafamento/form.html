@@ -39,10 +39,10 @@
             </div>
 
             <div class="col-md-4">
-                <label class="form-label">Adega</label>
+                <label class="form-label">Adega / armazém</label>
                 <select class="form-select" id="eg-adega" onchange="filtrar()">
-                    <option value="">— escolher adega —</option>
-                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
+                    <option value="">— escolher local —</option>
+                    <option th:each="l : ${locais}" th:value="${l.ref}" th:text="${l.nome}"></option>
                 </select>
             </div>
             <div class="col-md-4">
@@ -175,7 +175,7 @@
         const sel = document.getElementById('eg-granel');
         const guardado = sel.dataset.sel || '';
         let lista = granelDisponivel;
-        if (adega) lista = lista.filter(function (m) { return String(m.adegaId) === adega; });
+        if (adega) lista = lista.filter(function (m) { return m.localRef === adega; });
         // Sem adega escolhida mostra tudo, incluindo o que esta fora de uma adega.
         if (vinho) lista = lista.filter(function (m) { return m.vinho === vinho; });
         let h = '<option value="">— escolher —</option>';

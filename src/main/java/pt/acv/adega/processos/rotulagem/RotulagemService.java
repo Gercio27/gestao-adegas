@@ -51,11 +51,14 @@ public class RotulagemService {
         if (capsula != null) exigirStock(capsula, p.getNumeroCapsulas());
         Consumivel caixa = p.getCaixa() != null ? carregar(p.getCaixa().getId(), "Caixa") : null;
         if (caixa != null) exigirStock(caixa, p.getNumeroCaixas());
+        Consumivel etiqueta = p.getEtiqueta() != null ? carregar(p.getEtiqueta().getId(), "Etiqueta") : null;
+        if (etiqueta != null) exigirStock(etiqueta, p.getNumeroEtiquetas());
 
         rotulo.setStock(rotulo.getStock() - p.getNumeroRotulos());
         consumivelRepo.save(rotulo);
         if (capsula != null) { capsula.setStock(capsula.getStock() - p.getNumeroCapsulas()); consumivelRepo.save(capsula); }
         if (caixa != null) { caixa.setStock(caixa.getStock() - p.getNumeroCaixas()); consumivelRepo.save(caixa); }
+        if (etiqueta != null) { etiqueta.setStock(etiqueta.getStock() - p.getNumeroEtiquetas()); consumivelRepo.save(etiqueta); }
 
         VinhoEngarrafado veg = engarrafadoRepo.findById(p.getEngarrafado().getId())
                 .orElseThrow(() -> new RotulagemException("Vinho engarrafado não encontrado."));
@@ -88,6 +91,7 @@ public class RotulagemService {
         repor(p.getRotulo(), p.getNumeroRotulos());
         repor(p.getCapsula(), p.getNumeroCapsulas());
         repor(p.getCaixa(), p.getNumeroCaixas());
+        repor(p.getEtiqueta(), p.getNumeroEtiquetas());
 
         if (p.getEngarrafado() != null) {
             VinhoEngarrafado veg = engarrafadoRepo.findById(p.getEngarrafado().getId()).orElse(null);

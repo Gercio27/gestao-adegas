@@ -27,12 +27,26 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-8">
-                <label class="form-label">Vinho disponível (por adega/armazém, rotulado) *</label>
-                <select class="form-select" th:field="*{contentorId}" id="co-contentor" required>
-                    <option th:value="${null}">—</option>
+            <div class="col-md-4">
+                <label class="form-label">Adega / armazém *</label>
+                <select class="form-select" id="co-local" onchange="popularVinhos()">
+                    <option value="">— escolher local —</option>
                 </select>
                 <div class="form-text" id="co-ajuda"></div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">Vinho *</label>
+                <select class="form-select" id="co-vinho" onchange="popularContentores()">
+                    <option value="">— escolher vinho —</option>
+                </select>
+                <div class="form-text">Só vinhos rotulados com stock nesse local.</div>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">De que contentor sai *</label>
+                <select class="form-select" th:field="*{contentorId}" id="co-contentor"
+                        th:attr="data-sel=${comercial.contentorId}" required>
+                    <option th:value="${null}">—</option>
+                </select>
             </div>
             <div class="col-md-4">
                 <label class="form-label"><span id="lblQtd">Garrafas</span> a entregar *</label>
@@ -82,7 +96,8 @@
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
 <script th:inline="javascript">
-    const contentoresPorTipo = /*[[${contentoresPorTipo}]]*/ {};
+    const porTipoLocalEVinho = /*[[${porTipoLocalEVinho}]]*/ {};
+    const locaisPorTipo = /*[[${locaisPorTipo}]]*/ {};
     const contentorGuardado = /*[[${comercial.contentorId}]]*/ null;
 
     function tipoEscolhido() {
@@ -90,23 +105,69 @@
         return r ? r.value : 'GARRAFA';
     }
 
-    /** Mostra só o que está disponível no tipo de embalagem escolhido. */
+    /** Tipo de embalagem escolhido -> locais que tem esse tipo rotulado. */
     function alternarTipo() {
         const tipo = tipoEscolhido();
         const bib = tipo === 'BAG_IN_BOX';
-        const lista = contentoresPorTipo[tipo] || [];
+        const locais = locaisPorTipo[tipo] || [];
+        const sel = document.getElementById('co-local');
+        const anterior = sel.value;
+        let h = '<option value="">— escolher local —</option>';
+        locais.forEach(function (l) { h += '<option value="' + l.ref + '">' + l.nome + '</option>'; });
+        sel.innerHTML = h;
+        if (anterior) sel.value = anterior;
+        if (!sel.value && locais.length === 1) sel.value = locais[0].ref;
+        document.getElementById('lblQtd').textContent = bib ? 'Unidades' : 'Garrafas';
+        document.getElementById('co-ajuda').textContent = locais.length ? ''
+            : (bib ? 'Não há bag-in-box rotulado disponível. Faça a rotulagem (Fase 7).'
+                   : 'Não há garrafas rotuladas disponíveis. Faça a rotulagem (Fase 7).');
+        popularVinhos();
+    }
+
+    /** Local -> vinhos rotulados com stock nesse local. */
+    function popularVinhos() {
+        const local = document.getElementById('co-local').value;
+        const porVinho = (porTipoLocalEVinho[tipoEscolhido()] || {})[local] || {};
+        const nomes = Object.keys(porVinho);
+        const sel = document.getElementById('co-vinho');
+        const anterior = sel.value;
+        let h = '<option value="">— escolher vinho —</option>';
+        nomes.forEach(function (n) { h += '<option value="' + n + '">' + n + '</option>'; });
+        sel.innerHTML = h;
+        if (anterior) sel.value = anterior;
+        if (!sel.value && nomes.length === 1) sel.value = nomes[0];
+        popularContentores();
+    }
+
+    /** Vinho -> contentores desse vinho, nesse local. */
+    function popularContentores() {
+        const local = document.getElementById('co-local').value;
+        const vinho = document.getElementById('co-vinho').value;
+        const lista = ((porTipoLocalEVinho[tipoEscolhido()] || {})[local] || {})[vinho] || [];
         const sel = document.getElementById('co-contentor');
+        const guardado = sel.dataset.sel || '';
         let h = '<option value="">—</option>';
         lista.forEach(function (c) { h += '<option value="' + c.id + '">' + c.label + '</option>'; });
         sel.innerHTML = h;
-        if (contentorGuardado) sel.value = contentorGuardado;
-        document.getElementById('lblQtd').textContent = bib ? 'Unidades' : 'Garrafas';
-        document.getElementById('co-ajuda').textContent = lista.length ? ''
-            : (bib ? 'Não há bag-in-box rotulado disponível. Faça a rotulagem (Fase 7).'
-                   : 'Não há garrafas rotuladas disponíveis. Faça a rotulagem (Fase 7).');
+        if (guardado) sel.value = guardado;
+        else if (lista.length === 1) sel.value = lista[0].id;
     }
 
-    document.addEventListener('DOMContentLoaded', alternarTipo);
+    document.addEventListener('DOMContentLoaded', function () {
+        // Ao editar, encontra onde esta o contentor guardado e repoe a cadeia.
+        if (contentorGuardado) {
+            const t = porTipoLocalEVinho[tipoEscolhido()] || {};
+            Object.keys(t).forEach(function (ref) {
+                Object.keys(t[ref]).forEach(function (nome) {
+                    if (t[ref][nome].some(function (c) { return String(c.id) === String(contentorGuardado); })) {
+                        document.getElementById('co-local').value = ref;
+                        document.getElementById('co-vinho').value = nome;
+                    }
+                });
+            });
+        }
+        alternarTipo();
+    });
 </script>
 </body>
 </html>

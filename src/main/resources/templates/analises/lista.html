@@ -18,7 +18,7 @@
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle">
                 <thead>
-                <tr><th>Código</th><th>Vinho</th><th>Fase</th><th>Adega</th><th>Onde estava</th>
+                <tr><th>Código</th><th>Vinho</th><th>Fase</th><th>Local</th><th>Onde estava</th>
                     <th>Data</th><th>PDF</th><th class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
@@ -26,7 +26,7 @@
                     <td><span class="codigo" th:text="${a.codigo}"></span></td>
                     <td class="fw-semibold" th:text="${a.vinhoNome ?: '—'}"></td>
                     <td th:text="${a.categoria.descricao}"></td>
-                    <td th:text="${a.adega != null ? a.adega.nome : '—'}"></td>
+                    <td th:text="${a.localNome}"></td>
                     <td class="small" th:text="${a.recipientesDescricao ?: '—'}"></td>
                     <td th:text="${a.dataAnalise != null ? #temporals.format(a.dataAnalise,'dd-MM-yyyy') : '—'}"></td>
                     <td>
