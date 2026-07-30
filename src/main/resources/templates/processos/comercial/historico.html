@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-PT">
+<head th:replace="~{fragments/layout :: head('Histórico de entregas')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container-fluid px-4">
+    <div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+        <h3 class="mb-0"><i class="bi bi-clipboard-check"></i> Histórico de entregas ao comercial</h3>
+        <div>
+            <a th:href="@{/processos/comercial/nova}" class="btn text-white" style="background-color:#6b1f2a;">
+                <i class="bi bi-plus-lg"></i> Nova entrega
+            </a>
+            <a th:href="@{/processos/comercial}" class="btn btn-outline-secondary">Ver processos</a>
+        </div>
+    </div>
+    <p class="text-muted">Que cliente levou o quê, quanto e quando. Os totais contam só as entregas já fechadas.</p>
+
+    <!-- Filtros -->
+    <div class="card shadow-sm mb-3"><div class="card-body py-2">
+        <form method="get" th:action="@{/processos/comercial/historico}" class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label small mb-0">Cliente</label>
+                <input type="text" class="form-control form-control-sm" name="cliente" th:value="${cliente}"
+                       placeholder="parte do nome">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-0">Vinho</label>
+                <input type="text" class="form-control form-control-sm" name="vinho" th:value="${vinho}"
+                       placeholder="parte do nome">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-0">De</label>
+                <input type="date" class="form-control form-control-sm" name="de" th:value="${de}">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-0">Até</label>
+                <input type="date" class="form-control form-control-sm" name="ate" th:value="${ate}">
+            </div>
+            <div class="col-md-1">
+                <label class="form-label small mb-0">Estado</label>
+                <select class="form-select form-select-sm" name="estado">
+                    <option value="" th:selected="${estadoFiltro == null or estadoFiltro == ''}">Todos</option>
+                    <option value="FECHADO" th:selected="${estadoFiltro == 'FECHADO'}">Entregues</option>
+                    <option value="ABERTO" th:selected="${estadoFiltro == 'ABERTO'}">Por entregar</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button class="btn btn-sm btn-outline-secondary w-100" type="submit">Filtrar</button>
+            </div>
+        </form>
+    </div></div>
+
+    <!-- Totais -->
+    <div class="row g-3 mb-3">
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100"><div class="card-body py-2">
+                <div class="text-muted small">Entregas fechadas</div>
+                <div class="fs-4 fw-bold" th:text="${entregasFechadas}">0</div>
+            </div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100"><div class="card-body py-2">
+                <div class="text-muted small">Garrafas entregues</div>
+                <div class="fs-4 fw-bold" th:text="${totalGarrafas}">0</div>
+            </div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100"><div class="card-body py-2">
+                <div class="text-muted small">Unidades bag-in-box</div>
+                <div class="fs-4 fw-bold" th:text="${totalUnidades}">0</div>
+            </div></div>
+        </div>
+        <div class="col-md-3">
+            <div class="card shadow-sm h-100"><div class="card-body py-2">
+                <div class="text-muted small mb-1">Por cliente</div>
+                <span th:each="e : ${porCliente}" class="badge bg-secondary me-1 mb-1">
+                    <span th:text="${e.key}"></span>: <span th:text="${e.value}"></span>
+                </span>
+                <span th:if="${porCliente.isEmpty()}" class="text-muted small">—</span>
+            </div></div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0 align-middle">
+                <thead>
+                <tr>
+                    <th>Data</th><th>Nota</th><th>Processo</th><th>Cliente</th><th>Morada</th>
+                    <th>Vinho</th><th>Embalagem</th><th class="text-end">Quantidade</th>
+                    <th>Saiu de</th><th>Recebido por</th><th>Responsável</th><th>Estado</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="p : ${linhas}">
+                    <td th:text="${p.dataFecho != null ? #temporals.format(p.dataFecho,'dd-MM-yyyy')
+                                    : (p.dataHoraInicio != null ? #temporals.format(p.dataHoraInicio,'dd-MM-yyyy') : '—')}"></td>
+                    <td>
+                        <a th:if="${p.numeroNota != null}" th:href="@{/processos/comercial/{id}/nota(id=${p.id})}"
+                           target="_blank" class="codigo" th:text="${p.numeroNota}">NE</a>
+                        <span th:if="${p.numeroNota == null}" class="text-muted">—</span>
+                    </td>
+                    <td><a th:href="@{/processos/comercial/{id}(id=${p.id})}" class="codigo" th:text="${p.codigo}"></a></td>
+                    <td th:text="${p.destinatario ?: '—'}"></td>
+                    <td class="small text-muted" th:text="${p.moradaDestino ?: '—'}"></td>
+                    <td th:text="${p.engarrafado != null ? p.engarrafado.nome : '—'}"></td>
+                    <td class="small" th:text="${p.tipoEmbalagem.descricao}"></td>
+                    <td class="text-end fw-bold"
+                        th:text="${p.quantidadeGarrafas} + ' ' + ${p.unidadeNome}"></td>
+                    <td class="small text-muted" th:text="${p.origemDescricao ?: '—'}"></td>
+                    <td class="small" th:text="${p.responsavelRececao ?: '—'}"></td>
+                    <td class="small" th:text="${p.responsavel != null ? p.responsavel.nome : '—'}"></td>
+                    <td>
+                        <span th:if="${p.aberto}" class="badge bg-warning text-dark">Por entregar</span>
+                        <span th:unless="${p.aberto}" class="badge bg-success">Entregue</span>
+                    </td>
+                </tr>
+                <tr th:if="${linhas.isEmpty()}">
+                    <td colspan="12" class="text-center text-muted py-4">Não há entregas com estes filtros.</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mt-3" th:if="${!porVinho.isEmpty()}">
+        <div class="card-header bg-white fw-bold">Entregue por vinho</div>
+        <div class="card-body py-2">
+            <span th:each="e : ${porVinho}" class="badge bg-dark me-1 mb-1">
+                <span th:text="${e.key}"></span>: <span th:text="${e.value}"></span>
+            </span>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>

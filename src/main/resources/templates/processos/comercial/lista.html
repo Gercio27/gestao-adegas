@@ -11,6 +11,8 @@
         <a th:href="@{/processos/comercial/nova}" class="btn text-white" style="background-color:#6b1f2a;">
             <i class="bi bi-plus-lg"></i> Nova entrega
         </a>
+        <a th:href="@{/processos/comercial/historico}" class="btn btn-outline-secondary">
+            <i class="bi bi-clipboard-check"></i> Histórico de entregas</a>
     </div>
     <p class="text-muted" th:text="${admin} ? 'Como administrador, vê todas.' : 'Vê as que abriu.'"></p>
 

@@ -69,6 +69,85 @@ public class ComercialController {
         return "processos/comercial/detalhe";
     }
 
+    /**
+     * Historico das entregas: quem levou, que vinho, quantas garrafas e quando.
+     * Com filtros por cliente, vinho, datas e estado, e totais no fim.
+     */
+    @GetMapping("/historico")
+    public String historico(Authentication auth,
+                            @RequestParam(required = false) String cliente,
+                            @RequestParam(required = false) String vinho,
+                            @RequestParam(required = false) String de,
+                            @RequestParam(required = false) String ate,
+                            @RequestParam(required = false) String estado,
+                            Model model) {
+        List<ProcessoPassagemComercial> todos = isAdmin(auth)
+                ? repo.findAllByOrderByDataCriacaoDesc()
+                : repo.findByCriadoPorOrderByDataCriacaoDesc(auth.getName());
+
+        java.time.LocalDate dataDe = parseData(de);
+        java.time.LocalDate dataAte = parseData(ate);
+
+        List<ProcessoPassagemComercial> linhas = new ArrayList<>();
+        for (ProcessoPassagemComercial p : todos) {
+            if (contem(cliente) && !contemTexto(p.getDestinatario(), cliente)) continue;
+            if (contem(vinho) && !contemTexto(p.getEngarrafado() != null ? p.getEngarrafado().getNome() : null, vinho)) continue;
+            java.time.LocalDate data = dataDaEntrega(p);
+            if (dataDe != null && (data == null || data.isBefore(dataDe))) continue;
+            if (dataAte != null && (data == null || data.isAfter(dataAte))) continue;
+            if ("FECHADO".equals(estado) && p.isAberto()) continue;
+            if ("ABERTO".equals(estado) && !p.isAberto()) continue;
+            linhas.add(p);
+        }
+        model.addAttribute("linhas", linhas);
+
+        // Totais: so' contam as entregas ja fechadas (as abertas ainda nao sairam).
+        int totalGarrafas = 0, totalUnidades = 0, fechadas = 0;
+        Map<String, Integer> porCliente = new LinkedHashMap<>();
+        Map<String, Integer> porVinho = new LinkedHashMap<>();
+        for (ProcessoPassagemComercial p : linhas) {
+            if (p.isAberto()) continue;
+            fechadas++;
+            if (p.getTipoEmbalagem() == TipoEmbalagem.BAG_IN_BOX) totalUnidades += p.getQuantidadeGarrafas();
+            else totalGarrafas += p.getQuantidadeGarrafas();
+            String c = p.getDestinatario() != null && !p.getDestinatario().isBlank() ? p.getDestinatario() : "(sem cliente)";
+            porCliente.merge(c, p.getQuantidadeGarrafas(), Integer::sum);
+            String v = p.getEngarrafado() != null ? p.getEngarrafado().getNome() : "(sem vinho)";
+            porVinho.merge(v, p.getQuantidadeGarrafas(), Integer::sum);
+        }
+        model.addAttribute("totalGarrafas", totalGarrafas);
+        model.addAttribute("totalUnidades", totalUnidades);
+        model.addAttribute("entregasFechadas", fechadas);
+        model.addAttribute("porCliente", porCliente);
+        model.addAttribute("porVinho", porVinho);
+
+        model.addAttribute("cliente", cliente);
+        model.addAttribute("vinho", vinho);
+        model.addAttribute("de", de);
+        model.addAttribute("ate", ate);
+        model.addAttribute("estadoFiltro", estado);
+        return "processos/comercial/historico";
+    }
+
+    /** Data que conta para o historico: a do fecho, ou a de inicio se ainda estiver aberta. */
+    private java.time.LocalDate dataDaEntrega(ProcessoPassagemComercial p) {
+        if (p.getDataFecho() != null) return p.getDataFecho().toLocalDate();
+        if (p.getDataHoraFim() != null) return p.getDataHoraFim().toLocalDate();
+        if (p.getDataHoraInicio() != null) return p.getDataHoraInicio().toLocalDate();
+        return null;
+    }
+
+    private boolean contem(String s) { return s != null && !s.isBlank(); }
+
+    private boolean contemTexto(String campo, String procura) {
+        return campo != null && campo.toLowerCase().contains(procura.trim().toLowerCase());
+    }
+
+    private java.time.LocalDate parseData(String s) {
+        if (s == null || s.isBlank()) return null;
+        try { return java.time.LocalDate.parse(s.trim()); } catch (Exception e) { return null; }
+    }
+
     /** Nota de entrega imprimivel (imprimir / guardar como PDF pelo browser). */
     @GetMapping("/{id}/nota")
     public String nota(@PathVariable Long id, Authentication auth, Model model, RedirectAttributes ra) {
