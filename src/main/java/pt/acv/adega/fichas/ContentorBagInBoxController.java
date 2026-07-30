@@ -29,6 +29,26 @@ public class ContentorBagInBoxController {
         this.codigoService = codigoService;
     }
 
+
+    /** Descarrega o PDF do certificado guardado nesta ficha. */
+    @GetMapping("/{id}/certificado")
+    public org.springframework.http.ResponseEntity<org.springframework.core.io.ByteArrayResource> certificado(
+            @PathVariable Long id) {
+        ContentorBagInBox c = repo.findById(id).orElse(null);
+        if (c == null || !c.isTemCertificadoPdf()) {
+            return org.springframework.http.ResponseEntity.notFound().build();
+        }
+        String nome = c.getCertificadoPdfNome() != null ? c.getCertificadoPdfNome()
+                : ("certificado-" + c.getCodigo() + ".pdf");
+        org.springframework.http.MediaType tipo = c.getCertificadoPdfTipo() != null
+                ? org.springframework.http.MediaType.parseMediaType(c.getCertificadoPdfTipo())
+                : org.springframework.http.MediaType.APPLICATION_PDF;
+        return org.springframework.http.ResponseEntity.ok().contentType(tipo)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        org.springframework.http.ContentDisposition.inline().filename(nome).build().toString())
+                .body(new org.springframework.core.io.ByteArrayResource(c.getCertificadoPdf()));
+    }
+
     @GetMapping
     public String listar(Model model) {
         model.addAttribute("contentores", repo.findAllByOrderByNomeAsc());
@@ -53,6 +73,7 @@ public class ContentorBagInBoxController {
 
     @PostMapping
     public String guardar(@Valid @ModelAttribute("contentor") ContentorBagInBox c, BindingResult result,
+                          @RequestParam(value = "certificadoFicheiro", required = false) org.springframework.web.multipart.MultipartFile certificadoFicheiro,
                           @RequestParam(value = "localTipo", required = false) String localTipo,
                           Model model, RedirectAttributes ra) {
         // Fica num armazém OU numa adega — limpa o lado não escolhido.
@@ -68,6 +89,32 @@ public class ContentorBagInBoxController {
         if (c.getCapacidadeUnidades() < 0) c.setCapacidadeUnidades(0);
         // Contentor vazio não fica com vinho pendurado.
         if (c.getUnidadesAtuais() == 0) { c.setVinhoNome(null); c.setVinhoEmbaladoId(null); c.setRotulado(false); }
+        // Mantem o PDF ja guardado se nao vier ficheiro novo.
+        if (c.getId() != null) {
+            repo.findById(c.getId()).ifPresent(antigo -> {
+                if (c.getCertificadoPdf() == null) {
+                    c.setCertificadoPdf(antigo.getCertificadoPdf());
+                    c.setCertificadoPdfNome(antigo.getCertificadoPdfNome());
+                    c.setCertificadoPdfTipo(antigo.getCertificadoPdfTipo());
+                }
+                if (c.getCertificacaoCodigo() == null) c.setCertificacaoCodigo(antigo.getCertificacaoCodigo());
+            });
+        }
+        if (certificadoFicheiro != null && !certificadoFicheiro.isEmpty()) {
+            try {
+                c.setCertificadoPdf(certificadoFicheiro.getBytes());
+                c.setCertificadoPdfNome(certificadoFicheiro.getOriginalFilename());
+                c.setCertificadoPdfTipo(certificadoFicheiro.getContentType());
+            } catch (java.io.IOException e) {
+                ra.addFlashAttribute("erro", "Nao foi possivel ler o PDF do certificado.");
+                return "redirect:/fichas/bag-in-box";
+            }
+        }
+        // Sem certificacao, nao fica validade nem PDF pendurados.
+        if (!c.isCertificado()) {
+            c.setValidadeCertificacao(null);
+            c.setCertificacaoCodigo(null);
+        }
         repo.save(c);
         ra.addFlashAttribute("sucesso", "Contentor bag-in-box guardado: " + c.getCodigo());
         return "redirect:/fichas/bag-in-box";

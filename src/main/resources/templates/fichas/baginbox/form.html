@@ -8,7 +8,7 @@
     <h3 class="mb-3" th:text="${contentor.id == null} ? 'Novo contentor / palete bag-in-box' : 'Editar contentor bag-in-box'">Bag-in-box</h3>
 
     <div class="card shadow-sm"><div class="card-body">
-        <form th:action="@{/fichas/bag-in-box}" th:object="${contentor}" method="post" class="row g-3">
+        <form th:action="@{/fichas/bag-in-box}" th:object="${contentor}" method="post" class="row g-3" enctype="multipart/form-data">
             <input type="hidden" th:field="*{id}">
             <input type="hidden" th:field="*{codigo}">
 
@@ -80,6 +80,48 @@
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" th:field="*{rotulado}" id="bib-rotulado">
                     <label class="form-check-label" for="bib-rotulado">Estas unidades já estão rotuladas</label>
+                </div>
+            </div>
+
+
+            <!-- ===== Certificacao ===== -->
+            <div class="col-12"><hr class="my-1"></div>
+            <div class="col-12">
+                <div th:if="${contentor.certificadoPeloProcesso}" class="alert alert-success py-2 mb-2 small">
+                    <i class="bi bi-patch-check-fill"></i>
+                    Certificado pelo processo <strong th:text="${contentor.certificacaoCodigo}"></strong>.
+                    Para alterar, use a Certificação — o que escrever aqui é substituído na próxima certificação.
+                </div>
+                <span class="text-muted small" th:unless="${contentor.certificadoPeloProcesso}">
+                    Certificação — preencha só se a registar à mão. Quando vier da
+                    <strong>Certificação</strong>, é preenchida sozinha.
+                </span>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Certificado</label>
+                <div class="form-check mt-2">
+                    <input class="form-check-input" type="checkbox" th:field="*{certificado}" id="cert-ok">
+                    <label class="form-check-label" for="cert-ok">Está certificado</label>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label">Validade da certificação</label>
+                <input type="date" class="form-control" th:field="*{validadeCertificacao}">
+                <div class="form-text text-danger" th:if="${contentor.certificacaoExpirada}">
+                    <i class="bi bi-exclamation-triangle"></i> A validade já passou.
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">PDF do certificado</label>
+                <input type="file" class="form-control" name="certificadoFicheiro" accept="application/pdf,.pdf">
+                <div class="form-text">
+                    <span th:if="${contentor.temCertificadoPdf}">
+                        Já tem anexo:
+                        <a th:href="@{/fichas/bag-in-box/{id}/certificado(id=${contentor.id})}" target="_blank"
+                           th:text="${contentor.certificadoPdfNome ?: 'ver PDF'}">PDF</a>.
+                        Escolher outro substitui-o.
+                    </span>
+                    <span th:unless="${contentor.temCertificadoPdf}">Anexe aqui o certificado (máx. 10 MB).</span>
                 </div>
             </div>
 

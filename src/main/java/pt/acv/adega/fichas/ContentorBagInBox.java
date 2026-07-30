@@ -57,6 +57,35 @@ public class ContentorBagInBox extends BaseEntity {
     @Column(nullable = false)
     private boolean rotulado = false;
 
+    // ----- Certificacao -----
+
+    /** As unidades que estao aqui dentro estao certificadas. */
+    @Column(nullable = false)
+    private boolean certificado = false;
+
+    /** Ate quando e' que a certificacao e' valida. */
+    private java.time.LocalDate validadeCertificacao;
+
+    /**
+     * Codigo do processo de certificacao de onde isto veio. Quando esta
+     * preenchido, a ficha mostra que a certificacao foi feita no processo e
+     * nao a mao.
+     */
+    @Column(name = "certificacao_codigo", length = 20)
+    private String certificacaoCodigo;
+
+    /** PDF do certificado (do processo, ou anexado a mao na ficha). */
+    @Lob
+    @Column(name = "certificado_pdf")
+    private byte[] certificadoPdf;
+
+    @Column(length = 200)
+    private String certificadoPdfNome;
+
+    @Column(length = 100)
+    private String certificadoPdfTipo;
+
+
     public String getNome() { return nome; }
     public void setNome(String nome) { this.nome = nome; }
 
@@ -119,5 +148,39 @@ public class ContentorBagInBox extends BaseEntity {
     public BigDecimal getLitrosCapacidade() {
         if (tipoBag == null) return BigDecimal.ZERO;
         return tipoBag.getLitrosPorUnidade().multiply(BigDecimal.valueOf(capacidadeUnidades));
+    }
+
+    public boolean isCertificado() { return certificado; }
+    public void setCertificado(boolean certificado) { this.certificado = certificado; }
+
+    public java.time.LocalDate getValidadeCertificacao() { return validadeCertificacao; }
+    public void setValidadeCertificacao(java.time.LocalDate validadeCertificacao) { this.validadeCertificacao = validadeCertificacao; }
+
+    public String getCertificacaoCodigo() { return certificacaoCodigo; }
+    public void setCertificacaoCodigo(String certificacaoCodigo) { this.certificacaoCodigo = certificacaoCodigo; }
+
+    public byte[] getCertificadoPdf() { return certificadoPdf; }
+    public void setCertificadoPdf(byte[] certificadoPdf) { this.certificadoPdf = certificadoPdf; }
+
+    public String getCertificadoPdfNome() { return certificadoPdfNome; }
+    public void setCertificadoPdfNome(String certificadoPdfNome) { this.certificadoPdfNome = certificadoPdfNome; }
+
+    public String getCertificadoPdfTipo() { return certificadoPdfTipo; }
+    public void setCertificadoPdfTipo(String certificadoPdfTipo) { this.certificadoPdfTipo = certificadoPdfTipo; }
+
+    @Transient
+    public boolean isTemCertificadoPdf() { return certificadoPdf != null && certificadoPdf.length > 0; }
+
+    /** A certificacao veio do processo (Fase 5) e nao foi escrita a mao. */
+    @Transient
+    public boolean isCertificadoPeloProcesso() {
+        return certificacaoCodigo != null && !certificacaoCodigo.isBlank();
+    }
+
+    /** A validade ja passou. */
+    @Transient
+    public boolean isCertificacaoExpirada() {
+        return certificado && validadeCertificacao != null
+                && validadeCertificacao.isBefore(java.time.LocalDate.now());
     }
 }

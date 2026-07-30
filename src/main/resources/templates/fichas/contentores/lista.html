@@ -18,7 +18,7 @@
             <table class="table table-hover mb-0 align-middle">
                 <thead>
                 <tr><th>Código</th><th>Nome</th><th>Formato</th><th class="text-end">Máx.</th>
-                    <th>Local</th><th>Vinho (conteúdo)</th><th class="text-end">Garrafas</th><th>Face ao máximo</th><th>Rotulado</th><th class="text-end">Ações</th></tr>
+                    <th>Local</th><th>Vinho (conteúdo)</th><th class="text-end">Garrafas</th><th>Face ao máximo</th><th>Certificado</th><th>Rotulado</th><th class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
                 <tr th:each="c : ${contentores}">
@@ -35,6 +35,18 @@
                         <span th:unless="${c.acimaDoMaximo}" class="text-muted"
                               th:text="'Faltam ' + ${c.faltamParaMaximo}"></span>
                     </td>
+                    <td class="small">
+                        <span th:if="${c.certificado and !c.certificacaoExpirada}" class="badge bg-success">Certificado</span>
+                        <span th:if="${c.certificacaoExpirada}" class="badge bg-danger">Validade expirada</span>
+                        <span th:unless="${c.certificado}" class="badge bg-secondary">Não</span>
+                        <div th:if="${c.certificado}" class="text-muted">
+                            <span th:if="${c.validadeCertificacao != null}"
+                                  th:text="'até ' + ${#temporals.format(c.validadeCertificacao,'dd-MM-yyyy')}"></span>
+                            <span th:if="${c.certificadoPeloProcesso}" th:text="'&#183; ' + ${c.certificacaoCodigo}"></span>
+                            <a th:if="${c.temCertificadoPdf}" th:href="@{/fichas/contentores/{id}/certificado(id=${c.id})}"
+                               target="_blank" title="Ver certificado"><i class="bi bi-file-earmark-pdf"></i></a>
+                        </div>
+                    </td>
                     <td>
                         <span th:if="${c.garrafasAtuais > 0 and c.rotulado}" class="badge bg-success">Rotulado</span>
                         <span th:if="${c.garrafasAtuais > 0 and !c.rotulado}" class="badge bg-warning text-dark">Por rotular</span>
@@ -50,7 +62,7 @@
                         </form>
                     </td>
                 </tr>
-                <tr th:if="${contentores.isEmpty()}"><td colspan="10" class="text-center text-muted py-4">Sem contentores registados.</td></tr>
+                <tr th:if="${contentores.isEmpty()}"><td colspan="11" class="text-center text-muted py-4">Sem contentores registados.</td></tr>
                 </tbody>
             </table>
         </div>
