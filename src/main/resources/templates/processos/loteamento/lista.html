@@ -22,14 +22,14 @@
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle">
                 <thead>
-                <tr><th>Código do lote</th><th>Vinho</th><th>Adega</th><th>Planeado em</th>
+                <tr><th>Código do lote</th><th>Vinho</th><th>Local</th><th>Planeado em</th>
                     <th>Estado</th><th class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
                 <tr th:each="l : ${lotes}">
                     <td><span class="codigo" th:text="${l.codigo}"></span></td>
                     <td th:text="${l.nome}"></td>
-                    <td th:text="${l.adega != null ? l.adega.nome : '—'}"></td>
+                    <td th:text="${l.localNome}"></td>
                     <td th:text="${l.dataPlaneamento != null ? #temporals.format(l.dataPlaneamento, 'dd/MM/yyyy') : '—'}"></td>
                     <td>
                         <span th:if="${l.concluido}" class="badge bg-success">Concluído</span>

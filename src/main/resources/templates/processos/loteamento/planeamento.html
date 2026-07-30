@@ -8,7 +8,7 @@
 <div class="container">
     <h3 class="mb-1"><i class="bi bi-diagram-3"></i> 6.1 — Planeamento dos lotes</h3>
     <p class="text-muted">
-        Escolha a adega e veja todos os vinhos com os depósitos em que estão — esta é a fase em que pode haver
+        Escolha a adega ou o armazém e veja todos os vinhos com os depósitos em que estão — esta é a fase em que pode haver
         misturas de vinho. Dê um nome ao vinho a construir (o código do lote é gerado automaticamente) e registe
         a quantidade que deve entrar de cada depósito. <strong>Aqui ainda não dá baixa</strong> — fica só como intenção.
     </p>
@@ -18,10 +18,10 @@
 
         <div class="card shadow-sm mb-3"><div class="card-body row g-3">
             <div class="col-md-4">
-                <label class="form-label">Adega *</label>
-                <select class="form-select" name="adegaId" id="lt-adega" onchange="mostrarDepositos()" required>
-                    <option value="">— escolher adega —</option>
-                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"></option>
+                <label class="form-label">Adega / armazém *</label>
+                <select class="form-select" name="localRef" id="lt-adega" onchange="mostrarDepositos()" required>
+                    <option value="">— escolher local —</option>
+                    <option th:each="l : ${locais}" th:value="${l.ref}" th:text="${l.nome}"></option>
                 </select>
             </div>
             <div class="col-md-8">
@@ -37,11 +37,11 @@
 
         <div class="card shadow-sm">
             <div class="card-header bg-white">
-                <strong>Vinhos e depósitos da adega</strong>
+                <strong>Vinhos e depósitos do local</strong>
                 <span class="text-muted"> — indique os litros a entrar no lote</span>
             </div>
             <div class="card-body" id="lt-depositos">
-                <p class="text-muted mb-0">Escolha primeiro a adega.</p>
+                <p class="text-muted mb-0">Escolha primeiro o local.</p>
             </div>
             <div class="card-footer bg-white d-flex justify-content-between align-items-center">
                 <span>Total planeado: <strong id="lt-total">0</strong> L</span>
@@ -56,15 +56,15 @@
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
 <script th:inline="javascript">
-    const granelPorAdega = /*[[${granelPorAdega}]]*/ {};
+    const granelPorLocal = /*[[${granelPorLocal}]]*/ {};
 
     function mostrarDepositos() {
         const adega = document.getElementById('lt-adega').value;
         const caixa = document.getElementById('lt-depositos');
-        const lista = (adega && granelPorAdega[adega]) ? granelPorAdega[adega] : [];
-        if (!adega) { caixa.innerHTML = '<p class="text-muted mb-0">Escolha primeiro a adega.</p>'; atualizarTotal(); return; }
+        const lista = (adega && granelPorLocal[adega]) ? granelPorLocal[adega] : [];
+        if (!adega) { caixa.innerHTML = '<p class="text-muted mb-0">Escolha primeiro o local.</p>'; atualizarTotal(); return; }
         if (lista.length === 0) {
-            caixa.innerHTML = '<p class="text-muted mb-0">Esta adega não tem vinho a granel disponível.</p>';
+            caixa.innerHTML = '<p class="text-muted mb-0">Este local não tem vinho a granel disponível.</p>';
             atualizarTotal();
             return;
         }

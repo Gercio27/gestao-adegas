@@ -30,6 +30,7 @@ public class LoteamentoController {
     private final LoteamentoService service;
     private final MostoRepository mostoRepo;
     private final AdegaRepository adegaRepo;
+    private final ArmazemRepository armazemRepo;
     private final TalhaRepository talhaRepo;
     private final DepositoRepository depositoRepo;
     private final ProcessoMoagemRepository moagemRepo;
@@ -38,7 +39,8 @@ public class LoteamentoController {
 
     public LoteamentoController(LoteamentoRepository loteRepo, LoteLinhaRepository linhaRepo,
                                 LoteConstrucaoRepository construcaoRepo, LoteamentoService service,
-                                MostoRepository mostoRepo, AdegaRepository adegaRepo, TalhaRepository talhaRepo,
+                                MostoRepository mostoRepo, AdegaRepository adegaRepo, ArmazemRepository armazemRepo,
+                                TalhaRepository talhaRepo,
                                 DepositoRepository depositoRepo, ProcessoMoagemRepository moagemRepo,
                                 PlaneamentoVinhoRepository planeamentoRepo,
                                 CodigoService codigoService) {
@@ -48,6 +50,7 @@ public class LoteamentoController {
         this.service = service;
         this.mostoRepo = mostoRepo;
         this.adegaRepo = adegaRepo;
+        this.armazemRepo = armazemRepo;
         this.talhaRepo = talhaRepo;
         this.depositoRepo = depositoRepo;
         this.moagemRepo = moagemRepo;
@@ -65,14 +68,14 @@ public class LoteamentoController {
 
     @GetMapping("/planear")
     public String planear(Model model) {
-        model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
-        model.addAttribute("granelPorAdega", granelPorAdega());
+        model.addAttribute("locais", locais());
+        model.addAttribute("granelPorLocal", granelPorLocal());
         return "processos/loteamento/planeamento";
     }
 
     @PostMapping("/planear")
     @Transactional
-    public String guardarPlano(@RequestParam String nome, @RequestParam(required = false) Long adegaId,
+    public String guardarPlano(@RequestParam String nome, @RequestParam(required = false) String localRef,
                                @RequestParam(required = false) String linhas,
                                Authentication auth, RedirectAttributes ra) {
         if (nome == null || nome.isBlank()) { ra.addFlashAttribute("erro", "Dê um nome ao vinho do lote."); return "redirect:/processos/loteamento/planear"; }
@@ -84,7 +87,7 @@ public class LoteamentoController {
         Loteamento lote = new Loteamento();
         lote.setCodigo(codigoService.proximoCodigo(Loteamento.PREFIXO));
         lote.setNome(nome.trim());
-        if (adegaId != null) lote.setAdega(adegaRepo.findById(adegaId).orElse(null));
+        aplicarLocal(lote, localRef);
         lote.setDataPlaneamento(LocalDate.now());
         lote.setCriadoPor(auth.getName());
         loteRepo.save(lote);
@@ -147,9 +150,9 @@ public class LoteamentoController {
         }
         model.addAttribute("totalConstruido", totalConstruido);
 
-        Long adegaId = lote.getAdega() != null ? lote.getAdega().getId() : null;
-        model.addAttribute("origens", granelDaAdega(adegaId, lote.getCodigo()));
-        model.addAttribute("recipientes", recipientesDaAdega(adegaId));
+        String localRef = lote.getLocalRef();
+        model.addAttribute("origens", granelDoLocal(localRef, lote.getCodigo()));
+        model.addAttribute("recipientes", recipientesDoLocal(localRef));
         return "processos/loteamento/construcao";
     }
 
@@ -255,31 +258,31 @@ public class LoteamentoController {
         return null;
     }
 
-    /** Vinhos a granel por adega (todos os vinhos com todos os depositos). */
-    private Map<Long, List<Map<String, Object>>> granelPorAdega() {
+    /** Vinhos a granel por local (adega ou armazem), com todos os depositos. */
+    private Map<String, List<Map<String, Object>>> granelPorLocal() {
         Map<Long, PlaneamentoVinho> moagemPlano = planoPorMoagem();
-        Map<Long, List<Map<String, Object>>> out = new LinkedHashMap<>();
+        Map<String, List<Map<String, Object>>> out = new LinkedHashMap<>();
         for (Mosto m : mostoRepo.findByEstadoOrderByDataProducaoDesc(EstadoMosto.VINHO_GRANEL)) {
-            Long adegaId = adegaDe(m);
-            if (adegaId == null) continue;
+            String localRef = localDe(m);
+            if (localRef == null) continue;
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("id", m.getId());
             row.put("vinho", nomeVinho(m, moagemPlano));
             row.put("label", m.getCodigo() + " · " + m.getLocalizacao() + " · "
                     + (nomeVinho(m, moagemPlano) != null ? nomeVinho(m, moagemPlano) : "vinho") + " · "
                     + (m.getLitros() == null ? "0" : m.getLitros().toPlainString()) + " L");
-            out.computeIfAbsent(adegaId, k -> new ArrayList<>()).add(row);
+            out.computeIfAbsent(localRef, k -> new ArrayList<>()).add(row);
         }
         return out;
     }
 
-    /** Origens possiveis: o vinho a granel da adega, menos o proprio vinho do lote. */
-    private List<Map<String, Object>> granelDaAdega(Long adegaId, String excluirLoteCodigo) {
+    /** Origens possiveis: o vinho a granel do local, menos o proprio vinho do lote. */
+    private List<Map<String, Object>> granelDoLocal(String localRef, String excluirLoteCodigo) {
         Map<Long, PlaneamentoVinho> moagemPlano = planoPorMoagem();
         List<Map<String, Object>> out = new ArrayList<>();
-        if (adegaId == null) return out;
+        if (localRef == null || localRef.isEmpty()) return out;
         for (Mosto m : mostoRepo.findByEstadoOrderByDataProducaoDesc(EstadoMosto.VINHO_GRANEL)) {
-            if (!adegaId.equals(adegaDe(m))) continue;
+            if (!localRef.equals(localDe(m))) continue;
             if (excluirLoteCodigo != null && excluirLoteCodigo.equals(m.getLoteCodigo())) continue;
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("id", m.getId());
@@ -291,15 +294,16 @@ public class LoteamentoController {
         return out;
     }
 
-    private List<Map<String, Object>> recipientesDaAdega(Long adegaId) {
+    /** Talhas e depósitos do local escolhido (as talhas só existem em adegas). */
+    private List<Map<String, Object>> recipientesDoLocal(String localRef) {
         List<Map<String, Object>> out = new ArrayList<>();
-        if (adegaId == null) return out;
+        if (localRef == null || localRef.isEmpty()) return out;
         talhaRepo.findAllByOrderByIdentificacaoAsc().forEach(t -> {
-            if (t.getAdega() == null || !adegaId.equals(t.getAdega().getId())) return;
+            if (t.getAdega() == null || !localRef.equals("ADEGA:" + t.getAdega().getId())) return;
             out.add(recipiente("TALHA:" + t.getId(), "Talha " + t.getIdentificacao(), t.getCapacidadeLitros(), t.getVolumeAtualLitros()));
         });
         depositoRepo.findAllByOrderByIdentificacaoAsc().forEach(d -> {
-            if (d.getAdega() == null || !adegaId.equals(d.getAdega().getId())) return;
+            if (!localRef.equals(d.getLocalRef())) return;
             out.add(recipiente("DEPOSITO:" + d.getId(), "Depósito " + d.getIdentificacao(), d.getCapacidadeLitros(), d.getVolumeAtualLitros()));
         });
         return out;
@@ -322,10 +326,43 @@ public class LoteamentoController {
         return map;
     }
 
-    private Long adegaDe(Mosto m) {
-        if (m.getTalha() != null && m.getTalha().getAdega() != null) return m.getTalha().getAdega().getId();
-        if (m.getDeposito() != null && m.getDeposito().getAdega() != null) return m.getDeposito().getAdega().getId();
+    /** Local onde o vinho esta: "ADEGA:id" ou "ARMAZEM:id" (os depositos podem estar nos dois). */
+    private String localDe(Mosto m) {
+        if (m.getTalha() != null && m.getTalha().getAdega() != null) return "ADEGA:" + m.getTalha().getAdega().getId();
+        if (m.getDeposito() != null) {
+            String ref = m.getDeposito().getLocalRef();
+            return ref.isEmpty() ? null : ref;
+        }
         return null;
+    }
+
+    /** Locais onde se pode construir um lote: adegas e armazens. */
+    private List<Map<String, Object>> locais() {
+        List<Map<String, Object>> out = new ArrayList<>();
+        adegaRepo.findAllByOrderByNomeAsc().forEach(a ->
+                out.add(local("ADEGA:" + a.getId(), "Adega " + a.getNome())));
+        armazemRepo.findAllByOrderByNomeAsc().forEach(a ->
+                out.add(local("ARMAZEM:" + a.getId(), "Armazem " + a.getNome())));
+        return out;
+    }
+
+    private Map<String, Object> local(String ref, String nome) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("ref", ref);
+        m.put("nome", nome);
+        return m;
+    }
+
+    /** Poe a adega ou o armazem no lote, a partir da referencia do formulario. */
+    private void aplicarLocal(Loteamento lote, String localRef) {
+        lote.setAdega(null);
+        lote.setArmazem(null);
+        if (localRef == null || !localRef.contains(":")) return;
+        String[] partes = localRef.split(":", 2);
+        Long id;
+        try { id = Long.valueOf(partes[1].trim()); } catch (Exception e) { return; }
+        if ("ADEGA".equals(partes[0])) adegaRepo.findById(id).ifPresent(lote::setAdega);
+        else if ("ARMAZEM".equals(partes[0])) armazemRepo.findById(id).ifPresent(lote::setArmazem);
     }
 
     private String nomeVinho(Mosto m, Map<Long, PlaneamentoVinho> moagemPlano) {

@@ -16,7 +16,7 @@
             </h3>
             <p class="text-muted mb-0">
                 6.2 — Construção do lote ·
-                <span th:text="${lote.adega != null ? lote.adega.nome : 'sem adega'}"></span> ·
+                <span th:text="${lote.localNome}"></span> ·
                 <span th:if="${lote.concluido}" class="badge bg-success">Concluído</span>
                 <span th:unless="${lote.concluido}" class="badge bg-warning text-dark">Em construção</span>
             </p>

@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import org.springframework.format.annotation.DateTimeFormat;
 import pt.acv.adega.common.BaseEntity;
 import pt.acv.adega.fichas.Adega;
+import pt.acv.adega.fichas.Armazem;
 
 import java.time.LocalDate;
 
@@ -28,6 +29,14 @@ public class Loteamento extends BaseEntity {
     @JoinColumn(name = "adega_id")
     private Adega adega;
 
+    /**
+     * O lote e' construido numa adega OU num armazem - os depositos podem
+     * estar nos dois sitios.
+     */
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "armazem_id")
+    private Armazem armazem;
+
     @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate dataPlaneamento;
 
@@ -42,6 +51,25 @@ public class Loteamento extends BaseEntity {
 
     public Adega getAdega() { return adega; }
     public void setAdega(Adega adega) { this.adega = adega; }
+
+    public Armazem getArmazem() { return armazem; }
+    public void setArmazem(Armazem armazem) { this.armazem = armazem; }
+
+    /** Referencia do local: "ADEGA:id" ou "ARMAZEM:id". */
+    @Transient
+    public String getLocalRef() {
+        if (adega != null) return "ADEGA:" + adega.getId();
+        if (armazem != null) return "ARMAZEM:" + armazem.getId();
+        return "";
+    }
+
+    /** Nome legivel do local onde o lote e' construido. */
+    @Transient
+    public String getLocalNome() {
+        if (adega != null) return "Adega " + adega.getNome();
+        if (armazem != null) return "Armazém " + armazem.getNome();
+        return "—";
+    }
 
     public LocalDate getDataPlaneamento() { return dataPlaneamento; }
     public void setDataPlaneamento(LocalDate dataPlaneamento) { this.dataPlaneamento = dataPlaneamento; }
