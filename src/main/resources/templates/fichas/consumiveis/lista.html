@@ -21,17 +21,23 @@
                     <th class="text-end">Stock</th><th class="text-end">Mínimo</th><th>Propriedade</th><th class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
-                <tr th:each="c : ${consumiveis}" th:classappend="${c.abaixoMinimo} ? 'table-warning' : ''">
+                <tr th:each="c : ${consumiveis}"
+                    th:classappend="${c.semStock} ? 'table-danger' : (${c.noMinimo} ? 'table-warning' : '')">
                     <td><span class="codigo" th:text="${c.codigo}"></span></td>
                     <td th:text="${c.tipo.descricao}"></td>
                     <td>
                         <span th:text="${c.descricao}"></span>
-                        <span th:if="${c.abaixoMinimo}" class="badge bg-danger ms-1" title="Stock abaixo do mínimo">
-                            <i class="bi bi-exclamation-triangle"></i> baixo
+                        <span th:if="${c.semStock}" class="badge bg-danger ms-1" title="Não há stock deste consumível">
+                            <i class="bi bi-x-octagon"></i> sem stock
+                        </span>
+                        <span th:if="${c.noMinimo}" class="badge bg-warning text-dark ms-1" title="Stock no mínimo definido">
+                            <i class="bi bi-exclamation-triangle"></i> no mínimo
                         </span>
                     </td>
                     <td class="text-end" th:text="${c.capacidadeMl == null ? '—' : (c.tipo.name() == 'CAIXA' ? c.capacidadeMl + ' garrafas' : c.capacidadeMl + ' ml')}"></td>
-                    <td class="text-end fw-semibold" th:text="${c.stock}"></td>
+                    <td class="text-end fw-bold"
+                        th:classappend="${c.semStock} ? 'text-danger' : (${c.noMinimo} ? 'text-warning-emphasis' : '')"
+                        th:text="${c.stock}"></td>
                     <td class="text-end" th:text="${c.stockMinimo}"></td>
                     <td>
                         <span th:text="${c.propriedade.descricao}"></span>
@@ -50,7 +56,10 @@
             </table>
         </div>
     </div>
-    <p class="text-muted small mt-2">As linhas a amarelo indicam stock igual ou abaixo do mínimo definido.</p>
+    <p class="text-muted small mt-2">
+        <span class="badge bg-danger">vermelho</span> sem stock — não dá para usar nos processos.
+        <span class="badge bg-warning text-dark ms-2">amarelo</span> stock no mínimo definido — ainda dá, mas convém repor.
+    </p>
 </div>
 
 <div th:replace="~{fragments/layout :: scripts}"></div>

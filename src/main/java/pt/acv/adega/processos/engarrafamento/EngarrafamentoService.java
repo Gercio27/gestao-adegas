@@ -86,20 +86,12 @@ public class EngarrafamentoService {
 
         Consumivel garrafa = consumivelRepo.findById(p.getGarrafa().getId())
                 .orElseThrow(() -> new EngarrafamentoException("Garrafa não encontrada."));
-        if (garrafa.getStock() < p.getNumeroGarrafas()) {
-            throw new EngarrafamentoException(String.format(
-                    "Stock de garrafas insuficiente: %s tem %d, precisa de %d.",
-                    garrafa.getCodigo(), garrafa.getStock(), p.getNumeroGarrafas()));
-        }
+        exigirStock(garrafa, p.getNumeroGarrafas());
         Consumivel rolha = null;
         if (p.getRolha() != null) {
             rolha = consumivelRepo.findById(p.getRolha().getId())
                     .orElseThrow(() -> new EngarrafamentoException("Rolha não encontrada."));
-            if (rolha.getStock() < p.getNumeroRolhas()) {
-                throw new EngarrafamentoException(String.format(
-                        "Stock de rolhas insuficiente: %s tem %d, precisa de %d.",
-                        rolha.getCodigo(), rolha.getStock(), p.getNumeroRolhas()));
-            }
+            exigirStock(rolha, p.getNumeroRolhas());
         }
 
         // Baixas
@@ -270,6 +262,21 @@ public class EngarrafamentoService {
             } catch (Exception ignored) { }
         }
         return out;
+    }
+
+    /** Diz claramente se e' falta total de stock ou so' insuficiente. */
+    private void exigirStock(Consumivel c, int qtd) {
+        if (qtd <= 0) return;
+        if (c.getStock() <= 0) {
+            throw new EngarrafamentoException(String.format(
+                    "Está sem stock de %s (%s · %s). Reponha o stock na ficha de consumíveis.",
+                    c.getDescricao(), c.getCodigo(), c.getTipo().getDescricao()));
+        }
+        if (c.getStock() < qtd) {
+            throw new EngarrafamentoException(String.format(
+                    "Não há %s (%s) que chegue: tem %d, precisa de %d — faltam %d.",
+                    c.getDescricao(), c.getCodigo(), c.getStock(), qtd, qtd - c.getStock()));
+        }
     }
 
     private BigDecimal v(BigDecimal x) { return x == null ? BigDecimal.ZERO : x; }

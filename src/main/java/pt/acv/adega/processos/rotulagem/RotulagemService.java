@@ -242,10 +242,15 @@ public class RotulagemService {
     }
 
     private void exigirStock(Consumivel c, int qtd) {
+        if (c.getStock() <= 0) {
+            throw new RotulagemException(String.format(
+                    "Está sem stock de %s (%s · %s). Reponha o stock na ficha de consumíveis.",
+                    c.getDescricao(), c.getCodigo(), c.getTipo().getDescricao()));
+        }
         if (c.getStock() < qtd) {
             throw new RotulagemException(String.format(
-                    "Stock insuficiente de %s (%s): tem %d, precisa de %d.",
-                    c.getTipo().getDescricao(), c.getCodigo(), c.getStock(), qtd));
+                    "Não há %s (%s) que chegue: tem %d, precisa de %d — faltam %d.",
+                    c.getDescricao(), c.getCodigo(), c.getStock(), qtd, qtd - c.getStock()));
         }
     }
 

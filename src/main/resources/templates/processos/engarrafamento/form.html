@@ -80,7 +80,8 @@
                 <select class="form-select" th:field="*{garrafa}" required>
                     <option th:value="${null}">—</option>
                     <option th:each="g : ${garrafas}" th:value="${g.id}"
-                            th:text="${g.codigo} + ' · ' + ${g.descricao} + ' · stock ' + ${g.stock}"></option>
+                            th:text="${g.etiquetaStock}"
+                            th:style="${g.semStock} ? 'color:#b00020;font-weight:600;' : (${g.noMinimo} ? 'color:#8a6d3b;' : '')"></option>
                 </select>
                 <div class="form-text" th:if="${garrafas.isEmpty()}">Crie uma ficha de consumível do tipo Garrafa / Bag-in-box.</div>
             </div>
@@ -89,7 +90,8 @@
                 <select class="form-select" th:field="*{rolha}">
                     <option th:value="${null}">— (sem rolha)</option>
                     <option th:each="r : ${rolhas}" th:value="${r.id}"
-                            th:text="${r.codigo} + ' · ' + ${r.descricao} + ' · stock ' + ${r.stock}"></option>
+                            th:text="${r.etiquetaStock}"
+                            th:style="${r.semStock} ? 'color:#b00020;font-weight:600;' : (${r.noMinimo} ? 'color:#8a6d3b;' : '')"></option>
                 </select>
             </div>
             <div class="col-md-2" id="grpNumRolhas">

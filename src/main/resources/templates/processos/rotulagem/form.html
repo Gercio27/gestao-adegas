@@ -62,7 +62,8 @@
                 <label class="form-label">Rótulos *</label>
                 <select class="form-select" th:field="*{rotulo}" required>
                     <option th:value="${null}">—</option>
-                    <option th:each="r : ${rotulos}" th:value="${r.id}" th:text="${r.codigo} + ' · ' + ${r.descricao} + ' · stock ' + ${r.stock}"></option>
+                    <option th:each="r : ${rotulos}" th:value="${r.id}" th:text="${r.etiquetaStock}"
+                            th:style="${r.semStock} ? 'color:#b00020;font-weight:600;' : (${r.noMinimo} ? 'color:#8a6d3b;' : '')"></option>
                 </select>
             </div>
             <div class="col-md-2">
@@ -73,7 +74,8 @@
                 <label class="form-label">Cápsulas</label>
                 <select class="form-select" th:field="*{capsula}">
                     <option th:value="${null}">— (sem cápsula)</option>
-                    <option th:each="c : ${capsulas}" th:value="${c.id}" th:text="${c.codigo} + ' · ' + ${c.descricao} + ' · stock ' + ${c.stock}"></option>
+                    <option th:each="c : ${capsulas}" th:value="${c.id}" th:text="${c.etiquetaStock}"
+                            th:style="${c.semStock} ? 'color:#b00020;font-weight:600;' : (${c.noMinimo} ? 'color:#8a6d3b;' : '')"></option>
                 </select>
             </div>
             <div class="col-md-2">
@@ -85,7 +87,8 @@
                 <label class="form-label">Caixas (ficha de consumível)</label>
                 <select class="form-select" th:field="*{caixa}">
                     <option th:value="${null}">— (sem caixa)</option>
-                    <option th:each="c : ${caixas}" th:value="${c.id}" th:text="${c.codigo} + ' · ' + ${c.descricao} + ' · stock ' + ${c.stock}"></option>
+                    <option th:each="c : ${caixas}" th:value="${c.id}" th:text="${c.etiquetaStock}"
+                            th:style="${c.semStock} ? 'color:#b00020;font-weight:600;' : (${c.noMinimo} ? 'color:#8a6d3b;' : '')"></option>
                 </select>
             </div>
             <div class="col-md-2">
@@ -127,7 +130,8 @@
                 <select class="form-select" th:field="*{etiqueta}">
                     <option th:value="${null}">— (sem etiquetas)</option>
                     <option th:each="e : ${etiquetas}" th:value="${e.id}"
-                            th:text="${e.codigo} + ' · ' + ${e.descricao} + ' · stock ' + ${e.stock}"></option>
+                            th:text="${e.etiquetaStock}"
+                            th:style="${e.semStock} ? 'color:#b00020;font-weight:600;' : (${e.noMinimo} ? 'color:#8a6d3b;' : '')"></option>
                 </select>
                 <div class="form-text" th:if="${etiquetas.isEmpty()}">Crie um consumível do tipo Etiqueta.</div>
             </div>

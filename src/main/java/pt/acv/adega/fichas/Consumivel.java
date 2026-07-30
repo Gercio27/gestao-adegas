@@ -70,4 +70,33 @@ public class Consumivel extends BaseEntity {
     public boolean isAbaixoMinimo() {
         return stockMinimo != null && stock <= stockMinimo;
     }
+
+    /** Nao ha nada em stock — nao da para usar em processo nenhum. */
+    @Transient
+    public boolean isSemStock() { return stock <= 0; }
+
+    /** Chegou ao minimo mas ainda ha — e' so' aviso. */
+    @Transient
+    public boolean isNoMinimo() { return !isSemStock() && isAbaixoMinimo(); }
+
+    /** "vermelho" (sem stock), "amarelo" (no minimo) ou "" (normal). */
+    @Transient
+    public String getEstadoStock() {
+        if (isSemStock()) return "vermelho";
+        if (isNoMinimo()) return "amarelo";
+        return "";
+    }
+
+    /** Texto para os seletores dos processos: descricao + estado do stock. */
+    @Transient
+    public String getEtiquetaStock() {
+        String base = codigoOuVazio() + descricao + " · stock " + stock;
+        if (isSemStock()) return base + " — SEM STOCK";
+        if (isNoMinimo()) return base + " — no mínimo";
+        return base;
+    }
+
+    private String codigoOuVazio() {
+        return getCodigo() != null ? getCodigo() + " · " : "";
+    }
 }
