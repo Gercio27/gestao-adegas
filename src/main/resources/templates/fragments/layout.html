@@ -79,6 +79,11 @@
                 <li class="nav-item" sec:authorize="hasRole('ADMIN')">
                     <a class="nav-link" th:href="@{/auditoria}"><i class="bi bi-clock-history"></i> Auditoria</a>
                 </li>
+                <li class="nav-item" sec:authorize="hasRole('ADMIN')">
+                    <a class="nav-link" th:href="@{/admin/limpar-processos}"
+                       title="Apagar os processos para voltar a testar, mantendo as fichas">
+                        <i class="bi bi-eraser"></i> Limpar processos</a>
+                </li>
             </ul>
             <ul class="navbar-nav">
                 <li class="nav-item">

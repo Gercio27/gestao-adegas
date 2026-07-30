@@ -25,6 +25,7 @@ public class SecurityConfig {
                 .requestMatchers("/css/**", "/js/**", "/webjars/**", "/img/**", "/data/**").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
                 .requestMatchers("/utilizadores/**").hasRole("ADMIN")
+                .requestMatchers("/admin/**").hasRole("ADMIN")
                 .requestMatchers("/auditoria/**").hasRole("ADMIN")
                 // Planeamento: ver é para todos; criar/alterar/eliminar só admin.
                 .requestMatchers("/planeamento/nova", "/planeamento/*/editar").hasRole("ADMIN")
