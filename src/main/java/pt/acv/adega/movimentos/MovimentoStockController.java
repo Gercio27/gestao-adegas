@@ -59,22 +59,28 @@ public class MovimentoStockController {
                         @RequestParam(required = false) String texto,
                         @RequestParam(required = false) String de,
                         @RequestParam(required = false) String ate,
+                        @RequestParam(required = false) String ano,
+                        @RequestParam(required = false) String mes,
                         Model model) {
-        List<MovimentoStock> linhas = tipo != null
+        List<MovimentoStock> todas = tipo != null
                 ? repo.findByTipoAlvoOrderByDataHoraDesc(tipo)
                 : repo.findTop300ByOrderByDataHoraDesc();
-        linhas = filtrar(linhas, local, texto, de, ate);
+        List<MovimentoStock> linhas = filtrar(todas, local, texto, de, ate, ano, mes);
 
         model.addAttribute("titulo", "Histórico de movimentos");
         model.addAttribute("subtitulo", tipo != null ? tipo.getDescricao() : "Todas as fichas");
         model.addAttribute("linhas", linhas);
         model.addAttribute("tipos", TipoAlvo.values());
         model.addAttribute("locais", locaisConhecidos());
+        model.addAttribute("anos", anosCom(todas));
+        model.addAttribute("meses", MESES);
         model.addAttribute("fTipo", tipo);
         model.addAttribute("fLocal", local);
         model.addAttribute("fTexto", texto);
         model.addAttribute("fDe", de);
         model.addAttribute("fAte", ate);
+        model.addAttribute("fAno", inteiro(ano));
+        model.addAttribute("fMes", inteiro(mes));
         model.addAttribute("filtrosVisiveis", true);
         model.addAttribute("mostrarFicha", true);
         model.addAttribute("totais", totais(linhas));
@@ -82,38 +88,94 @@ public class MovimentoStockController {
     }
 
     /**
-     * Historico de uma ficha concreta, ano a ano. Abre no ano mais recente com
-     * movimentos — e' o que interessa ver primeiro — e o seletor em cima deixa
-     * saltar para outro ano ou ver tudo de uma vez.
+     * Historico de uma ficha concreta. Abre no ano mais recente com movimentos —
+     * e' o que interessa ver primeiro — e depois pode-se apertar por mes ou por
+     * um dia certo.
      */
     @GetMapping("/{tipo}/{id}")
     public String daFicha(@PathVariable TipoAlvo tipo, @PathVariable Long id,
-                          @RequestParam(required = false) String ano, Model model) {
+                          @RequestParam(required = false) String ano,
+                          @RequestParam(required = false) String mes,
+                          @RequestParam(required = false) String dia,
+                          Model model) {
         List<MovimentoStock> todas = repo.findByTipoAlvoAndAlvoIdOrderByDataHoraDesc(tipo, id);
-        List<Integer> anos = anosCom(todas);
-
-        // Sem escolha do utilizador, mostra o ano mais recente que tenha movimentos.
-        Integer anoEscolhido = null;
-        boolean todosOsAnos = "todos".equalsIgnoreCase(ano);
-        if (!todosOsAnos) {
-            anoEscolhido = inteiro(ano);
-            if (anoEscolhido == null && !anos.isEmpty()) anoEscolhido = anos.get(0);
-        }
-        List<MovimentoStock> linhas = anoEscolhido == null ? todas : doAno(todas, anoEscolhido);
-
         model.addAttribute("titulo", "Histórico · " + nomeDaFicha(tipo, id));
         model.addAttribute("subtitulo", tipo.getDescricao() + verSaldo(tipo, id));
-        model.addAttribute("linhas", linhas);
-        model.addAttribute("filtrosVisiveis", false);
         model.addAttribute("mostrarFicha", false);
         model.addAttribute("voltarUrl", listaDe(tipo));
-        model.addAttribute("totais", totais(linhas));
-        // Seletor de ano
-        model.addAttribute("anos", anos);
-        model.addAttribute("anoEscolhido", anoEscolhido);
-        model.addAttribute("urlDoAno", "/movimentos/" + tipo.name() + "/" + id);
+        aplicarFiltroDeData(model, todas, ano, mes, dia, "/movimentos/" + tipo.name() + "/" + id);
         return "movimentos/historico";
     }
+
+    /** Tudo o que se mexeu numa adega ou armazem, com o mesmo filtro de datas. */
+    @GetMapping("/local")
+    public String doLocal(@RequestParam String nome,
+                          @RequestParam(required = false) String ano,
+                          @RequestParam(required = false) String mes,
+                          @RequestParam(required = false) String dia,
+                          Model model) {
+        List<MovimentoStock> todas = repo.findByLocalOrderByDataHoraDesc(nome);
+        model.addAttribute("titulo", "Histórico · " + nome);
+        model.addAttribute("subtitulo", "Todos os recipientes e contentores deste local");
+        model.addAttribute("mostrarFicha", true);
+        aplicarFiltroDeData(model, todas, ano, mes, dia, "/movimentos/local");
+        model.addAttribute("localFixo", nome);
+        return "movimentos/historico";
+    }
+
+    /**
+     * Filtro por ano / mes / dia, partilhado pelos historicos de ficha e de
+     * local. Um dia certo manda sobre tudo o resto: se o utilizador escreve a
+     * data, e' esse dia que quer ver, e nao a interseccao com o ano que estava
+     * escolhido (que daria uma lista vazia sem se perceber porque).
+     */
+    private void aplicarFiltroDeData(Model model, List<MovimentoStock> todas,
+                                     String ano, String mes, String dia, String url) {
+        List<Integer> anos = anosCom(todas);
+        LocalDate diaEscolhido = data(dia);
+        Integer mesEscolhido = diaEscolhido != null ? null : inteiro(mes);
+
+        Integer anoEscolhido = null;
+        if (diaEscolhido == null && !"todos".equalsIgnoreCase(ano)) {
+            anoEscolhido = inteiro(ano);
+            // Primeira visita: abre no ano mais recente que tenha movimentos.
+            if (anoEscolhido == null && !anos.isEmpty()) anoEscolhido = anos.get(0);
+        }
+
+        List<MovimentoStock> linhas = new ArrayList<>();
+        for (MovimentoStock m : todas) {
+            if (m.getDataHora() == null) continue;
+            LocalDate d = m.getDataHora().toLocalDate();
+            if (diaEscolhido != null) {
+                if (!d.equals(diaEscolhido)) continue;
+            } else {
+                if (anoEscolhido != null && d.getYear() != anoEscolhido) continue;
+                if (mesEscolhido != null && d.getMonthValue() != mesEscolhido) continue;
+            }
+            linhas.add(m);
+        }
+
+        model.addAttribute("linhas", linhas);
+        model.addAttribute("totais", totais(linhas));
+        model.addAttribute("filtrosVisiveis", false);
+        model.addAttribute("filtroDatas", true);
+        model.addAttribute("anos", anos);
+        model.addAttribute("meses", MESES);
+        model.addAttribute("anoEscolhido", anoEscolhido);
+        model.addAttribute("mesEscolhido", mesEscolhido);
+        model.addAttribute("diaEscolhido", dia);
+        model.addAttribute("urlDoAno", url);
+        model.addAttribute("totalGeral", todas.size());
+    }
+
+    /** Meses para o seletor: numero + nome. */
+    public record Mes(int numero, String nome) { }
+
+    private static final List<Mes> MESES = List.of(
+            new Mes(1, "Janeiro"), new Mes(2, "Fevereiro"), new Mes(3, "Março"),
+            new Mes(4, "Abril"), new Mes(5, "Maio"), new Mes(6, "Junho"),
+            new Mes(7, "Julho"), new Mes(8, "Agosto"), new Mes(9, "Setembro"),
+            new Mes(10, "Outubro"), new Mes(11, "Novembro"), new Mes(12, "Dezembro"));
 
     /** Anos que têm movimentos, do mais recente para o mais antigo. */
     private List<Integer> anosCom(List<MovimentoStock> linhas) {
@@ -124,44 +186,29 @@ public class MovimentoStockController {
         return new ArrayList<>(anos);
     }
 
-    private List<MovimentoStock> doAno(List<MovimentoStock> linhas, int ano) {
-        List<MovimentoStock> out = new ArrayList<>();
-        for (MovimentoStock m : linhas) {
-            if (m.getDataHora() != null && m.getDataHora().getYear() == ano) out.add(m);
-        }
-        return out;
-    }
-
     private Integer inteiro(String s) {
         if (s == null || s.isBlank()) return null;
         try { return Integer.valueOf(s.trim()); } catch (Exception e) { return null; }
     }
 
-    /** Tudo o que se mexeu numa adega ou armazem. */
-    @GetMapping("/local")
-    public String doLocal(@RequestParam String nome, Model model) {
-        List<MovimentoStock> linhas = repo.findByLocalOrderByDataHoraDesc(nome);
-        model.addAttribute("titulo", "Histórico · " + nome);
-        model.addAttribute("subtitulo", "Todos os recipientes e contentores deste local");
-        model.addAttribute("linhas", linhas);
-        model.addAttribute("filtrosVisiveis", false);
-        model.addAttribute("mostrarFicha", true);
-        model.addAttribute("totais", totais(linhas));
-        return "movimentos/historico";
-    }
-
     // ----- auxiliares -----
 
     private List<MovimentoStock> filtrar(List<MovimentoStock> linhas, String local, String texto,
-                                         String de, String ate) {
+                                         String de, String ate, String ano, String mes) {
         LocalDate dDe = data(de);
         LocalDate dAte = data(ate);
+        Integer nAno = inteiro(ano);
+        Integer nMes = inteiro(mes);
         String procura = texto == null ? null : texto.trim().toLowerCase();
         List<MovimentoStock> out = new ArrayList<>();
         for (MovimentoStock m : linhas) {
             if (local != null && !local.isBlank() && !local.equals(m.getLocal())) continue;
-            if (dDe != null && m.getDataHora().toLocalDate().isBefore(dDe)) continue;
-            if (dAte != null && m.getDataHora().toLocalDate().isAfter(dAte)) continue;
+            LocalDate d = m.getDataHora() == null ? null : m.getDataHora().toLocalDate();
+            if (d == null) continue;
+            if (nAno != null && d.getYear() != nAno) continue;
+            if (nMes != null && d.getMonthValue() != nMes) continue;
+            if (dDe != null && d.isBefore(dDe)) continue;
+            if (dAte != null && d.isAfter(dAte)) continue;
             if (procura != null && !procura.isEmpty() && !contem(m, procura)) continue;
             out.add(m);
         }

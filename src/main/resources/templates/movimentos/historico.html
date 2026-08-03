@@ -21,21 +21,51 @@
         </div>
     </div>
 
-    <!-- Ano a consultar: o histórico de uma ficha abre sempre num ano só -->
-    <div th:if="${anos != null}" class="card shadow-sm mb-3">
-        <div class="card-body py-2 d-flex align-items-center flex-wrap gap-2">
-            <span class="small fw-bold me-1"><i class="bi bi-calendar3"></i> Ano:</span>
-            <a th:each="a : ${anos}" th:href="@{${urlDoAno}(ano=${a})}"
-               class="btn btn-sm"
-               th:classappend="${anoEscolhido != null and anoEscolhido == a} ? 'btn-primary' : 'btn-outline-primary'"
-               th:text="${a}">2026</a>
-            <a th:href="@{${urlDoAno}(ano='todos')}" class="btn btn-sm"
-               th:classappend="${anoEscolhido == null} ? 'btn-secondary' : 'btn-outline-secondary'">Todos os anos</a>
-            <span th:if="${anos.isEmpty()}" class="text-muted small">Ainda não há movimentos nesta ficha.</span>
-            <span th:if="${anoEscolhido != null}" class="text-muted small ms-auto">
-                A mostrar as entradas e saídas de <strong th:text="${anoEscolhido}"></strong>.
-            </span>
-        </div>
+    <!-- Filtro por ano, mês ou um dia certo -->
+    <div th:if="${filtroDatas}" class="card shadow-sm mb-3">
+        <form method="get" th:action="@{${urlDoAno}}" class="card-body row g-2 align-items-end">
+            <input type="hidden" name="nome" th:if="${localFixo != null}" th:value="${localFixo}">
+            <div class="col-md-3">
+                <label class="form-label small mb-1"><i class="bi bi-calendar3"></i> Ano</label>
+                <select name="ano" class="form-select form-select-sm">
+                    <option value="todos">Todos os anos</option>
+                    <option th:each="a : ${anos}" th:value="${a}" th:text="${a}"
+                            th:selected="${anoEscolhido != null and anoEscolhido == a}"></option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-1">Mês</label>
+                <select name="mes" class="form-select form-select-sm">
+                    <option value="">Todos os meses</option>
+                    <option th:each="m : ${meses}" th:value="${m.numero}" th:text="${m.nome}"
+                            th:selected="${mesEscolhido != null and mesEscolhido == m.numero}"></option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-1">Ou um dia certo</label>
+                <input type="date" name="dia" class="form-control form-control-sm" th:value="${diaEscolhido}">
+            </div>
+            <div class="col-md-3 d-flex gap-2">
+                <button class="btn btn-sm btn-primary flex-fill"><i class="bi bi-funnel"></i> Filtrar</button>
+                <a th:href="@{${urlDoAno}(nome=${localFixo})}" class="btn btn-sm btn-outline-secondary">Limpar</a>
+            </div>
+            <div class="col-12 small text-muted">
+                <span th:if="${diaEscolhido != null and !diaEscolhido.isEmpty()}">
+                    A mostrar só o dia <strong th:text="${diaEscolhido}"></strong>
+                    (o dia certo manda sobre o ano e o mês).
+                </span>
+                <span th:if="${(diaEscolhido == null or diaEscolhido.isEmpty()) and anoEscolhido != null}">
+                    A mostrar as entradas e saídas de <strong th:text="${anoEscolhido}"></strong><span
+                        th:if="${mesEscolhido != null}" th:text="', ' + ${meses[mesEscolhido - 1].nome}"></span>.
+                </span>
+                <span th:if="${(diaEscolhido == null or diaEscolhido.isEmpty()) and anoEscolhido == null}">
+                    A mostrar todos os anos.
+                </span>
+                <span th:if="${anos.isEmpty()}">Ainda não há movimentos registados nesta ficha.</span>
+                <span th:unless="${anos.isEmpty()}"
+                      th:text="' · ' + ${linhas.size()} + ' de ' + ${totalGeral} + ' movimentos.'"></span>
+            </div>
+        </form>
     </div>
 
     <!-- Resumo: quanto entrou e quanto saiu, por unidade -->
@@ -73,6 +103,22 @@
                             th:selected="${l == fLocal}"></option>
                 </select>
             </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-1"><i class="bi bi-calendar3"></i> Ano</label>
+                <select name="ano" class="form-select form-select-sm">
+                    <option value="">Todos os anos</option>
+                    <option th:each="a : ${anos}" th:value="${a}" th:text="${a}"
+                            th:selected="${fAno != null and fAno == a}"></option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label small mb-1">Mês</label>
+                <select name="mes" class="form-select form-select-sm">
+                    <option value="">Todos os meses</option>
+                    <option th:each="m : ${meses}" th:value="${m.numero}" th:text="${m.nome}"
+                            th:selected="${fMes != null and fMes == m.numero}"></option>
+                </select>
+            </div>
             <div class="col-md-2">
                 <label class="form-label small mb-1">De</label>
                 <input type="date" name="de" class="form-control form-control-sm" th:value="${fDe}">
@@ -81,7 +127,7 @@
                 <label class="form-label small mb-1">Até</label>
                 <input type="date" name="ate" class="form-control form-control-sm" th:value="${fAte}">
             </div>
-            <div class="col-md-2">
+            <div class="col-md-4">
                 <label class="form-label small mb-1">Procurar</label>
                 <input type="text" name="texto" class="form-control form-control-sm"
                        placeholder="vinho, ficha, fase…" th:value="${fTexto}">
@@ -89,6 +135,7 @@
             <div class="col-12">
                 <button class="btn btn-sm btn-primary"><i class="bi bi-funnel"></i> Filtrar</button>
                 <a th:href="@{/movimentos}" class="btn btn-sm btn-outline-secondary">Limpar</a>
+                <span class="text-muted small ms-2">Ano e mês, ou um intervalo de datas em "De/Até".</span>
             </div>
         </div>
     </form>
