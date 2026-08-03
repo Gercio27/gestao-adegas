@@ -75,7 +75,10 @@
                     </ul>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" th:href="@{/movimentos}"><i class="bi bi-clock-history"></i> Movimentos</a>
+                    <a class="nav-link" th:href="@{/historico}"><i class="bi bi-clock-history"></i> Histórico</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" th:href="@{/movimentos}"><i class="bi bi-arrow-down-up"></i> Movimentos</a>
                 </li>
                 <li class="nav-item"><a class="nav-link" th:href="@{/listagens}">Listagens</a></li>
                 <li class="nav-item" sec:authorize="hasRole('ADMIN')">

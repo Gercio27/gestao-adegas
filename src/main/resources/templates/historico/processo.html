@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-PT">
+<head th:replace="~{fragments/layout :: head('Histórico')}"></head>
+<body>
+<nav th:replace="~{fragments/layout :: navbar}"></nav>
+<div th:replace="~{fragments/layout :: mensagens}"></div>
+
+<div class="container">
+    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-1">
+        <div>
+            <h3 class="mb-1">
+                <i class="bi" th:classappend="${d.icone}"></i>
+                <span th:text="${d.nome}">Processo</span>
+            </h3>
+            <p class="text-muted mb-0" th:text="${d.fase} + ' · histórico'">Fase</p>
+        </div>
+        <a th:href="@{/historico}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Escolher outro processo
+        </a>
+    </div>
+
+    <!-- Saltar para outro processo sem voltar ao índice -->
+    <div class="mb-3">
+        <select class="form-select form-select-sm" style="max-width:420px;"
+                onchange="if(this.value) window.location.href=this.value;">
+            <option th:each="p : ${processos}"
+                    th:value="@{/historico/{c}(c=${p.chave})}"
+                    th:text="${p.fase} + ' — ' + ${p.nome}"
+                    th:selected="${p.chave == d.chave}"></option>
+        </select>
+    </div>
+
+    <!-- Filtros: só aparecem os que este processo tem mesmo -->
+    <div class="card shadow-sm mb-3">
+        <form method="get" th:action="@{/historico/{c}(c=${d.chave})}" class="card-body row g-2 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label small mb-1"><i class="bi bi-calendar3"></i> Ano</label>
+                <select name="ano" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option th:each="a : ${anos}" th:value="${a}" th:text="${a}"
+                            th:selected="${fAno != null and fAno == a}"></option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Mês</label>
+                <select name="mes" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option th:each="m : ${meses}" th:value="${m.numero}" th:text="${m.nome}"
+                            th:selected="${fMes != null and fMes == m.numero}"></option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label small mb-1">Ou um dia certo</label>
+                <input type="date" name="dia" class="form-control form-control-sm" th:value="${fDia}">
+            </div>
+            <div class="col-md-2" th:if="${opcoes.containsKey('estado')}">
+                <label class="form-label small mb-1">Estado</label>
+                <select name="estado" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option th:each="o : ${opcoes.get('estado')}" th:value="${o}" th:text="${o}"
+                            th:selected="${o == fEstado}"></option>
+                </select>
+            </div>
+            <div class="col-md-2" th:if="${opcoes.containsKey('tipo')}">
+                <label class="form-label small mb-1" th:text="${d.rotuloTipo}">Tipo</label>
+                <select name="tipo" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option th:each="o : ${opcoes.get('tipo')}" th:value="${o}" th:text="${o}"
+                            th:selected="${o == fTipo}"></option>
+                </select>
+            </div>
+            <div class="col-md-2" th:if="${opcoes.containsKey('adega')}">
+                <label class="form-label small mb-1" th:text="${d.rotuloAdega}">Adega</label>
+                <select name="adega" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option th:each="o : ${opcoes.get('adega')}" th:value="${o}" th:text="${o}"
+                            th:selected="${o == fAdega}"></option>
+                </select>
+            </div>
+            <div class="col-md-3" th:if="${opcoes.containsKey('vinho')}">
+                <label class="form-label small mb-1" th:text="${d.rotuloVinho}">Vinho</label>
+                <select name="vinho" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option th:each="o : ${opcoes.get('vinho')}" th:value="${o}" th:text="${o}"
+                            th:selected="${o == fVinho}"></option>
+                </select>
+            </div>
+            <div class="col-md-3" th:if="${opcoes.containsKey('responsavel')}">
+                <label class="form-label small mb-1">Responsável</label>
+                <select name="responsavel" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option th:each="o : ${opcoes.get('responsavel')}" th:value="${o}" th:text="${o}"
+                            th:selected="${o == fResponsavel}"></option>
+                </select>
+            </div>
+            <div class="col-md-3" th:if="${opcoes.containsKey('origem')}">
+                <label class="form-label small mb-1" th:text="${d.rotuloOrigem}">Origem</label>
+                <select name="origem" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option th:each="o : ${opcoes.get('origem')}" th:value="${o}" th:text="${o}"
+                            th:selected="${o == fOrigem}"></option>
+                </select>
+            </div>
+            <div class="col-md-3" th:if="${opcoes.containsKey('destino')}">
+                <label class="form-label small mb-1" th:text="${d.rotuloDestino}">Destino</label>
+                <select name="destino" class="form-select form-select-sm">
+                    <option value="">Todos</option>
+                    <option th:each="o : ${opcoes.get('destino')}" th:value="${o}" th:text="${o}"
+                            th:selected="${o == fDestino}"></option>
+                </select>
+            </div>
+            <div class="col-12 d-flex align-items-center gap-2 flex-wrap">
+                <button class="btn btn-sm btn-primary"><i class="bi bi-funnel"></i> Filtrar</button>
+                <a th:href="@{/historico/{c}(c=${d.chave})}" class="btn btn-sm btn-outline-secondary">Limpar</a>
+                <span class="text-muted small"
+                      th:text="${linhas.size()} + ' de ' + ${totalGeral} + ' registos.'"></span>
+                <span class="text-muted small" th:if="${fDia != null and !fDia.isEmpty()}">
+                    O dia certo manda sobre o ano e o mês.
+                </span>
+            </div>
+        </form>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-sm table-hover align-middle mb-0">
+                <thead class="table-light">
+                <tr>
+                    <th>Código</th>
+                    <th>Data</th>
+                    <th th:if="${opcoes.containsKey('tipo')}" th:text="${d.rotuloTipo}">Tipo</th>
+                    <th th:if="${opcoes.containsKey('vinho')}" th:text="${d.rotuloVinho}">Vinho</th>
+                    <th th:if="${opcoes.containsKey('adega')}" th:text="${d.rotuloAdega}">Adega</th>
+                    <th th:if="${opcoes.containsKey('origem')}" th:text="${d.rotuloOrigem}">Origem</th>
+                    <th th:if="${opcoes.containsKey('destino')}" th:text="${d.rotuloDestino}">Destino</th>
+                    <th th:if="${opcoes.containsKey('detalhe')}" th:text="${d.rotuloDetalhe}">Detalhe</th>
+                    <th th:if="${opcoes.containsKey('responsavel')}">Responsável</th>
+                    <th th:if="${opcoes.containsKey('estado')}">Estado</th>
+                    <th></th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr th:each="l : ${linhas}">
+                    <td><span class="codigo fw-bold" th:text="${l.codigo}"></span></td>
+                    <td class="small text-nowrap"
+                        th:text="${l.data != null ? #temporals.format(l.data,'dd/MM/yyyy') : '—'}"></td>
+                    <td th:if="${opcoes.containsKey('tipo')}" class="small" th:text="${l.tipo ?: '—'}"></td>
+                    <td th:if="${opcoes.containsKey('vinho')}" class="small" th:text="${l.vinho ?: '—'}"></td>
+                    <td th:if="${opcoes.containsKey('adega')}" class="small text-muted" th:text="${l.adega ?: '—'}"></td>
+                    <td th:if="${opcoes.containsKey('origem')}" class="small" th:text="${l.origem ?: '—'}"></td>
+                    <td th:if="${opcoes.containsKey('destino')}" class="small" th:text="${l.destino ?: '—'}"></td>
+                    <td th:if="${opcoes.containsKey('detalhe')}" class="small text-muted" th:text="${l.detalhe ?: '—'}"></td>
+                    <td th:if="${opcoes.containsKey('responsavel')}" class="small text-muted" th:text="${l.responsavel ?: '—'}"></td>
+                    <td th:if="${opcoes.containsKey('estado')}">
+                        <span th:if="${l.fechado}" class="badge bg-success">Fechado</span>
+                        <span th:unless="${l.fechado}" class="badge bg-warning text-dark">Aberto</span>
+                    </td>
+                    <td class="text-end">
+                        <a th:if="${l.url != null}" th:href="@{${l.url}}" class="btn btn-sm btn-outline-primary"
+                           title="Abrir o processo"><i class="bi bi-box-arrow-up-right"></i></a>
+                    </td>
+                </tr>
+                <tr th:if="${linhas.isEmpty()}">
+                    <td colspan="11" class="text-center text-muted py-4">
+                        Nenhum registo corresponde a estes filtros.
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{fragments/layout :: scripts}"></div>
+</body>
+</html>
