@@ -15,17 +15,21 @@
     </div>
     <p class="text-muted">Fichas geradas automaticamente pelos processos. O administrador pode registar o <strong>saldo inicial</strong> de uma adega a meio.</p>
 
+    <div th:replace="~{fragments/filtros :: anoLocalVinho('/produtos/mostos')}"></div>
+
     <div class="card shadow-sm">
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle">
                 <thead>
-                <tr><th>Código</th><th>Localização</th><th class="text-end">Litros</th><th>Casta</th>
+                <tr><th>Código</th><th>Vinho</th><th>Adega / armazém</th><th>Localização</th><th class="text-end">Litros</th><th>Casta</th>
                     <th>Estado</th><th>Origem</th><th>Produção</th>
                     <th sec:authorize="hasRole('ADMIN')" class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
                 <tr th:each="m : ${mostos}">
                     <td><span class="codigo" th:text="${m.codigo}"></span></td>
+                    <td th:text="${m.vinhoNome ?: '—'}"></td>
+                    <td class="small text-muted" th:text="${m.localNome}"></td>
                     <td th:text="${m.localizacao}"></td>
                     <td class="text-end" th:text="${m.litros}"></td>
                     <td th:text="${m.casta != null ? m.casta.nome : '—'}"></td>
@@ -42,7 +46,7 @@
                         </form>
                     </td>
                 </tr>
-                <tr th:if="${mostos.isEmpty()}"><td colspan="8" class="text-center text-muted py-4">
+                <tr th:if="${mostos.isEmpty()}"><td colspan="10" class="text-center text-muted py-4">
                     Sem mostos. Feche uma moagem para gerar as fichas de mosto, ou registe um saldo inicial.</td></tr>
                 </tbody>
             </table>

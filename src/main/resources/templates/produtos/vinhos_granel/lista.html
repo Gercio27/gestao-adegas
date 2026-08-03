@@ -14,21 +14,25 @@
     </div>
     <p class="text-muted">Mapa de existências. Atualizado automaticamente pelo processo "Passagem a limpo".</p>
 
+    <div th:replace="~{fragments/filtros :: anoLocalVinho('/produtos/mostos/vinhos-granel')}"></div>
+
     <div class="card shadow-sm">
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle">
                 <thead>
-                <tr><th>Código</th><th>Localização</th><th class="text-end">Litros</th><th>Casta</th><th>Origem</th></tr>
+                <tr><th>Código</th><th>Vinho</th><th>Adega / armazém</th><th>Localização</th><th class="text-end">Litros</th><th>Casta</th><th>Origem</th></tr>
                 </thead>
                 <tbody>
                 <tr th:each="v : ${vinhos}">
                     <td><span class="codigo" th:text="${v.codigo}"></span></td>
+                    <td th:text="${v.vinhoNome ?: '—'}"></td>
+                    <td class="small text-muted" th:text="${v.localNome}"></td>
                     <td th:text="${v.localizacao}"></td>
                     <td class="text-end" th:text="${v.litros}"></td>
                     <td th:text="${v.casta != null ? v.casta.nome : '—'}"></td>
                     <td class="small" th:text="${v.origemDescricao}"></td>
                 </tr>
-                <tr th:if="${vinhos.isEmpty()}"><td colspan="5" class="text-center text-muted py-4">
+                <tr th:if="${vinhos.isEmpty()}"><td colspan="7" class="text-center text-muted py-4">
                     Sem vinhos a granel. Passe mostos a vinho pronto no processo da Fase 4.4.</td></tr>
                 </tbody>
             </table>

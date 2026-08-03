@@ -149,4 +149,21 @@ public class Mosto extends BaseEntity {
         if (deposito != null) return "Depósito " + deposito.getIdentificacao();
         return "—";
     }
+
+    /**
+     * Adega ou armazem onde o mosto esta, pelo recipiente que o guarda. E' por
+     * aqui que os mapas de existencias se filtram por local.
+     */
+    @Transient
+    public String getLocalNome() {
+        if (talha != null && talha.getAdega() != null) return "Adega " + talha.getAdega().getNome();
+        if (deposito != null) return deposito.getLocalizacao();
+        return "—";
+    }
+
+    /** Ano da ficha, para os mapas de existencias se filtrarem por ano. */
+    @Transient
+    public Integer getAno() {
+        return dataProducao != null ? dataProducao.getYear() : null;
+    }
 }

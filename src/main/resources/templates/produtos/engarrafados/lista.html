@@ -20,12 +20,14 @@
     </div>
     <p class="text-muted">Produtos acabados. Atualizado automaticamente pelo processo de Engarrafamento.</p>
 
+    <div th:replace="~{fragments/filtros :: anoLocalVinho('/produtos/engarrafados')}"></div>
+
     <div class="card shadow-sm">
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle">
                 <thead>
                 <tr><th>Código</th><th>Nome</th><th class="text-end">Garrafas</th><th class="text-end">Capac. (ml)</th>
-                    <th>Lote</th><th>Casta</th><th>Rotulado</th><th>Origem</th><th class="text-end">Ações</th></tr>
+                    <th>Lote</th><th>Casta</th><th>Onde está</th><th>Produção</th><th>Rotulado</th><th>Origem</th><th class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
                 <tr th:each="v : ${engarrafados}">
@@ -35,6 +37,9 @@
                     <td class="text-end" th:text="${v.capacidadeMl}"></td>
                     <td th:text="${v.lote ?: '—'}"></td>
                     <td th:text="${v.casta != null ? v.casta.nome : '—'}"></td>
+                    <td class="small text-muted"
+                        th:text="${locaisPorVinho.containsKey(v.id) ? locaisPorVinho.get(v.id) : '—'}"></td>
+                    <td class="small" th:text="${v.dataProducao != null ? #temporals.format(v.dataProducao,'dd-MM-yyyy') : '—'}"></td>
                     <td>
                         <span th:if="${v.rotulado}" class="badge bg-success">Rotulado</span>
                         <span th:unless="${v.rotulado}" class="badge bg-secondary">Por rotular</span>
@@ -53,7 +58,7 @@
                         </form>
                     </td>
                 </tr>
-                <tr th:if="${engarrafados.isEmpty()}"><td colspan="9" class="text-center text-muted py-4">
+                <tr th:if="${engarrafados.isEmpty()}"><td colspan="11" class="text-center text-muted py-4">
                     Sem vinhos engarrafados. Feche um engarrafamento para os criar.</td></tr>
                 </tbody>
             </table>

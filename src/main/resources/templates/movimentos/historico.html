@@ -21,6 +21,23 @@
         </div>
     </div>
 
+    <!-- Ano a consultar: o histórico de uma ficha abre sempre num ano só -->
+    <div th:if="${anos != null}" class="card shadow-sm mb-3">
+        <div class="card-body py-2 d-flex align-items-center flex-wrap gap-2">
+            <span class="small fw-bold me-1"><i class="bi bi-calendar3"></i> Ano:</span>
+            <a th:each="a : ${anos}" th:href="@{${urlDoAno}(ano=${a})}"
+               class="btn btn-sm"
+               th:classappend="${anoEscolhido != null and anoEscolhido == a} ? 'btn-primary' : 'btn-outline-primary'"
+               th:text="${a}">2026</a>
+            <a th:href="@{${urlDoAno}(ano='todos')}" class="btn btn-sm"
+               th:classappend="${anoEscolhido == null} ? 'btn-secondary' : 'btn-outline-secondary'">Todos os anos</a>
+            <span th:if="${anos.isEmpty()}" class="text-muted small">Ainda não há movimentos nesta ficha.</span>
+            <span th:if="${anoEscolhido != null}" class="text-muted small ms-auto">
+                A mostrar as entradas e saídas de <strong th:text="${anoEscolhido}"></strong>.
+            </span>
+        </div>
+    </div>
+
     <!-- Resumo: quanto entrou e quanto saiu, por unidade -->
     <div class="row g-2 mb-3" th:if="${!totais.isEmpty()}">
         <div class="col-md-4" th:each="e : ${totais}">

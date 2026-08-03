@@ -14,7 +14,9 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Comparator;
 import java.util.Map;
+import java.util.TreeSet;
 
 /**
  * Historico de movimentos: o que entrou e saiu de cada ficha (talha, deposito,
@@ -79,10 +81,26 @@ public class MovimentoStockController {
         return "movimentos/historico";
     }
 
-    /** Historico de uma ficha concreta. */
+    /**
+     * Historico de uma ficha concreta, ano a ano. Abre no ano mais recente com
+     * movimentos — e' o que interessa ver primeiro — e o seletor em cima deixa
+     * saltar para outro ano ou ver tudo de uma vez.
+     */
     @GetMapping("/{tipo}/{id}")
-    public String daFicha(@PathVariable TipoAlvo tipo, @PathVariable Long id, Model model) {
-        List<MovimentoStock> linhas = repo.findByTipoAlvoAndAlvoIdOrderByDataHoraDesc(tipo, id);
+    public String daFicha(@PathVariable TipoAlvo tipo, @PathVariable Long id,
+                          @RequestParam(required = false) String ano, Model model) {
+        List<MovimentoStock> todas = repo.findByTipoAlvoAndAlvoIdOrderByDataHoraDesc(tipo, id);
+        List<Integer> anos = anosCom(todas);
+
+        // Sem escolha do utilizador, mostra o ano mais recente que tenha movimentos.
+        Integer anoEscolhido = null;
+        boolean todosOsAnos = "todos".equalsIgnoreCase(ano);
+        if (!todosOsAnos) {
+            anoEscolhido = inteiro(ano);
+            if (anoEscolhido == null && !anos.isEmpty()) anoEscolhido = anos.get(0);
+        }
+        List<MovimentoStock> linhas = anoEscolhido == null ? todas : doAno(todas, anoEscolhido);
+
         model.addAttribute("titulo", "Histórico · " + nomeDaFicha(tipo, id));
         model.addAttribute("subtitulo", tipo.getDescricao() + verSaldo(tipo, id));
         model.addAttribute("linhas", linhas);
@@ -90,7 +108,33 @@ public class MovimentoStockController {
         model.addAttribute("mostrarFicha", false);
         model.addAttribute("voltarUrl", listaDe(tipo));
         model.addAttribute("totais", totais(linhas));
+        // Seletor de ano
+        model.addAttribute("anos", anos);
+        model.addAttribute("anoEscolhido", anoEscolhido);
+        model.addAttribute("urlDoAno", "/movimentos/" + tipo.name() + "/" + id);
         return "movimentos/historico";
+    }
+
+    /** Anos que têm movimentos, do mais recente para o mais antigo. */
+    private List<Integer> anosCom(List<MovimentoStock> linhas) {
+        TreeSet<Integer> anos = new TreeSet<>(Comparator.reverseOrder());
+        for (MovimentoStock m : linhas) {
+            if (m.getDataHora() != null) anos.add(m.getDataHora().getYear());
+        }
+        return new ArrayList<>(anos);
+    }
+
+    private List<MovimentoStock> doAno(List<MovimentoStock> linhas, int ano) {
+        List<MovimentoStock> out = new ArrayList<>();
+        for (MovimentoStock m : linhas) {
+            if (m.getDataHora() != null && m.getDataHora().getYear() == ano) out.add(m);
+        }
+        return out;
+    }
+
+    private Integer inteiro(String s) {
+        if (s == null || s.isBlank()) return null;
+        try { return Integer.valueOf(s.trim()); } catch (Exception e) { return null; }
     }
 
     /** Tudo o que se mexeu numa adega ou armazem. */

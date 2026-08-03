@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="pt-PT">
+<body>
+
+<!--
+  Filtros dos mapas de existencias (mostos, vinhos a granel, engarrafados):
+  ano, adega/armazem e vinho. Os tres ecras usam os mesmos nomes de parametros
+  (ano, local, vinho) e as mesmas variaveis no modelo, por isso partilham este
+  bloco em vez de o repetirem cada um a sua maneira.
+-->
+<div th:fragment="anoLocalVinho(acao)" class="card shadow-sm mb-3">
+    <form method="get" th:action="@{${acao}}" class="card-body row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small mb-1">Ano</label>
+            <select name="ano" class="form-select form-select-sm">
+                <option value="">Todos os anos</option>
+                <option th:each="a : ${anos}" th:value="${a}" th:text="${a}"
+                        th:selected="${fAno != null and fAno == a}"></option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label small mb-1">Adega / armazém</label>
+            <select name="local" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                <option th:each="l : ${locais}" th:value="${l}" th:text="${l}"
+                        th:selected="${l == fLocal}"></option>
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small mb-1">Vinho</label>
+            <select name="vinho" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                <option th:each="v : ${nomesVinhos}" th:value="${v}" th:text="${v}"
+                        th:selected="${v == fVinho}"></option>
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-sm btn-primary w-100"><i class="bi bi-funnel"></i> Filtrar</button>
+        </div>
+        <div class="col-12 d-flex align-items-center gap-2">
+            <a th:href="@{${acao}}" class="btn btn-sm btn-outline-secondary">Limpar filtros</a>
+            <span class="text-muted small"
+                  th:if="${fAno != null or (fLocal != null and !fLocal.isEmpty()) or (fVinho != null and !fVinho.isEmpty())}">
+                A mostrar <strong th:text="${totalFiltrado}">0</strong>
+                de <strong th:text="${totalGeral}">0</strong> fichas.
+            </span>
+        </div>
+    </form>
+</div>
+
+</body>
+</html>
