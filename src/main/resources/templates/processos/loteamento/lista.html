@@ -22,14 +22,23 @@
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle">
                 <thead>
-                <tr><th>Código do lote</th><th>Vinho</th><th>Local</th><th>Planeado em</th>
+                <tr><th>Código do lote</th><th>Vinho</th><th>Local</th>
+                    <th class="text-end">Planeado</th><th class="text-end">Construído</th><th class="text-end">Falta</th>
+                    <th>Planeado em</th>
                     <th>Estado</th><th class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
-                <tr th:each="l : ${lotes}">
+                <tr th:each="l : ${lotes}" th:with="p=${planeado.get(l.id)},c=${construido.get(l.id)}">
                     <td><span class="codigo" th:text="${l.codigo}"></span></td>
                     <td th:text="${l.nome}"></td>
                     <td th:text="${l.localNome}"></td>
+                    <td class="text-end" th:text="${p} + ' L'"></td>
+                    <td class="text-end fw-semibold" th:text="${c} + ' L'"></td>
+                    <!-- O que ainda falta pôr no lote; a verde quando já está tudo. -->
+                    <td class="text-end"
+                        th:with="falta=${p.subtract(c)}"
+                        th:classappend="${falta.signum() gt 0} ? 'text-danger' : 'text-success'"
+                        th:text="${falta.signum() gt 0 ? falta + ' L' : '—'}"></td>
                     <td th:text="${l.dataPlaneamento != null ? #temporals.format(l.dataPlaneamento, 'dd/MM/yyyy') : '—'}"></td>
                     <td>
                         <span th:if="${l.concluido}" class="badge bg-success">Concluído</span>
@@ -41,7 +50,7 @@
                         </a>
                     </td>
                 </tr>
-                <tr th:if="${lotes.isEmpty()}"><td colspan="6" class="text-center text-muted py-4">Sem lotes registados.</td></tr>
+                <tr th:if="${lotes.isEmpty()}"><td colspan="9" class="text-center text-muted py-4">Sem lotes registados.</td></tr>
                 </tbody>
             </table>
         </div>

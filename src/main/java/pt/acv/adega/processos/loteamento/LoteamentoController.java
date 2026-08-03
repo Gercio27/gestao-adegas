@@ -60,7 +60,26 @@ public class LoteamentoController {
 
     @GetMapping
     public String listar(Model model) {
-        model.addAttribute("lotes", loteRepo.findAllByOrderByDataCriacaoDesc());
+        List<Loteamento> lotes = loteRepo.findAllByOrderByDataCriacaoDesc();
+        // Planeado e construido de cada lote, para se verem na tabela sem ter de
+        // entrar no detalhe de cada um.
+        Map<Long, BigDecimal> planeado = new LinkedHashMap<>();
+        Map<Long, BigDecimal> construido = new LinkedHashMap<>();
+        for (Loteamento l : lotes) {
+            BigDecimal p = BigDecimal.ZERO;
+            for (LoteLinha ln : linhaRepo.findByLoteamentoId(l.getId())) {
+                if (ln.getLitrosPlaneados() != null) p = p.add(ln.getLitrosPlaneados());
+            }
+            BigDecimal c = BigDecimal.ZERO;
+            for (LoteConstrucao lc : construcaoRepo.findByLoteamentoIdOrderByNumeroAsc(l.getId())) {
+                if (lc.getLitros() != null) c = c.add(lc.getLitros());
+            }
+            planeado.put(l.getId(), p);
+            construido.put(l.getId(), c);
+        }
+        model.addAttribute("lotes", lotes);
+        model.addAttribute("planeado", planeado);
+        model.addAttribute("construido", construido);
         return "processos/loteamento/lista";
     }
 

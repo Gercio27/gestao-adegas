@@ -133,14 +133,18 @@ public class CertificacaoController {
             ContentorService.Opcao c = contentorService.procurar(tipo, cert.getContentorId());
             Long vegId = contentorService.vinhoDe(tipo, cert.getContentorId());
             VinhoEngarrafado v = vegId != null ? engarrafadoRepo.findById(vegId).orElse(null) : null;
-            if (c != null && v != null) {
+            if (c != null) {
                 cert.setVinhoGranel(null);
                 cert.setEngarrafado(v);
-                cert.setItensIdsCsv(String.valueOf(v.getId()));
+                cert.setItensIdsCsv(v != null ? String.valueOf(v.getId()) : null);
                 cert.setContentorDescricao(c.label());
-                cert.setItensDescricao(v.getCodigo() + " · " + v.getNome()
-                        + " · " + cert.getGarrafasCertificacao() + " " + tipo.getUnidade()
-                        + " p/ certificação (de " + c.nome() + ")");
+                String quantas = cert.getGarrafasCertificacao() + " " + tipo.getUnidade()
+                        + " p/ certificação (de " + c.nome() + ")";
+                // Sem ficha de vinho engarrafado, identifica-se pelo nome que o
+                // contentor tem e certifica-se o proprio contentor.
+                cert.setItensDescricao(v != null
+                        ? v.getCodigo() + " · " + v.getNome() + " · " + quantas
+                        : (c.vinhoNome() != null ? c.vinhoNome() : "Vinho do contentor") + " · " + quantas);
                 selecaoFeita = true;
             }
         }
@@ -312,8 +316,10 @@ public class CertificacaoController {
             List<Map<String, Object>> lista = new ArrayList<>();
             for (ContentorService.Opcao o : contentorService.comStock(tipo)) {
                 Long vegId = contentorService.vinhoDe(tipo, o.id());
-                if (vegId == null) continue;
-                if (Boolean.TRUE.equals(engCertificado.get(vegId))) continue;   // já certificado
+                // Um contentor cheio a mao na ficha (adega que ja tinha stock antes
+                // da aplicacao) nao tem vinho engarrafado ligado. Tem garrafas na
+                // mesma e tem de poder ser certificado, senao nunca aparecia aqui.
+                if (vegId != null && Boolean.TRUE.equals(engCertificado.get(vegId))) continue;
                 Map<String, Object> row = new LinkedHashMap<>();
                 row.put("id", o.id());
                 row.put("garrafas", o.stock());

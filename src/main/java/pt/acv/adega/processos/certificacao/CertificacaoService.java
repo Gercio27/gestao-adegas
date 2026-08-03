@@ -46,7 +46,11 @@ public class CertificacaoService {
         if (p.getEstado() == EstadoProcesso.FECHADO) throw new CertificacaoException("A certificação já está fechada.");
 
         List<Long> ids = idsParaCertificar(p);
-        if (ids.isEmpty()) throw new CertificacaoException("Indique pelo menos um "
+        // Contentor cheio a mao na ficha: nao ha ficha de vinho engarrafado, por
+        // isso certifica-se o proprio contentor.
+        boolean soContentor = ids.isEmpty() && p.getAlvo() != AlvoCertificacao.GRANEL
+                && p.getContentorId() != null;
+        if (ids.isEmpty() && !soContentor) throw new CertificacaoException("Indique pelo menos um "
                 + (p.getAlvo() == AlvoCertificacao.GRANEL ? "depósito a certificar." : "lote engarrafado a certificar."));
 
         boolean aprovado = p.getResultado() == ResultadoCertificacao.APROVADO;
@@ -67,6 +71,8 @@ public class CertificacaoService {
             }
         }
 
+        if (soContentor) marcarSoOContentor(p, aprovado);
+
         p.setEstado(EstadoProcesso.FECHADO);
         if (p.getDataHoraFim() == null) p.setDataHoraFim(LocalDateTime.now());
         p.setDataFecho(LocalDateTime.now());
@@ -78,7 +84,11 @@ public class CertificacaoService {
         ProcessoCertificacao p = repo.findById(id)
                 .orElseThrow(() -> new CertificacaoException("Certificação não encontrada."));
         if (p.getEstado() == EstadoProcesso.ABERTO) return;
-        for (Long itemId : idsParaCertificar(p)) {
+        List<Long> paraLimpar = idsParaCertificar(p);
+        if (paraLimpar.isEmpty() && p.getAlvo() != AlvoCertificacao.GRANEL && p.getContentorId() != null) {
+            marcarSoOContentor(p, false);
+        }
+        for (Long itemId : paraLimpar) {
             if (p.getAlvo() == AlvoCertificacao.GRANEL) {
                 Mosto m = mostoRepo.findById(itemId).orElse(null);
                 if (m != null) { m.setCertificado(false); m.setValidadeCertificacao(null); mostoRepo.save(m); }
@@ -137,6 +147,31 @@ public class CertificacaoService {
         setPdf.accept(aprovado && p != null ? p.getCertificadoPdf() : null);
         setPdfNome.accept(aprovado && p != null ? p.getCertificadoPdfNome() : null);
         setPdfTipo.accept(aprovado && p != null ? p.getCertificadoPdfTipo() : null);
+    }
+
+    /**
+     * Certifica (ou limpa) so' o contentor indicado no processo. E' o caso das
+     * garrafas que foram registadas a mao na ficha do contentor: existem, mas
+     * nao tem ficha de vinho engarrafado por tras.
+     */
+    private void marcarSoOContentor(ProcessoCertificacao p, boolean aprovado) {
+        Long id = p.getContentorId();
+        if (id == null) return;
+        if (p.getTipoEmbalagem() == pt.acv.adega.fichas.TipoEmbalagem.BAG_IN_BOX) {
+            bibRepo.findById(id).ifPresent(c -> {
+                aplicar(aprovado, aprovado ? p : null,
+                        c::setCertificado, c::setValidadeCertificacao, c::setCertificacaoCodigo,
+                        c::setCertificadoPdf, c::setCertificadoPdfNome, c::setCertificadoPdfTipo);
+                bibRepo.save(c);
+            });
+        } else {
+            contentorRepo.findById(id).ifPresent(c -> {
+                aplicar(aprovado, aprovado ? p : null,
+                        c::setCertificado, c::setValidadeCertificacao, c::setCertificacaoCodigo,
+                        c::setCertificadoPdf, c::setCertificadoPdfNome, c::setCertificadoPdfTipo);
+                contentorRepo.save(c);
+            });
+        }
     }
 
     /** Ids dos itens a certificar: do CSV, ou (retro) do único alvo antigo. */
