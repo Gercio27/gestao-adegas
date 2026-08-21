@@ -86,19 +86,35 @@ public class MoagemController {
 
         List<Map<String, Object>> vindimas = new ArrayList<>();
         List<Map<String, Object>> colheitas = new ArrayList<>();
+        // Parcelas que ficaram de fora e porque. Sem isto, uma parcela que nao
+        // aparece nao tem explicacao nenhuma no ecra — e a meio da vindima e'
+        // exatamente quando nao ha' tempo para andar a adivinhar.
+        List<Map<String, Object>> deFora = new ArrayList<>();
+
         for (PlaneamentoVinho p : planeamentoRepo.findAllByOrderByNomeVinhoAsc()) {
             for (LinhaPlaneamentoParcela l : p.getLinhas()) {
-                if (l.getTotalVindimadoKg().signum() <= 0 || l.getAdegaEntrega() == null) continue;
                 BigDecimal moido = usado.getOrDefault(l.getId(), BigDecimal.ZERO);
                 BigDecimal disponivel = l.getTotalVindimadoKg().subtract(moido);
-                // Uva toda moida: nao ha' o que oferecer, nao entra na lista.
-                if (disponivel.signum() <= 0) continue;
+
+                String motivo = null;
+                if (l.getTotalVindimadoKg().signum() <= 0) {
+                    motivo = "ainda não tem colheitas registadas";
+                } else if (l.getAdegaEntrega() == null) {
+                    motivo = "a colheita ficou sem adega de entrega — corrija na Fase 2";
+                } else if (disponivel.signum() <= 0) {
+                    motivo = "já foi toda moída (" + moido.toPlainString() + " kg)";
+                }
+                if (motivo != null) {
+                    deFora.add(deFora(l, p, motivo));
+                    continue;
+                }
 
                 String parc = nomeParcela(l);
                 String casta = (l.getParcela() != null && l.getParcela().getCasta() != null) ? l.getParcela().getCasta().getNome() : "—";
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", l.getId());
                 m.put("adegaId", l.getAdegaEntrega().getId());
+                m.put("adegaNome", l.getAdegaEntrega().getNome());
                 m.put("planoId", p.getId());
                 // Vinho para que a uva foi planeada. A moagem pode usa-la para
                 // outro vinho; o ecra mostra de onde ela vem para se saber.
@@ -115,6 +131,7 @@ public class MoagemController {
         }
         model.addAttribute("vindimasDisponiveis", vindimas);
         model.addAttribute("colheitasDisponiveis", colheitas);
+        model.addAttribute("parcelasDeFora", deFora);
         model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
         model.addAttribute("planos", planeamentoRepo.findAllByOrderByNomeVinhoAsc());
         model.addAttribute("recipientes", recipienteOpcoes());
@@ -197,6 +214,19 @@ public class MoagemController {
             out.add(c);
         }
         return out;
+    }
+
+    /** Uma parcela que nao aparece na moagem, com a razao em linguagem corrente. */
+    private Map<String, Object> deFora(LinhaPlaneamentoParcela l, PlaneamentoVinho p, String motivo) {
+        Map<String, Object> f = new LinkedHashMap<>();
+        f.put("vinha", l.getParcela() != null && l.getParcela().getVinha() != null
+                ? l.getParcela().getVinha().getNome() : "—");
+        f.put("parcela", nomeParcela(l));
+        f.put("vinho", p.getNomeVinho());
+        f.put("adega", l.getAdegaEntrega() != null ? l.getAdegaEntrega().getNome() : null);
+        f.put("vindimado", l.getTotalVindimadoKg().toPlainString());
+        f.put("motivo", motivo);
+        return f;
     }
 
     private String nomeParcela(LinhaPlaneamentoParcela l) {
