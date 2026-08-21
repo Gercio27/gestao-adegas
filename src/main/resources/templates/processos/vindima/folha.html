@@ -14,6 +14,12 @@
         Cada parcela pode ter <strong>várias colheitas</strong>. Cada colheita é independente
         (operador, carrinha, caixa e datas próprios) — ao adicionar uma nova, os campos abrem <strong>vazios</strong>.
     </p>
+    <p class="text-muted small">
+        <i class="bi bi-info-circle"></i>
+        As colunas <strong>Moído em</strong> e <strong>Por moer</strong> são <strong>calculadas</strong>: na moagem
+        escolhe-se a parcela e a quantidade, não a colheita. A regra é a da ordem de chegada — cada moagem,
+        da mais antiga para a mais recente, gasta primeiro as colheitas mais antigas que ainda tenham uva.
+    </p>
 
     <div th:if="${vinhos.isEmpty()}" class="card shadow-sm"><div class="card-body text-center text-muted py-4">
         Sem planeamento. Primeiro planeie os vinhos na <a th:href="@{/planeamento}">Fase 1.2</a>.
@@ -61,6 +67,8 @@
                         <table class="table table-sm mb-0 align-middle">
                             <thead><tr>
                                 <th>Código</th><th>Início</th><th>Fim</th><th class="text-end">Kg</th>
+                                <th style="background:#efe7e3;min-width:200px;">Moído em</th>
+                                <th class="text-end" style="background:#efe7e3;">Por moer</th>
                                 <th>Responsável</th><th>Transporte</th><th>Vasilame</th><th></th>
                             </tr></thead>
                             <tbody>
@@ -69,6 +77,19 @@
                                 <td th:text="${v.dataInicio != null ? #temporals.format(v.dataInicio,'dd-MM-yyyy') : '—'}"></td>
                                 <td th:text="${v.dataFim != null ? #temporals.format(v.dataFim,'dd-MM-yyyy') : '—'}"></td>
                                 <td class="text-end" th:text="${v.quantidadeKg != null ? v.quantidadeKg + ' kg' : '—'}"></td>
+                                <td class="small" style="background:#faf6f4;" th:with="usos=${usosPorColheita.get(v.id)}">
+                                    <span th:if="${usos == null or usos.isEmpty()}" class="text-muted">Ainda não foi moída</span>
+                                    <div th:each="u : ${usos}">
+                                        <span class="codigo" th:text="${u.codigo}"></span>
+                                        <span class="text-muted" th:if="${u.data != null}"
+                                              th:text="'· ' + ${#temporals.format(u.data,'dd-MM-yyyy')}"></span>
+                                        <span class="fw-semibold" th:text="'— ' + ${u.kg} + ' kg'"></span>
+                                        <span th:if="${u.aberta}" class="badge bg-warning text-dark">Em moagem</span>
+                                    </div>
+                                </td>
+                                <td class="text-end" style="background:#faf6f4;" th:with="pm=${porMoerPorColheita.get(v.id)}"
+                                    th:classappend="${pm != null and pm.signum() gt 0} ? 'fw-bold' : 'text-muted'"
+                                    th:text="${(pm != null ? pm : 0)} + ' kg'"></td>
                                 <td th:text="${v.responsavel != null ? v.responsavel.nome : '—'}"></td>
                                 <td class="small" th:text="${v.transporte ?: '—'}"></td>
                                 <td class="small" th:text="${v.vasilame ?: '—'}"></td>
@@ -83,27 +104,12 @@
                         </table>
                     </div>
 
-                    <!-- Para onde foi esta uva: moagens que a usaram e Kg de cada -->
-                    <div th:with="mgs=${moagensPorParcela.get(l.id)}" class="mb-2">
-                        <div class="small fw-bold mb-1"><i class="bi bi-gear-wide-connected"></i> Moagens que usaram esta uva</div>
-                        <div th:if="${mgs == null or mgs.isEmpty()}" class="text-muted small">
-                            Ainda não foi moída.
-                        </div>
-                        <div th:unless="${mgs == null or mgs.isEmpty()}" class="table-responsive">
-                            <table class="table table-sm mb-0" style="max-width:520px;">
-                                <thead><tr><th>Moagem</th><th>Data</th><th class="text-end">Kg usados</th></tr></thead>
-                                <tbody>
-                                <tr th:each="m : ${mgs}">
-                                    <td class="codigo small">
-                                        <span th:text="${m.codigo}"></span>
-                                        <span th:if="${m.aberta}" class="badge bg-warning text-dark ms-1">Em moagem</span>
-                                    </td>
-                                    <td th:text="${m.data != null ? #temporals.format(m.data,'dd-MM-yyyy') : '—'}"></td>
-                                    <td class="text-end fw-semibold" th:text="${m.kg} + ' kg'"></td>
-                                </tr>
-                                </tbody>
-                            </table>
-                        </div>
+                    <!-- Uva moida a mais do que a colhida: nao cabe em colheita nenhuma. -->
+                    <div th:if="${excessoPorParcela.get(l.id) != null}" class="alert alert-warning py-1 px-2 small mb-2">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Moeu-se <strong th:text="${excessoPorParcela.get(l.id)} + ' kg'"></strong>
+                        a mais do que ficou registado nas colheitas desta parcela — esses Kg não estão
+                        atribuídos a nenhuma colheita em cima. Confira as pesagens.
                     </div>
 
                     <!-- Adicionar colheita (campos SEMPRE vazios) -->

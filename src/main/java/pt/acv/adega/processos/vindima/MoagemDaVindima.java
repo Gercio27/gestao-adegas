@@ -4,12 +4,14 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 
 /**
- * Uma moagem que levou uva de uma parcela vindimada, e quantos Kg levou.
+ * Uma moagem que levou uva, e quantos Kg levou. Serve para duas coisas: o total
+ * que cada moagem tirou a uma parcela, e — depois de repartido — o que cada
+ * moagem tirou a uma colheita concreta.
  *
- * <p>Os Kg moidos sao registados por <b>parcela</b> (linha do planeamento), nao
- * por colheita: quando se moi, escolhe-se a parcela e a quantidade, nao a
- * colheita concreta. Por isso este resumo aparece no bloco da parcela e nao em
- * cada linha do historico de colheitas.
+ * <p><b>Atencao:</b> quando representa o uso numa colheita, os Kg sao
+ * <i>calculados</i>, nao registados. Ao moer escolhe-se a parcela e a
+ * quantidade, nunca a colheita; a reparticao por colheita e' feita por ordem de
+ * chegada (ver {@link VindimaController}).
  */
 public record MoagemDaVindima(String codigo, LocalDate data, BigDecimal kg, boolean aberta) {
 }

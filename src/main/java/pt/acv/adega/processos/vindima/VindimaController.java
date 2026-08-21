@@ -12,6 +12,7 @@ import pt.acv.adega.common.CodigoService;
 import pt.acv.adega.fichas.*;
 import pt.acv.adega.planeamento.LinhaPlaneamentoParcela;
 import pt.acv.adega.planeamento.LinhaPlaneamentoParcelaRepository;
+import pt.acv.adega.planeamento.PlaneamentoVinho;
 import pt.acv.adega.planeamento.PlaneamentoVinhoRepository;
 import pt.acv.adega.planeamento.RegistoVindima;
 import pt.acv.adega.planeamento.RegistoVindimaRepository;
@@ -65,12 +66,69 @@ public class VindimaController {
     /** Fase 2 — Folha da vindima sobre todo o planeamento (vinhos e parcelas). */
     @GetMapping
     public String folha(Model model) {
-        model.addAttribute("vinhos", planeamentoRepo.findAllByOrderByNomeVinhoAsc());
+        List<PlaneamentoVinho> vinhos = planeamentoRepo.findAllByOrderByNomeVinhoAsc();
+        model.addAttribute("vinhos", vinhos);
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
         model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
-        model.addAttribute("moagensPorParcela", moagensPorParcela());
         model.addAttribute("moidoPorParcela", moidoPorParcela());
+        repartirPorColheita(vinhos, model);
         return "processos/vindima/folha";
+    }
+
+    /**
+     * Diz, colheita a colheita, em que moagens a uva foi parar e quantos Kg
+     * cada uma levou.
+     *
+     * <p>Isto e' <b>calculado, nao registado</b>: ao moer escolhe-se a parcela e
+     * a quantidade, nunca a colheita, por isso a aplicacao nunca soube de que
+     * colheita concreta sairam aqueles Kg. A regra usada e' a da ordem de
+     * chegada: as moagens sao percorridas da mais antiga para a mais recente e
+     * cada uma gasta primeiro as colheitas mais antigas que ainda tenham uva.
+     * E' a mesma logica de quem descarrega o que chegou primeiro.
+     *
+     * <p>Moer mais do que se colheu e' permitido (a pesagem no campo nem sempre
+     * bate certo). Esse excesso nao cabe em colheita nenhuma, por isso e'
+     * mostrado a parte, no bloco da parcela.
+     */
+    private void repartirPorColheita(List<PlaneamentoVinho> vinhos, Model model) {
+        Map<Long, List<MoagemDaVindima>> moagensPorParcela = moagensPorParcela();
+        Map<Long, List<MoagemDaVindima>> usosPorColheita = new HashMap<>();
+        Map<Long, BigDecimal> porMoerPorColheita = new HashMap<>();
+        Map<Long, BigDecimal> excessoPorParcela = new HashMap<>();
+
+        for (PlaneamentoVinho p : vinhos) {
+            for (LinhaPlaneamentoParcela l : p.getLinhas()) {
+                // As colheitas ja vem por ordem de criacao (@OrderBy("id")).
+                List<RegistoVindima> colheitas = l.getVindimas();
+                Map<Long, BigDecimal> saldo = new HashMap<>();
+                for (RegistoVindima v : colheitas) {
+                    saldo.put(v.getId(), v.getQuantidadeKg() == null ? BigDecimal.ZERO : v.getQuantidadeKg());
+                }
+
+                BigDecimal excesso = BigDecimal.ZERO;
+                for (MoagemDaVindima m : moagensPorParcela.getOrDefault(l.getId(), List.of())) {
+                    BigDecimal falta = m.kg();
+                    for (RegistoVindima v : colheitas) {
+                        if (falta.signum() <= 0) break;
+                        BigDecimal disponivel = saldo.get(v.getId());
+                        if (disponivel == null || disponivel.signum() <= 0) continue;
+                        BigDecimal usa = disponivel.min(falta);
+                        usosPorColheita.computeIfAbsent(v.getId(), k -> new ArrayList<>())
+                                .add(new MoagemDaVindima(m.codigo(), m.data(), usa, m.aberta()));
+                        saldo.put(v.getId(), disponivel.subtract(usa));
+                        falta = falta.subtract(usa);
+                    }
+                    if (falta.signum() > 0) excesso = excesso.add(falta);
+                }
+
+                for (RegistoVindima v : colheitas) porMoerPorColheita.put(v.getId(), saldo.get(v.getId()));
+                if (excesso.signum() > 0) excessoPorParcela.put(l.getId(), excesso);
+            }
+        }
+
+        model.addAttribute("usosPorColheita", usosPorColheita);
+        model.addAttribute("porMoerPorColheita", porMoerPorColheita);
+        model.addAttribute("excessoPorParcela", excessoPorParcela);
     }
 
     /** Total de Kg que as moagens ja levaram de cada parcela. */

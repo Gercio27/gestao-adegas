@@ -26,6 +26,6 @@ public interface EnchimentoVindimaRepository extends JpaRepository<EnchimentoVin
             + "from EnchimentoVindima ev join ev.enchimento e join e.moagem m "
             + "where ev.linha is not null "
             + "group by ev.linha.id, m.id, m.codigo, m.dataHoraInicio, m.dataCriacao, m.estado "
-            + "order by m.codigo")
+            + "order by ev.linha.id, m.id")
     List<Object[]> moagensPorVindima();
 }
