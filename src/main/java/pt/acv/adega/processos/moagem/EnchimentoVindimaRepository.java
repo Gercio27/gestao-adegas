@@ -16,6 +16,14 @@ public interface EnchimentoVindimaRepository extends JpaRepository<EnchimentoVin
             + "where ev.linha is not null group by ev.linha.id")
     List<Object[]> totaisPorVindima();
 
+    /**
+     * Esta colheita ja foi usada nalguma moagem? Se sim, nao pode ser apagada.
+     * Escrito a mao porque {@code existsByColheitaId} apanharia o campo
+     * transiente {@code colheitaId} em vez da ligacao a colheita.
+     */
+    @Query("select count(ev) > 0 from EnchimentoVindima ev where ev.colheita.id = ?1")
+    boolean colheitaJaUsada(Long colheitaId);
+
     /** Kg ja atribuidos a moagens, por colheita. So' conta o que tem colheita indicada. */
     @Query("select ev.colheita.id, coalesce(sum(ev.quantidadeKg), 0) from EnchimentoVindima ev "
             + "where ev.colheita is not null group by ev.colheita.id")

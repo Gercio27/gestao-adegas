@@ -146,11 +146,81 @@ public class VindimaController {
 
     private boolean naoVazio(String s) { return s != null && !s.isBlank(); }
 
+    /**
+     * Corrige uma colheita ja registada. Nao mexe no codigo nem na parcela — e'
+     * a mesma colheita, so' com os dados certos. Os Kg podem descer abaixo do
+     * que ja' foi moido; nesse caso a folha mostra o excesso, como em qualquer
+     * outra diferenca de pesagem.
+     */
+    @PostMapping("/vindima/{registoId}/editar")
+    @Transactional
+    public String editarColheita(@PathVariable Long registoId, @ModelAttribute VindimaLinhaForm form,
+                                 RedirectAttributes ra) {
+        RegistoVindima r = registoVindimaRepo.findById(registoId).orElse(null);
+        if (r == null) {
+            ra.addFlashAttribute("erro", "Colheita não encontrada.");
+            return "redirect:/processos/vindima";
+        }
+        r.setDataInicio(form.getDataInicio());
+        r.setDataFim(form.getDataFim());
+        r.setQuantidadeKg(form.getQuantidadeKg());
+        r.setResponsavel(form.getResponsavel());
+        r.setVasilame(form.getVasilame());
+        r.setMeios(form.getMeios());
+        r.setMetodos(form.getMetodos());
+        r.setTransporte(form.getTransporte());
+        r.setObservacoes(form.getObservacoes());
+        registoVindimaRepo.save(r);
+
+        // A adega de entrega e' da parcela, nao da colheita — mas e' aqui que
+        // faz sentido corrigi-la, porque e' aqui que se da pela falta dela.
+        if (form.getAdegaEntrega() != null && r.getLinha() != null) {
+            r.getLinha().setAdegaEntrega(form.getAdegaEntrega());
+            linhaRepo.save(r.getLinha());
+        }
+        ra.addFlashAttribute("sucesso", "Colheita " + (r.getCodigo() != null ? r.getCodigo() : "") + " atualizada.");
+        return "redirect:/processos/vindima";
+    }
+
+    /**
+     * Define a adega onde a uva desta parcela e' entregue. Sem ela a parcela
+     * nunca chega a Fase 3 — a moagem procura a uva pela adega.
+     */
+    @PostMapping("/linha/{id}/adega")
+    @Transactional
+    public String adegaDaParcela(@PathVariable Long id, @ModelAttribute VindimaLinhaForm form,
+                                 RedirectAttributes ra) {
+        LinhaPlaneamentoParcela l = linhaRepo.findById(id).orElse(null);
+        if (l == null) {
+            ra.addFlashAttribute("erro", "Parcela não encontrada.");
+            return "redirect:/processos/vindima";
+        }
+        l.setAdegaEntrega(form.getAdegaEntrega());
+        linhaRepo.save(l);
+        ra.addFlashAttribute("sucesso", form.getAdegaEntrega() != null
+                ? "Adega de entrega definida: " + form.getAdegaEntrega().getNome() + ". A uva já aparece na moagem."
+                : "Adega de entrega removida — esta parcela deixa de aparecer na moagem.");
+        return "redirect:/processos/vindima";
+    }
+
     /** Remove uma colheita específica de uma linha (para correções). */
     @PostMapping("/vindima/{registoId}/eliminar")
     @Transactional
     public String eliminarVindima(@PathVariable Long registoId, RedirectAttributes ra) {
-        registoVindimaRepo.findById(registoId).ifPresent(registoVindimaRepo::delete);
+        RegistoVindima r = registoVindimaRepo.findById(registoId).orElse(null);
+        if (r == null) {
+            ra.addFlashAttribute("erro", "Colheita não encontrada.");
+            return "redirect:/processos/vindima";
+        }
+        // Uma colheita ja moida esta presa a moagem; apaga-la deixava a moagem
+        // a apontar para uva que nao existe (e a base de dados nem deixaria).
+        if (enchimentoVindimaRepo.colheitaJaUsada(registoId)) {
+            ra.addFlashAttribute("erro", "A colheita " + (r.getCodigo() != null ? r.getCodigo() : "")
+                    + " já foi usada numa moagem e por isso não pode ser removida."
+                    + " Se os dados estão errados, use o lápis para os corrigir.");
+            return "redirect:/processos/vindima";
+        }
+        registoVindimaRepo.delete(r);
         ra.addFlashAttribute("sucesso", "Colheita removida.");
         return "redirect:/processos/vindima";
     }

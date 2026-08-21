@@ -44,7 +44,20 @@
                         <span class="fw-semibold"
                               th:text="${(l.parcela != null and l.parcela.vinha != null ? l.parcela.vinha.nome + ' — ' : '') + (l.parcela != null ? (l.parcela.nome ?: l.parcela.identificacao ?: 'Parcela') : 'Parcela')}"></span>
                         <span class="badge bg-secondary ms-1" th:text="${l.parcela != null and l.parcela.casta != null ? l.parcela.casta.nome : '—'}"></span>
-                        <span class="text-muted small ms-2">Adega: <span th:text="${l.adegaEntrega != null ? l.adegaEntrega.nome : '—'}"></span></span>
+                        <!-- Sem adega de entrega a uva nunca chega a moagem, por isso
+                             o campo esta aqui a vista e corrige-se sem sair da pagina. -->
+                        <span class="small ms-2" th:classappend="${l.adegaEntrega == null} ? 'text-danger' : 'text-muted'">
+                            Adega:
+                            <span th:if="${l.adegaEntrega != null}" th:text="${l.adegaEntrega.nome}"></span>
+                            <span th:if="${l.adegaEntrega == null}" class="fw-semibold">
+                                <i class="bi bi-exclamation-triangle"></i> por definir
+                            </span>
+                            <button class="btn btn-sm btn-link p-0 align-baseline" type="button"
+                                    th:attr="onclick='alternarLinha(\'adega-' + ${l.id} + '\')'"
+                                    title="Mudar a adega de entrega desta parcela">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                        </span>
                     </div>
                     <div class="small">
                         Vindimado <strong th:classappend="${l.vindimaExcede} ? 'text-danger'" th:text="${l.totalVindimadoKg} + ' kg'"></strong>
@@ -62,6 +75,27 @@
                     </div>
                 </div>
 
+                <!-- Mudar so' a adega de entrega, sem ter de registar uma colheita -->
+                <div class="d-none mt-2" th:id="'adega-' + ${l.id}">
+                    <form th:action="@{/processos/vindima/linha/{id}/adega(id=${l.id})}" method="post"
+                          class="row g-2 align-items-end bg-light border rounded p-2">
+                        <div class="col-md-4">
+                            <label class="form-label small mb-0">Adega de entrega desta parcela</label>
+                            <select class="form-select form-select-sm" name="adegaEntrega">
+                                <option value="">— sem adega —</option>
+                                <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"
+                                        th:selected="${l.adegaEntrega != null and l.adegaEntrega.id == a.id}"></option>
+                            </select>
+                        </div>
+                        <div class="col-auto">
+                            <button class="btn btn-sm btn-success"><i class="bi bi-check-lg"></i> Guardar</button>
+                        </div>
+                        <div class="col-12 form-text">
+                            É por aqui que a moagem encontra a uva. Sem adega, esta parcela não aparece na Fase 3.
+                        </div>
+                    </form>
+                </div>
+
                 <div class="collapse mt-2" th:id="'col-' + ${l.id}">
                     <!-- Histórico de colheitas -->
                     <div th:if="${!l.vindimas.isEmpty()}" class="table-responsive mb-2">
@@ -73,7 +107,8 @@
                                 <th>Responsável</th><th>Transporte</th><th>Vasilame</th><th></th>
                             </tr></thead>
                             <tbody>
-                            <tr th:each="v : ${l.vindimas}">
+                            <th:block th:each="v : ${l.vindimas}">
+                            <tr>
                                 <td class="codigo small" th:text="${v.codigo ?: '—'}"></td>
                                 <td th:text="${v.dataInicio != null ? #temporals.format(v.dataInicio,'dd-MM-yyyy') : '—'}"></td>
                                 <td th:text="${v.dataFim != null ? #temporals.format(v.dataFim,'dd-MM-yyyy') : '—'}"></td>
@@ -96,13 +131,89 @@
                                 <td th:text="${v.responsavel != null ? v.responsavel.nome : '—'}"></td>
                                 <td class="small" th:text="${v.transporte ?: '—'}"></td>
                                 <td class="small" th:text="${v.vasilame ?: '—'}"></td>
-                                <td class="text-end">
+                                <td class="text-end text-nowrap">
+                                    <button class="btn btn-sm btn-outline-secondary py-0" type="button"
+                                            th:attr="onclick='alternarLinha(\'ed-' + ${v.id} + '\')'"
+                                            title="Editar esta colheita">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
                                     <form th:action="@{/processos/vindima/vindima/{rid}/eliminar(rid=${v.id})}" method="post"
                                           class="d-inline" onsubmit="return confirm('Remover esta colheita?');">
                                         <button class="btn btn-sm btn-outline-danger py-0"><i class="bi bi-trash"></i></button>
                                     </form>
                                 </td>
                             </tr>
+
+                            <!-- Editar a colheita: os mesmos campos com que foi registada -->
+                            <tr class="d-none" th:id="'ed-' + ${v.id}">
+                                <td colspan="10" class="bg-light">
+                                    <form th:action="@{/processos/vindima/vindima/{rid}/editar(rid=${v.id})}" method="post">
+                                        <div class="small fw-bold mb-1">
+                                            <i class="bi bi-pencil-square"></i>
+                                            Editar colheita <span class="codigo" th:text="${v.codigo ?: ''}"></span>
+                                        </div>
+                                        <div class="row g-2">
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0">Adega de entrega (da parcela)</label>
+                                                <select class="form-select form-select-sm" name="adegaEntrega">
+                                                    <option value="">—</option>
+                                                    <option th:each="a : ${adegas}" th:value="${a.id}" th:text="${a.nome}"
+                                                            th:selected="${l.adegaEntrega != null and l.adegaEntrega.id == a.id}"></option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0">Responsável</label>
+                                                <select class="form-select form-select-sm" name="responsavel">
+                                                    <option value="">—</option>
+                                                    <option th:each="t : ${trabalhadores}" th:value="${t.id}" th:text="${t.nome}"
+                                                            th:selected="${v.responsavel != null and v.responsavel.id == t.id}"></option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label small mb-0">Início</label>
+                                                <input type="date" class="form-control form-control-sm" name="dataInicio"
+                                                       th:value="${v.dataInicio}">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label small mb-0">Fim</label>
+                                                <input type="date" class="form-control form-control-sm" name="dataFim"
+                                                       th:value="${v.dataFim}">
+                                            </div>
+                                            <div class="col-md-2">
+                                                <label class="form-label small mb-0">Quantidade (Kg)</label>
+                                                <input type="number" step="0.01" min="0" class="form-control form-control-sm"
+                                                       name="quantidadeKg" th:value="${v.quantidadeKg}">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0">Vasilame</label>
+                                                <input class="form-control form-control-sm" name="vasilame" th:value="${v.vasilame}">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0">Transporte até à adega</label>
+                                                <input class="form-control form-control-sm" name="transporte" th:value="${v.transporte}">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0">Meios utilizados</label>
+                                                <input class="form-control form-control-sm" name="meios" th:value="${v.meios}">
+                                            </div>
+                                            <div class="col-md-3">
+                                                <label class="form-label small mb-0">Métodos utilizados</label>
+                                                <input class="form-control form-control-sm" name="metodos" th:value="${v.metodos}">
+                                            </div>
+                                            <div class="col-12">
+                                                <label class="form-label small mb-0">Observações</label>
+                                                <input class="form-control form-control-sm" name="observacoes" th:value="${v.observacoes}">
+                                            </div>
+                                        </div>
+                                        <button class="btn btn-sm btn-success mt-2" type="submit">
+                                            <i class="bi bi-check-lg"></i> Guardar alterações
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary mt-2" type="button"
+                                                th:attr="onclick='alternarLinha(\'ed-' + ${v.id} + '\')'">Cancelar</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            </th:block>
                             </tbody>
                         </table>
                     </div>
@@ -179,5 +290,12 @@
 </div>
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
+<script>
+    /** Abre/fecha um formulario de edicao (colheita ou adega da parcela). */
+    function alternarLinha(id) {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('d-none');
+    }
+</script>
 </body>
 </html>
