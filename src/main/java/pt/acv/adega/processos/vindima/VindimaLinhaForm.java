@@ -29,20 +29,6 @@ public class VindimaLinhaForm {
 
     private BigDecimal quantidadeKg;
 
-    /** Analise da uva a chegada: alcool provavel (% vol.), massa volumica (g/L) e pH. */
-    private BigDecimal alcoolProvavel;
-    private BigDecimal massaVolumica;
-    private BigDecimal ph;
-
-    public BigDecimal getAlcoolProvavel() { return alcoolProvavel; }
-    public void setAlcoolProvavel(BigDecimal alcoolProvavel) { this.alcoolProvavel = alcoolProvavel; }
-
-    public BigDecimal getMassaVolumica() { return massaVolumica; }
-    public void setMassaVolumica(BigDecimal massaVolumica) { this.massaVolumica = massaVolumica; }
-
-    public BigDecimal getPh() { return ph; }
-    public void setPh(BigDecimal ph) { this.ph = ph; }
-
     public Adega getAdegaEntrega() { return adegaEntrega; }
     public void setAdegaEntrega(Adega adegaEntrega) { this.adegaEntrega = adegaEntrega; }
 

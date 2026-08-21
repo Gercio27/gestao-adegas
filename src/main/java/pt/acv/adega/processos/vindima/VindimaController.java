@@ -16,9 +16,14 @@ import pt.acv.adega.planeamento.PlaneamentoVinhoRepository;
 import pt.acv.adega.planeamento.RegistoVindima;
 import pt.acv.adega.planeamento.RegistoVindimaRepository;
 import pt.acv.adega.processos.EstadoProcesso;
+import pt.acv.adega.processos.moagem.EnchimentoVindimaRepository;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * Processo de Vindima (Fase 2). Abre-se, preenche-se e fecha-se.
@@ -37,12 +42,14 @@ public class VindimaController {
     private final PlaneamentoVinhoRepository planeamentoRepo;
     private final LinhaPlaneamentoParcelaRepository linhaRepo;
     private final RegistoVindimaRepository registoVindimaRepo;
+    private final EnchimentoVindimaRepository enchimentoVindimaRepo;
 
     public VindimaController(ProcessoVindimaRepository repo, VinhaRepository vinhaRepo,
                              CastaRepository castaRepo, AdegaRepository adegaRepo,
                              TrabalhadorRepository trabalhadorRepo, CodigoService codigoService,
                              PlaneamentoVinhoRepository planeamentoRepo, LinhaPlaneamentoParcelaRepository linhaRepo,
-                             RegistoVindimaRepository registoVindimaRepo) {
+                             RegistoVindimaRepository registoVindimaRepo,
+                             EnchimentoVindimaRepository enchimentoVindimaRepo) {
         this.repo = repo;
         this.vinhaRepo = vinhaRepo;
         this.castaRepo = castaRepo;
@@ -52,6 +59,7 @@ public class VindimaController {
         this.planeamentoRepo = planeamentoRepo;
         this.linhaRepo = linhaRepo;
         this.registoVindimaRepo = registoVindimaRepo;
+        this.enchimentoVindimaRepo = enchimentoVindimaRepo;
     }
 
     /** Fase 2 — Folha da vindima sobre todo o planeamento (vinhos e parcelas). */
@@ -60,7 +68,43 @@ public class VindimaController {
         model.addAttribute("vinhos", planeamentoRepo.findAllByOrderByNomeVinhoAsc());
         model.addAttribute("trabalhadores", trabalhadorRepo.findByAtivoTrueOrderByNomeAsc());
         model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
+        model.addAttribute("moagensPorParcela", moagensPorParcela());
+        model.addAttribute("moidoPorParcela", moidoPorParcela());
         return "processos/vindima/folha";
+    }
+
+    /** Total de Kg que as moagens ja levaram de cada parcela. */
+    private Map<Long, BigDecimal> moidoPorParcela() {
+        Map<Long, BigDecimal> mapa = new HashMap<>();
+        for (Object[] l : enchimentoVindimaRepo.totaisPorVindima()) {
+            if (l[0] == null) continue;
+            mapa.put((Long) l[0], l[1] == null ? BigDecimal.ZERO : (BigDecimal) l[1]);
+        }
+        return mapa;
+    }
+
+    /**
+     * Para onde foi a uva de cada parcela: que moagens a usaram e quantos Kg
+     * levaram. Serve para, na folha da vindima, se ver logo o destino da
+     * colheita sem ter de ir a Fase 3 procurar.
+     */
+    private Map<Long, List<MoagemDaVindima>> moagensPorParcela() {
+        Map<Long, List<MoagemDaVindima>> mapa = new HashMap<>();
+        for (Object[] l : enchimentoVindimaRepo.moagensPorVindima()) {
+            if (l[0] == null) continue;
+            Long linhaId = (Long) l[0];
+            String codigo = (String) l[1];
+            // A data da moagem e a de inicio; se nao foi preenchida, vale a de
+            // criacao — a mesma regra do ecra da moagem.
+            LocalDateTime inicio = (LocalDateTime) l[2];
+            LocalDateTime criacao = (LocalDateTime) l[3];
+            LocalDateTime quando = inicio != null ? inicio : criacao;
+            boolean aberta = l[4] == EstadoProcesso.ABERTO;
+            BigDecimal kg = l[5] == null ? BigDecimal.ZERO : (BigDecimal) l[5];
+            mapa.computeIfAbsent(linhaId, k -> new ArrayList<>())
+                    .add(new MoagemDaVindima(codigo, quando != null ? quando.toLocalDate() : null, kg, aberta));
+        }
+        return mapa;
     }
 
     /**
@@ -79,7 +123,6 @@ public class VindimaController {
 
         boolean temDados = form.getQuantidadeKg() != null || form.getDataInicio() != null
                 || form.getDataFim() != null || form.getResponsavel() != null
-                || form.getAlcoolProvavel() != null || form.getMassaVolumica() != null || form.getPh() != null
                 || naoVazio(form.getVasilame()) || naoVazio(form.getTransporte())
                 || naoVazio(form.getMeios()) || naoVazio(form.getMetodos()) || naoVazio(form.getObservacoes());
 
@@ -89,9 +132,6 @@ public class VindimaController {
             r.setDataInicio(form.getDataInicio());
             r.setDataFim(form.getDataFim());
             r.setQuantidadeKg(form.getQuantidadeKg());
-            r.setAlcoolProvavel(form.getAlcoolProvavel());
-            r.setMassaVolumica(form.getMassaVolumica());
-            r.setPh(form.getPh());
             r.setResponsavel(form.getResponsavel());
             r.setVasilame(form.getVasilame());
             r.setMeios(form.getMeios());
@@ -110,36 +150,6 @@ public class VindimaController {
     }
 
     private boolean naoVazio(String s) { return s != null && !s.isBlank(); }
-
-    /**
-     * Corrige a análise de uma colheita já registada: álcool provável, massa
-     * volúmica e pH. Só o administrador, porque estes valores acompanham a uva
-     * até à moagem e daí às fichas de mosto — as restantes casas ficam como
-     * foram registadas no campo.
-     */
-    @PostMapping("/vindima/{registoId}/analise")
-    @Transactional
-    public String analiseVindima(@PathVariable Long registoId,
-                                 @RequestParam(required = false) BigDecimal alcoolProvavel,
-                                 @RequestParam(required = false) BigDecimal massaVolumica,
-                                 @RequestParam(required = false) BigDecimal ph,
-                                 Authentication auth, RedirectAttributes ra) {
-        if (!isAdmin(auth)) {
-            ra.addFlashAttribute("erro", "Apenas o administrador pode corrigir a análise da colheita.");
-            return "redirect:/processos/vindima";
-        }
-        RegistoVindima r = registoVindimaRepo.findById(registoId).orElse(null);
-        if (r == null) {
-            ra.addFlashAttribute("erro", "Colheita não encontrada.");
-            return "redirect:/processos/vindima";
-        }
-        r.setAlcoolProvavel(alcoolProvavel);
-        r.setMassaVolumica(massaVolumica);
-        r.setPh(ph);
-        registoVindimaRepo.save(r);
-        ra.addFlashAttribute("sucesso", "Análise da colheita " + (r.getCodigo() != null ? r.getCodigo() : "") + " atualizada.");
-        return "redirect:/processos/vindima";
-    }
 
     /** Remove uma colheita específica de uma linha (para correções). */
     @PostMapping("/vindima/{registoId}/eliminar")

@@ -41,20 +41,6 @@ public class RegistoVindima {
     @Column(precision = 12, scale = 2)
     private BigDecimal quantidadeKg;
 
-    // ----- Analise da uva a chegada (so' o administrador a corrige depois) -----
-
-    /** Alcool provavel (% vol.) medido a uva desta colheita. */
-    @Column(name = "alcool_provavel", precision = 5, scale = 2)
-    private BigDecimal alcoolProvavel;
-
-    /** Massa volumica do mosto desta colheita (g/L). */
-    @Column(name = "massa_volumica", precision = 8, scale = 2)
-    private BigDecimal massaVolumica;
-
-    /** pH medido a uva desta colheita. */
-    @Column(name = "ph", precision = 4, scale = 2)
-    private BigDecimal ph;
-
     // ----- Dados da operacao (proprios de cada colheita) -----
 
     @ManyToOne(fetch = FetchType.EAGER)
@@ -93,15 +79,6 @@ public class RegistoVindima {
 
     public BigDecimal getQuantidadeKg() { return quantidadeKg; }
     public void setQuantidadeKg(BigDecimal quantidadeKg) { this.quantidadeKg = quantidadeKg; }
-
-    public BigDecimal getAlcoolProvavel() { return alcoolProvavel; }
-    public void setAlcoolProvavel(BigDecimal alcoolProvavel) { this.alcoolProvavel = alcoolProvavel; }
-
-    public BigDecimal getMassaVolumica() { return massaVolumica; }
-    public void setMassaVolumica(BigDecimal massaVolumica) { this.massaVolumica = massaVolumica; }
-
-    public BigDecimal getPh() { return ph; }
-    public void setPh(BigDecimal ph) { this.ph = ph; }
 
     public Trabalhador getResponsavel() { return responsavel; }
     public void setResponsavel(Trabalhador responsavel) { this.responsavel = responsavel; }
