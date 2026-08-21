@@ -60,19 +60,19 @@
                         <tr><td colspan="5" class="text-muted small py-2">Escolha a adega e o vinho.</td></tr>
                         </tbody>
                     </table>
-                    <div class="form-text">O <strong>Por moer</strong> desce à medida que reparte os Kg pelas talhas, em baixo.</div>
+                    <div class="form-text">O <strong>Por moer</strong> desce à medida que reparte os Kg pelas talhas, em baixo. A repartição é feita <strong>colheita a colheita</strong> — escolha de que colheita está a moer.</div>
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center mb-1" style="max-width:1000px;">
-                    <div class="small fw-bold">Enchimentos — quanto se moi de cada vindima em cada talha/depósito</div>
+                    <div class="small fw-bold">Enchimentos — de que colheita se moi, quanto, e para que talha/depósito</div>
                     <button class="btn btn-sm btn-outline-secondary py-0" type="button" onclick="juntarLinha('novo')">
                         <i class="bi bi-plus-lg"></i> Mais uma talha
                     </button>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-sm mb-0" style="max-width:1240px;" id="tabelaNovo">
+                    <table class="table table-sm mb-0" style="max-width:1320px;" id="tabelaNovo">
                         <thead><tr><th style="width:32px;">#</th><th style="min-width:210px;">Talha / Depósito</th>
-                            <th style="min-width:260px;">Kg por vindima</th><th>Casta</th>
+                            <th style="min-width:400px;">Kg por colheita</th><th>Casta</th>
                             <th class="text-end" style="width:100px;">Moído (Kg)</th>
                             <th class="text-end" style="width:110px;">Mosto (L)</th>
                             <th class="text-end" style="width:110px;">Álcool prov. (%)</th>
@@ -234,7 +234,7 @@
                             </tr>
                             </tbody>
                         </table>
-                        <div class="form-text">Desce à medida que reparte os Kg em baixo. Pode moer a mais — fica só o aviso.</div>
+                        <div class="form-text">Desce à medida que reparte os Kg em baixo, colheita a colheita. Pode moer a mais — fica só o aviso.</div>
                     </div>
 
                     <div class="d-flex justify-content-between align-items-center mb-1" style="max-width:1000px;">
@@ -245,9 +245,9 @@
                         </button>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table-sm mb-0" style="max-width:1240px;" th:id="'tabela' + ${mo.id}">
+                        <table class="table table-sm mb-0" style="max-width:1320px;" th:id="'tabela' + ${mo.id}">
                             <thead><tr><th style="width:32px;">#</th><th style="min-width:210px;">Talha / Depósito</th>
-                                <th style="min-width:260px;">Kg por vindima</th><th>Casta</th>
+                                <th style="min-width:400px;">Kg por colheita</th><th>Casta</th>
                                 <th class="text-end" style="width:100px;">Moído (Kg)</th>
                                 <th class="text-end" style="width:110px;">Mosto (L)</th>
                                 <th class="text-end" style="width:110px;">Álcool prov. (%)</th>
@@ -299,7 +299,27 @@
 <script th:inline="javascript">
     const vindimasDisponiveis = /*[[${vindimasDisponiveis}]]*/ [];
     const vindimasPorMoagem = /*[[${vindimasPorMoagem}]]*/ {};
+    const colheitasDisponiveis = /*[[${colheitasDisponiveis}]]*/ [];
+    const colheitasPorMoagem = /*[[${colheitasPorMoagem}]]*/ {};
     const recipientesOpcoes = /*[[${recipientes}]]*/ [];
+
+    /**
+     * As colheitas em jogo num bloco: as das parcelas que estao escolhidas.
+     * E' aqui que o utilizador reparte os Kg — colheita a colheita, nao so'
+     * parcela a parcela.
+     */
+    function colheitasDoBloco(bloco) {
+        const parcelas = vindimasDoBloco(bloco).map(function (v) { return String(v.id); });
+        const lista = bloco === 'novo' ? colheitasDisponiveis : (colheitasPorMoagem[bloco] || []);
+        return lista.filter(function (c) { return parcelas.indexOf(String(c.linhaId)) !== -1; });
+    }
+
+    /** "01-09" a partir de "2026-09-01"; vazio se a colheita nao tiver data. */
+    function diaMes(iso) {
+        if (!iso) return '';
+        const p = String(iso).split('-');
+        return p.length === 3 ? p[2] + '-' + p[1] : '';
+    }
 
     /** Abre/fecha uma linha extra da tabela (correcao da analise, so' admin). */
     function alternarLinha(id) {
@@ -338,17 +358,26 @@
         const corpo = document.getElementById('corpo' + (bloco === 'novo' ? 'Novo' : bloco));
         if (!corpo) return;
         const i = corpo.querySelectorAll('tr').length;
-        const vindimas = vindimasDoBloco(bloco);
+        const colheitas = colheitasDoBloco(bloco);
 
-        const kgPorVindima = vindimas.length
-            ? vindimas.map(function (v, j) {
+        // Uma caixa de Kg por COLHEITA: e' o utilizador que decide de que
+        // colheita esta a moer, e nao a aplicacao a adivinhar.
+        const kgPorVindima = colheitas.length
+            ? colheitas.map(function (c, j) {
+                const dia = diaMes(c.data);
+                const titulo = c.parcela + ' · ' + c.codigo + (dia ? ' (' + dia + ')' : '');
                 return '<div class="d-flex align-items-center gap-1 mb-1">'
-                    + '<input type="hidden" name="enchimentos[' + i + '].origens[' + j + '].linhaId" value="' + v.id + '">'
-                    + '<span class="small text-truncate" style="min-width:120px;" title="' + v.label + '">' + v.label + '</span>'
+                    + '<input type="hidden" name="enchimentos[' + i + '].origens[' + j + '].colheitaId" value="' + c.id + '">'
+                    + '<span class="small text-truncate" style="min-width:215px;" title="' + titulo + '">'
+                    + '<span class="codigo">' + c.codigo + '</span>'
+                    + (dia ? ' <span class="text-muted">' + dia + '</span>' : '')
+                    + ' <span class="text-muted">· ' + c.parcela + '</span></span>'
                     + '<input type="number" step="0.01" min="0" class="form-control form-control-sm text-end kg-vindima"'
-                    + ' style="max-width:100px;" data-bloco="' + bloco + '" data-vindima="' + v.id + '"'
-                    + ' data-casta="' + (v.casta || '') + '"'
+                    + ' style="max-width:100px;" data-bloco="' + bloco + '" data-vindima="' + c.linhaId + '"'
+                    + ' data-colheita="' + c.id + '" data-casta="' + (c.casta || '') + '"'
                     + ' name="enchimentos[' + i + '].origens[' + j + '].quantidadeKg" placeholder="kg">'
+                    + '<span class="small text-muted saldo-colheita" data-bloco="' + bloco + '" data-colheita="' + c.id + '"'
+                    + ' data-disponivel="' + c.disponivel + '" style="min-width:78px;">' + c.texto + '</span>'
                     + '</div>';
             }).join('')
             : '<span class="text-muted small">Escolha primeiro a adega e o vinho.</span>';
@@ -476,7 +505,29 @@
             if (celulaCasta) celulaCasta.textContent = castas.length ? castas.join(', ') : '—';
         });
 
-        // 2) Por vindima: saldo = disponível no servidor - o que está escrito agora.
+        // 2) Por colheita: o que sobra daquela colheita depois do que se escreveu.
+        document.querySelectorAll('.saldo-colheita').forEach(function (span) {
+            const id = span.dataset.colheita;
+            const bloco = span.dataset.bloco;
+            const disponivel = parseFloat(span.dataset.disponivel) || 0;
+            let usado = 0;
+            document.querySelectorAll('.kg-vindima[data-colheita="' + id + '"][data-bloco="' + bloco + '"]')
+                .forEach(function (inp) {
+                    const kg = parseFloat(inp.value);
+                    if (!isNaN(kg)) usado += kg;
+                });
+            const resta = disponivel - usado;
+            span.textContent = resta < 0
+                ? '−' + Math.abs(resta).toFixed(2) + ' kg'
+                : resta.toFixed(2) + ' kg';
+            span.classList.toggle('text-danger', resta < 0);
+            span.classList.toggle('text-muted', resta >= 0);
+            span.title = resta < 0
+                ? 'Vai moer ' + Math.abs(resta).toFixed(2) + ' kg a mais do que esta colheita tinha por moer (permitido).'
+                : 'O que ainda sobra desta colheita.';
+        });
+
+        // 3) Por parcela: saldo = disponível no servidor - o que está escrito agora.
         document.querySelectorAll('.saldo-vindima').forEach(function (celula) {
             const id = celula.dataset.vindima;
             const bloco = celula.dataset.bloco;

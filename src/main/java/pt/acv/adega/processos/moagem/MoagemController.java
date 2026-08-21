@@ -12,6 +12,8 @@ import pt.acv.adega.planeamento.LinhaPlaneamentoParcela;
 import pt.acv.adega.planeamento.LinhaPlaneamentoParcelaRepository;
 import pt.acv.adega.planeamento.PlaneamentoVinho;
 import pt.acv.adega.planeamento.PlaneamentoVinhoRepository;
+import pt.acv.adega.planeamento.RegistoVindima;
+import pt.acv.adega.planeamento.RegistoVindimaRepository;
 import pt.acv.adega.produtos.Mosto;
 import pt.acv.adega.produtos.MostoRepository;
 
@@ -40,6 +42,7 @@ public class MoagemController {
     private final EnchimentoRepository enchimentoRepo;
     private final EnchimentoVindimaRepository enchimentoVindimaRepo;
     private final MostoRepository mostoRepo;
+    private final RegistoVindimaRepository registoVindimaRepo;
     private final CodigoService codigoService;
 
     public MoagemController(ProcessoMoagemRepository repo, MoagemService moagemService,
@@ -48,7 +51,8 @@ public class MoagemController {
                             TrabalhadorRepository trabalhadorRepo, LinhaPlaneamentoParcelaRepository linhaRepo,
                             PlaneamentoVinhoRepository planeamentoRepo, EnchimentoRepository enchimentoRepo,
                             EnchimentoVindimaRepository enchimentoVindimaRepo,
-                            MostoRepository mostoRepo, CodigoService codigoService) {
+                            MostoRepository mostoRepo, RegistoVindimaRepository registoVindimaRepo,
+                            CodigoService codigoService) {
         this.repo = repo;
         this.moagemService = moagemService;
         this.talhaRepo = talhaRepo;
@@ -61,6 +65,7 @@ public class MoagemController {
         this.enchimentoRepo = enchimentoRepo;
         this.enchimentoVindimaRepo = enchimentoVindimaRepo;
         this.mostoRepo = mostoRepo;
+        this.registoVindimaRepo = registoVindimaRepo;
         this.codigoService = codigoService;
     }
 
@@ -70,13 +75,13 @@ public class MoagemController {
         // Cada uma leva já o saldo por moer: o que foi vindimado menos o que
         // outras moagens (mesmo abertas) já lhe tiraram.
         Map<Long, BigDecimal> usado = kgUsadoPorVindima();
+        Map<Long, BigDecimal> usadoColheita = kgUsadoPorColheita();
         List<Map<String, Object>> vindimas = new ArrayList<>();
+        List<Map<String, Object>> colheitas = new ArrayList<>();
         for (PlaneamentoVinho p : planeamentoRepo.findAllByOrderByNomeVinhoAsc()) {
             for (LinhaPlaneamentoParcela l : p.getLinhas()) {
                 if (l.getTotalVindimadoKg().signum() <= 0 || l.getAdegaEntrega() == null) continue;
-                String parc = l.getParcela() != null
-                        ? (l.getParcela().getNome() != null ? l.getParcela().getNome() : l.getParcela().getIdentificacao())
-                        : "?";
+                String parc = nomeParcela(l);
                 String casta = (l.getParcela() != null && l.getParcela().getCasta() != null) ? l.getParcela().getCasta().getNome() : "—";
                 BigDecimal moido = usado.getOrDefault(l.getId(), BigDecimal.ZERO);
                 BigDecimal disponivel = l.getTotalVindimadoKg().subtract(moido);
@@ -91,9 +96,11 @@ public class MoagemController {
                 m.put("disponivel", disponivel.toPlainString());
                 m.put("texto", textoSaldo(disponivel));
                 vindimas.add(m);
+                colheitas.addAll(colheitasDaParcela(l, parc, casta, usadoColheita));
             }
         }
         model.addAttribute("vindimasDisponiveis", vindimas);
+        model.addAttribute("colheitasDisponiveis", colheitas);
         model.addAttribute("adegas", adegaRepo.findAllByOrderByNomeAsc());
         model.addAttribute("planos", planeamentoRepo.findAllByOrderByNomeVinhoAsc());
         model.addAttribute("recipientes", recipienteOpcoes());
@@ -115,25 +122,70 @@ public class MoagemController {
         // Vindimas de cada moagem aberta, com o saldo por moer — para o
         // formulário de acrescentar enchimentos repartir os Kg por vindima.
         Map<Long, List<Map<String, Object>>> vindimasPorMoagem = new HashMap<>();
+        Map<Long, List<Map<String, Object>>> colheitasPorMoagem = new HashMap<>();
         for (ProcessoMoagem mo : moagens) {
             if (!mo.isAberto()) continue;
             List<Map<String, Object>> linhas = new ArrayList<>();
+            List<Map<String, Object>> cols = new ArrayList<>();
             for (LinhaPlaneamentoParcela l : mo.getVindimas()) {
                 BigDecimal moido = usado.getOrDefault(l.getId(), BigDecimal.ZERO);
+                String casta = l.getParcela() != null && l.getParcela().getCasta() != null
+                        ? l.getParcela().getCasta().getNome() : "—";
                 Map<String, Object> v = new LinkedHashMap<>();
                 v.put("id", l.getId());
                 v.put("label", l.getEtiqueta());
-                v.put("casta", l.getParcela() != null && l.getParcela().getCasta() != null
-                        ? l.getParcela().getCasta().getNome() : "—");
+                v.put("casta", casta);
                 BigDecimal disp = l.getTotalVindimadoKg().subtract(moido);
                 v.put("disponivel", disp.toPlainString());
                 v.put("texto", textoSaldo(disp));
                 linhas.add(v);
+                cols.addAll(colheitasDaParcela(l, nomeParcela(l), casta, usadoColheita));
             }
             vindimasPorMoagem.put(mo.getId(), linhas);
+            colheitasPorMoagem.put(mo.getId(), cols);
         }
         model.addAttribute("vindimasPorMoagem", vindimasPorMoagem);
+        model.addAttribute("colheitasPorMoagem", colheitasPorMoagem);
         return "processos/moagem/folha";
+    }
+
+    /**
+     * As colheitas de uma parcela, cada uma com o que ainda tem por moer. E'
+     * isto que o ecra da moagem mostra para o utilizador repartir os Kg: ele
+     * escolhe de que colheita esta a moer, nao so' de que parcela.
+     */
+    private List<Map<String, Object>> colheitasDaParcela(LinhaPlaneamentoParcela l, String parc, String casta,
+                                                         Map<Long, BigDecimal> usadoColheita) {
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (RegistoVindima v : l.getVindimas()) {
+            BigDecimal colhido = v.getQuantidadeKg() == null ? BigDecimal.ZERO : v.getQuantidadeKg();
+            if (colhido.signum() <= 0) continue;
+            BigDecimal moido = usadoColheita.getOrDefault(v.getId(), BigDecimal.ZERO);
+            BigDecimal disp = colhido.subtract(moido);
+            Map<String, Object> c = new LinkedHashMap<>();
+            c.put("id", v.getId());
+            c.put("linhaId", l.getId());
+            c.put("adegaId", l.getAdegaEntrega() != null ? l.getAdegaEntrega().getId() : null);
+            c.put("planoId", l.getPlaneamento() != null ? l.getPlaneamento().getId() : null);
+            c.put("parcela", parc);
+            c.put("casta", casta);
+            c.put("codigo", v.getCodigo() != null ? v.getCodigo() : ("Colheita " + v.getId()));
+            c.put("data", v.getDataInicio() != null ? v.getDataInicio().toString() : null);
+            c.put("colhido", colhido.toPlainString());
+            c.put("disponivel", disp.toPlainString());
+            c.put("texto", textoSaldo(disp));
+            out.add(c);
+        }
+        return out;
+    }
+
+    private String nomeParcela(LinhaPlaneamentoParcela l) {
+        if (l.getParcela() == null) return "?";
+        if (l.getParcela().getNome() != null && !l.getParcela().getNome().isBlank()) return l.getParcela().getNome();
+        if (l.getParcela().getIdentificacao() != null && !l.getParcela().getIdentificacao().isBlank()) {
+            return l.getParcela().getIdentificacao();
+        }
+        return "Parcela " + l.getParcela().getId();
     }
 
     /**
@@ -475,8 +527,9 @@ public class MoagemController {
      */
     private String appendEnchimentos(ProcessoMoagem m, List<Enchimento> lista) {
         if (lista == null) return null;
-        // Saldo por vindima já comprometido noutras moagens.
+        // Saldo já comprometido noutras moagens, por parcela e por colheita.
         Map<Long, BigDecimal> usado = kgUsadoPorVindima();
+        Map<Long, BigDecimal> usadoColheita = kgUsadoPorColheita();
         List<String> avisos = new ArrayList<>();
         for (Enchimento e : lista) {
             if (e == null) continue;
@@ -491,43 +544,85 @@ public class MoagemController {
             // Com vindimas indicadas, os Kg moídos são a soma delas.
             if (!e.getOrigens().isEmpty()) e.setQuantidadeMoidaKg(e.getTotalOrigensKg());
 
-            avisos.addAll(excessos(e, usado));
+            avisos.addAll(excessos(e, usado, usadoColheita));
             e.setMoagem(m);
             m.getEnchimentos().add(e);
         }
         return avisos.isEmpty() ? null : String.join(" ", avisos);
     }
 
-    /** Vindimas onde se está a moer mais do que o que sobrava; vai descontando. */
-    private List<String> excessos(Enchimento e, Map<Long, BigDecimal> usado) {
+    /**
+     * Onde se está a moer mais do que o que sobrava; vai descontando. Com a
+     * colheita indicada o saldo conta-se por colheita — e' o que o utilizador
+     * escolheu, e e' aí que a diferença aparece.
+     */
+    private List<String> excessos(Enchimento e, Map<Long, BigDecimal> usado, Map<Long, BigDecimal> usadoColheita) {
         List<String> avisos = new ArrayList<>();
         for (EnchimentoVindima o : e.getOrigens()) {
             if (o.getLinha() == null || o.getQuantidadeKg() == null || o.getQuantidadeKg().signum() <= 0) continue;
-            Long lid = o.getLinha().getId();
-            BigDecimal disponivel = o.getLinha().getTotalVindimadoKg()
-                    .subtract(usado.getOrDefault(lid, BigDecimal.ZERO));
-            if (o.getQuantidadeKg().compareTo(disponivel) > 0) {
-                BigDecimal excesso = o.getQuantidadeKg().subtract(disponivel);
-                avisos.add(String.format("%s: está a moer %s kg a mais do que tinha por moer (sobravam %s kg).",
-                        o.getLinha().getEtiqueta(), excesso.toPlainString(),
-                        (disponivel.signum() < 0 ? BigDecimal.ZERO : disponivel).toPlainString()));
+
+            if (o.getColheita() != null) {
+                Long cid = o.getColheita().getId();
+                BigDecimal colhido = o.getColheita().getQuantidadeKg() == null
+                        ? BigDecimal.ZERO : o.getColheita().getQuantidadeKg();
+                BigDecimal disponivel = colhido.subtract(usadoColheita.getOrDefault(cid, BigDecimal.ZERO));
+                if (o.getQuantidadeKg().compareTo(disponivel) > 0) {
+                    avisos.add(String.format("%s: está a moer %s kg a mais do que essa colheita tinha por moer (sobravam %s kg).",
+                            o.getVindimaDescricao(),
+                            o.getQuantidadeKg().subtract(disponivel).toPlainString(),
+                            (disponivel.signum() < 0 ? BigDecimal.ZERO : disponivel).toPlainString()));
+                }
+                usadoColheita.merge(cid, o.getQuantidadeKg(), BigDecimal::add);
+            } else {
+                Long lid = o.getLinha().getId();
+                BigDecimal disponivel = o.getLinha().getTotalVindimadoKg()
+                        .subtract(usado.getOrDefault(lid, BigDecimal.ZERO));
+                if (o.getQuantidadeKg().compareTo(disponivel) > 0) {
+                    avisos.add(String.format("%s: está a moer %s kg a mais do que tinha por moer (sobravam %s kg).",
+                            o.getLinha().getEtiqueta(),
+                            o.getQuantidadeKg().subtract(disponivel).toPlainString(),
+                            (disponivel.signum() < 0 ? BigDecimal.ZERO : disponivel).toPlainString()));
+                }
             }
-            usado.merge(lid, o.getQuantidadeKg(), BigDecimal::add);
+            usado.merge(o.getLinha().getId(), o.getQuantidadeKg(), BigDecimal::add);
         }
         return avisos;
     }
 
-    /** Resolve os ids de vindima do formulário e deita fora as linhas sem Kg. */
+    /** Kg ja atribuidos a moagens, por colheita (inclui as moagens ainda abertas). */
+    private Map<Long, BigDecimal> kgUsadoPorColheita() {
+        Map<Long, BigDecimal> out = new HashMap<>();
+        for (Object[] linha : enchimentoVindimaRepo.totaisPorColheita()) {
+            if (linha[0] == null) continue;
+            out.put((Long) linha[0], linha[1] == null ? BigDecimal.ZERO : (BigDecimal) linha[1]);
+        }
+        return out;
+    }
+
+    /**
+     * Resolve a colheita (ou, em ultimo caso, a parcela) escolhida no formulário
+     * e deita fora as linhas sem Kg. A parcela e' sempre preenchida — quando vem
+     * a colheita, e' a parcela dela — porque os saldos da parcela contam a
+     * partir dai.
+     */
     private void resolverOrigens(Enchimento e) {
         List<EnchimentoVindima> validas = new ArrayList<>();
         if (e.getOrigens() != null) {
             for (EnchimentoVindima o : e.getOrigens()) {
                 if (o == null || o.getQuantidadeKg() == null || o.getQuantidadeKg().signum() <= 0) continue;
-                Long lid = o.getLinhaId();
-                if (lid == null) continue;
-                LinhaPlaneamentoParcela linha = linhaRepo.findById(lid).orElse(null);
+
+                RegistoVindima colheita = null;
+                if (o.getColheitaId() != null) {
+                    colheita = registoVindimaRepo.findById(o.getColheitaId()).orElse(null);
+                }
+                LinhaPlaneamentoParcela linha = colheita != null ? colheita.getLinha() : null;
+                if (linha == null && o.getLinhaId() != null) {
+                    linha = linhaRepo.findById(o.getLinhaId()).orElse(null);
+                }
                 if (linha == null) continue;
+
                 o.setId(null);
+                o.setColheita(colheita);
                 o.setLinha(linha);
                 o.setEnchimento(e);
                 validas.add(o);

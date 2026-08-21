@@ -16,16 +16,22 @@ public interface EnchimentoVindimaRepository extends JpaRepository<EnchimentoVin
             + "where ev.linha is not null group by ev.linha.id")
     List<Object[]> totaisPorVindima();
 
+    /** Kg ja atribuidos a moagens, por colheita. So' conta o que tem colheita indicada. */
+    @Query("select ev.colheita.id, coalesce(sum(ev.quantidadeKg), 0) from EnchimentoVindima ev "
+            + "where ev.colheita is not null group by ev.colheita.id")
+    List<Object[]> totaisPorColheita();
+
     /**
      * Que moagens usaram a uva de cada vindima e quantos Kg levaram. Devolve
-     * [linhaId, codigo da moagem, data de inicio, estado, Kg]. E' o que permite
-     * a folha da vindima mostrar para onde foi a uva de cada parcela.
+     * [linhaId, colheitaId, codigo da moagem, data de inicio, data de criacao,
+     * estado, Kg]. O colheitaId vem a nulo nos registos feitos antes de a
+     * escolha da colheita existir.
      */
-    @Query("select ev.linha.id, m.codigo, m.dataHoraInicio, m.dataCriacao, m.estado, "
+    @Query("select ev.linha.id, ev.colheita.id, m.codigo, m.dataHoraInicio, m.dataCriacao, m.estado, "
             + "coalesce(sum(ev.quantidadeKg), 0) "
             + "from EnchimentoVindima ev join ev.enchimento e join e.moagem m "
             + "where ev.linha is not null "
-            + "group by ev.linha.id, m.id, m.codigo, m.dataHoraInicio, m.dataCriacao, m.estado "
+            + "group by ev.linha.id, ev.colheita.id, m.id, m.codigo, m.dataHoraInicio, m.dataCriacao, m.estado "
             + "order by ev.linha.id, m.id")
     List<Object[]> moagensPorVindima();
 }

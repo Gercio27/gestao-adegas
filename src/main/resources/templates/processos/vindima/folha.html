@@ -16,9 +16,10 @@
     </p>
     <p class="text-muted small">
         <i class="bi bi-info-circle"></i>
-        As colunas <strong>Moído em</strong> e <strong>Por moer</strong> são <strong>calculadas</strong>: na moagem
-        escolhe-se a parcela e a quantidade, não a colheita. A regra é a da ordem de chegada — cada moagem,
-        da mais antiga para a mais recente, gasta primeiro as colheitas mais antigas que ainda tenham uva.
+        As colunas <strong>Moído em</strong> e <strong>Por moer</strong> vêm do que foi registado na moagem —
+        é lá que se escolhe de que colheita se está a moer. Os valores marcados com
+        <span class="badge bg-light text-dark border">≈ estimado</span> são de moagens antigas, feitas quando
+        ainda só se escolhia a parcela: esses são repartidos pelas colheitas mais antigas primeiro.
     </p>
 
     <div th:if="${vinhos.isEmpty()}" class="card shadow-sm"><div class="card-body text-center text-muted py-4">
@@ -79,6 +80,8 @@
                                 <td class="text-end" th:text="${v.quantidadeKg != null ? v.quantidadeKg + ' kg' : '—'}"></td>
                                 <td class="small" style="background:#faf6f4;" th:with="usos=${usosPorColheita.get(v.id)}">
                                     <span th:if="${usos == null or usos.isEmpty()}" class="text-muted">Ainda não foi moída</span>
+                                    <span th:if="${colheitasEstimadas.contains(v.id)}" class="badge bg-light text-dark border"
+                                          title="Vem de moagens antigas, em que só se escolhia a parcela. Repartido pelas colheitas mais antigas primeiro.">≈ estimado</span>
                                     <div th:each="u : ${usos}">
                                         <span class="codigo" th:text="${u.codigo}"></span>
                                         <span class="text-muted" th:if="${u.data != null}"

@@ -23,8 +23,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Processo de Vindima (Fase 2). Abre-se, preenche-se e fecha-se.
@@ -79,22 +81,25 @@ public class VindimaController {
      * Diz, colheita a colheita, em que moagens a uva foi parar e quantos Kg
      * cada uma levou.
      *
-     * <p>Isto e' <b>calculado, nao registado</b>: ao moer escolhe-se a parcela e
-     * a quantidade, nunca a colheita, por isso a aplicacao nunca soube de que
-     * colheita concreta sairam aqueles Kg. A regra usada e' a da ordem de
-     * chegada: as moagens sao percorridas da mais antiga para a mais recente e
-     * cada uma gasta primeiro as colheitas mais antigas que ainda tenham uva.
-     * E' a mesma logica de quem descarrega o que chegou primeiro.
+     * <p>Nas moagens feitas desde que a escolha da colheita existe, isto e'
+     * <b>o que o utilizador registou</b>: no ecra da moagem ele indica de que
+     * colheita esta a moer.
+     *
+     * <p>Nos registos antigos — feitos quando so' se escolhia a parcela — a
+     * colheita vem a nulo e nao ha' como saber. Esses sao repartidos por ordem
+     * de chegada (primeiro as colheitas mais antigas que ainda tenham uva), e
+     * so' depois do que ja' esta registado. O ecra marca-os para nao se
+     * confundir o calculado com o registado.
      *
      * <p>Moer mais do que se colheu e' permitido (a pesagem no campo nem sempre
-     * bate certo). Esse excesso nao cabe em colheita nenhuma, por isso e'
-     * mostrado a parte, no bloco da parcela.
+     * bate certo). Esse excesso e' mostrado a parte, no bloco da parcela.
      */
     private void repartirPorColheita(List<PlaneamentoVinho> vinhos, Model model) {
-        Map<Long, List<MoagemDaVindima>> moagensPorParcela = moagensPorParcela();
+        Map<Long, List<UsoMoagem>> moagensPorParcela = moagensPorParcela();
         Map<Long, List<MoagemDaVindima>> usosPorColheita = new HashMap<>();
         Map<Long, BigDecimal> porMoerPorColheita = new HashMap<>();
         Map<Long, BigDecimal> excessoPorParcela = new HashMap<>();
+        Set<Long> colheitasEstimadas = new HashSet<>();
 
         for (PlaneamentoVinho p : vinhos) {
             for (LinhaPlaneamentoParcela l : p.getLinhas()) {
@@ -104,24 +109,43 @@ public class VindimaController {
                 for (RegistoVindima v : colheitas) {
                     saldo.put(v.getId(), v.getQuantidadeKg() == null ? BigDecimal.ZERO : v.getQuantidadeKg());
                 }
-
+                List<UsoMoagem> usos = moagensPorParcela.getOrDefault(l.getId(), List.of());
                 BigDecimal excesso = BigDecimal.ZERO;
-                for (MoagemDaVindima m : moagensPorParcela.getOrDefault(l.getId(), List.of())) {
-                    BigDecimal falta = m.kg();
+
+                // 1) O que o utilizador escolheu: vai direto a colheita dele.
+                for (UsoMoagem u : usos) {
+                    if (u.colheitaId() == null || !saldo.containsKey(u.colheitaId())) continue;
+                    usosPorColheita.computeIfAbsent(u.colheitaId(), k -> new ArrayList<>()).add(u.moagem());
+                    saldo.merge(u.colheitaId(), u.moagem().kg().negate(), BigDecimal::add);
+                }
+                // 2) Os registos antigos: repartidos por ordem de chegada.
+                for (UsoMoagem u : usos) {
+                    if (u.colheitaId() != null && saldo.containsKey(u.colheitaId())) continue;
+                    BigDecimal falta = u.moagem().kg();
                     for (RegistoVindima v : colheitas) {
                         if (falta.signum() <= 0) break;
                         BigDecimal disponivel = saldo.get(v.getId());
                         if (disponivel == null || disponivel.signum() <= 0) continue;
                         BigDecimal usa = disponivel.min(falta);
+                        MoagemDaVindima m = u.moagem();
                         usosPorColheita.computeIfAbsent(v.getId(), k -> new ArrayList<>())
                                 .add(new MoagemDaVindima(m.codigo(), m.data(), usa, m.aberta()));
+                        colheitasEstimadas.add(v.getId());
                         saldo.put(v.getId(), disponivel.subtract(usa));
                         falta = falta.subtract(usa);
                     }
                     if (falta.signum() > 0) excesso = excesso.add(falta);
                 }
 
-                for (RegistoVindima v : colheitas) porMoerPorColheita.put(v.getId(), saldo.get(v.getId()));
+                // Saldo negativo = moeu-se mais dessa colheita do que se colheu.
+                for (RegistoVindima v : colheitas) {
+                    BigDecimal s = saldo.get(v.getId());
+                    if (s != null && s.signum() < 0) {
+                        excesso = excesso.add(s.negate());
+                        s = BigDecimal.ZERO;
+                    }
+                    porMoerPorColheita.put(v.getId(), s);
+                }
                 if (excesso.signum() > 0) excessoPorParcela.put(l.getId(), excesso);
             }
         }
@@ -129,6 +153,7 @@ public class VindimaController {
         model.addAttribute("usosPorColheita", usosPorColheita);
         model.addAttribute("porMoerPorColheita", porMoerPorColheita);
         model.addAttribute("excessoPorParcela", excessoPorParcela);
+        model.addAttribute("colheitasEstimadas", colheitasEstimadas);
     }
 
     /** Total de Kg que as moagens ja levaram de cada parcela. */
@@ -146,23 +171,32 @@ public class VindimaController {
      * levaram. Serve para, na folha da vindima, se ver logo o destino da
      * colheita sem ter de ir a Fase 3 procurar.
      */
-    private Map<Long, List<MoagemDaVindima>> moagensPorParcela() {
-        Map<Long, List<MoagemDaVindima>> mapa = new HashMap<>();
+    private Map<Long, List<UsoMoagem>> moagensPorParcela() {
+        Map<Long, List<UsoMoagem>> mapa = new HashMap<>();
         for (Object[] l : enchimentoVindimaRepo.moagensPorVindima()) {
             if (l[0] == null) continue;
             Long linhaId = (Long) l[0];
-            String codigo = (String) l[1];
+            Long colheitaId = (Long) l[1];
+            String codigo = (String) l[2];
             // A data da moagem e a de inicio; se nao foi preenchida, vale a de
             // criacao — a mesma regra do ecra da moagem.
-            LocalDateTime inicio = (LocalDateTime) l[2];
-            LocalDateTime criacao = (LocalDateTime) l[3];
+            LocalDateTime inicio = (LocalDateTime) l[3];
+            LocalDateTime criacao = (LocalDateTime) l[4];
             LocalDateTime quando = inicio != null ? inicio : criacao;
-            boolean aberta = l[4] == EstadoProcesso.ABERTO;
-            BigDecimal kg = l[5] == null ? BigDecimal.ZERO : (BigDecimal) l[5];
-            mapa.computeIfAbsent(linhaId, k -> new ArrayList<>())
-                    .add(new MoagemDaVindima(codigo, quando != null ? quando.toLocalDate() : null, kg, aberta));
+            boolean aberta = l[5] == EstadoProcesso.ABERTO;
+            BigDecimal kg = l[6] == null ? BigDecimal.ZERO : (BigDecimal) l[6];
+            mapa.computeIfAbsent(linhaId, k -> new ArrayList<>()).add(new UsoMoagem(colheitaId,
+                    new MoagemDaVindima(codigo, quando != null ? quando.toLocalDate() : null, kg, aberta)));
         }
         return mapa;
+    }
+
+    /**
+     * Kg que uma moagem tirou de uma parcela. Quando {@code colheitaId} vem
+     * preenchido, foi o utilizador que escolheu a colheita no ecra da moagem;
+     * a nulo, e' um registo antigo, feito antes de essa escolha existir.
+     */
+    private record UsoMoagem(Long colheitaId, MoagemDaVindima moagem) {
     }
 
     /**
