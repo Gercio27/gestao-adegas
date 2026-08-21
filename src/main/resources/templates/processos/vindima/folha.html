@@ -83,7 +83,7 @@
                                     <span th:if="${colheitasEstimadas.contains(v.id)}" class="badge bg-light text-dark border"
                                           title="Vem de moagens antigas, em que só se escolhia a parcela. Repartido pelas colheitas mais antigas primeiro.">≈ estimado</span>
                                     <div th:each="u : ${usos}">
-                                        <span class="codigo" th:text="${u.codigo}"></span>
+                                        <span class="codigo" th:text="${u.moagemCodigo}"></span>
                                         <span class="text-muted" th:if="${u.data != null}"
                                               th:text="'· ' + ${#temporals.format(u.data,'dd-MM-yyyy')}"></span>
                                         <span class="fw-semibold" th:text="'— ' + ${u.kg} + ' kg'"></span>

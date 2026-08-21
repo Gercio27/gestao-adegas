@@ -23,8 +23,9 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 /**
- * Fase 3 — Moagem. Uma moagem é feita por adega + vinho e mói uma ou mais
- * vindimas (parcelas colhidas) desse vinho entregues nessa adega.
+ * Fase 3 — Moagem. Uma moagem faz-se numa adega, para um vinho, e mói as
+ * colheitas entregues nessa adega — de qualquer vinho. A uva planeada para um
+ * vinho pode acabar noutro, e e' o utilizador que decide isso aqui.
  */
 @Controller
 @RequestMapping("/processos/moagem")
@@ -43,6 +44,7 @@ public class MoagemController {
     private final EnchimentoVindimaRepository enchimentoVindimaRepo;
     private final MostoRepository mostoRepo;
     private final RegistoVindimaRepository registoVindimaRepo;
+    private final SaldoColheitasService saldoColheitas;
     private final CodigoService codigoService;
 
     public MoagemController(ProcessoMoagemRepository repo, MoagemService moagemService,
@@ -52,7 +54,7 @@ public class MoagemController {
                             PlaneamentoVinhoRepository planeamentoRepo, EnchimentoRepository enchimentoRepo,
                             EnchimentoVindimaRepository enchimentoVindimaRepo,
                             MostoRepository mostoRepo, RegistoVindimaRepository registoVindimaRepo,
-                            CodigoService codigoService) {
+                            SaldoColheitasService saldoColheitas, CodigoService codigoService) {
         this.repo = repo;
         this.moagemService = moagemService;
         this.talhaRepo = talhaRepo;
@@ -66,6 +68,7 @@ public class MoagemController {
         this.enchimentoVindimaRepo = enchimentoVindimaRepo;
         this.mostoRepo = mostoRepo;
         this.registoVindimaRepo = registoVindimaRepo;
+        this.saldoColheitas = saldoColheitas;
         this.codigoService = codigoService;
     }
 
@@ -75,20 +78,31 @@ public class MoagemController {
         // Cada uma leva já o saldo por moer: o que foi vindimado menos o que
         // outras moagens (mesmo abertas) já lhe tiraram.
         Map<Long, BigDecimal> usado = kgUsadoPorVindima();
-        Map<Long, BigDecimal> usadoColheita = kgUsadoPorColheita();
+        // O que ja foi moido de cada colheita vem do servico partilhado com a
+        // folha da vindima: conta tanto as moagens que indicaram a colheita como
+        // as antigas, que so' indicavam a parcela. Sem isto, uma colheita ja
+        // moida numa moagem antiga voltava a aparecer aqui como intacta.
+        SaldoColheitasService.Rastreio rastreio = saldoColheitas.calcular();
+
         List<Map<String, Object>> vindimas = new ArrayList<>();
         List<Map<String, Object>> colheitas = new ArrayList<>();
         for (PlaneamentoVinho p : planeamentoRepo.findAllByOrderByNomeVinhoAsc()) {
             for (LinhaPlaneamentoParcela l : p.getLinhas()) {
                 if (l.getTotalVindimadoKg().signum() <= 0 || l.getAdegaEntrega() == null) continue;
-                String parc = nomeParcela(l);
-                String casta = (l.getParcela() != null && l.getParcela().getCasta() != null) ? l.getParcela().getCasta().getNome() : "—";
                 BigDecimal moido = usado.getOrDefault(l.getId(), BigDecimal.ZERO);
                 BigDecimal disponivel = l.getTotalVindimadoKg().subtract(moido);
+                // Uva toda moida: nao ha' o que oferecer, nao entra na lista.
+                if (disponivel.signum() <= 0) continue;
+
+                String parc = nomeParcela(l);
+                String casta = (l.getParcela() != null && l.getParcela().getCasta() != null) ? l.getParcela().getCasta().getNome() : "—";
                 Map<String, Object> m = new LinkedHashMap<>();
                 m.put("id", l.getId());
                 m.put("adegaId", l.getAdegaEntrega().getId());
                 m.put("planoId", p.getId());
+                // Vinho para que a uva foi planeada. A moagem pode usa-la para
+                // outro vinho; o ecra mostra de onde ela vem para se saber.
+                m.put("vinho", p.getNomeVinho());
                 m.put("label", parc + " (" + casta + ")");
                 m.put("casta", casta);
                 m.put("vindimado", l.getTotalVindimadoKg().toPlainString());
@@ -96,7 +110,7 @@ public class MoagemController {
                 m.put("disponivel", disponivel.toPlainString());
                 m.put("texto", textoSaldo(disponivel));
                 vindimas.add(m);
-                colheitas.addAll(colheitasDaParcela(l, parc, casta, usadoColheita));
+                colheitas.addAll(colheitasDaParcela(l, parc, casta, p.getNomeVinho(), rastreio));
             }
         }
         model.addAttribute("vindimasDisponiveis", vindimas);
@@ -139,7 +153,8 @@ public class MoagemController {
                 v.put("disponivel", disp.toPlainString());
                 v.put("texto", textoSaldo(disp));
                 linhas.add(v);
-                cols.addAll(colheitasDaParcela(l, nomeParcela(l), casta, usadoColheita));
+                cols.addAll(colheitasDaParcela(l, nomeParcela(l), casta,
+                        l.getPlaneamento() != null ? l.getPlaneamento().getNomeVinho() : null, rastreio));
             }
             vindimasPorMoagem.put(mo.getId(), linhas);
             colheitasPorMoagem.put(mo.getId(), cols);
@@ -155,23 +170,28 @@ public class MoagemController {
      * escolhe de que colheita esta a moer, nao so' de que parcela.
      */
     private List<Map<String, Object>> colheitasDaParcela(LinhaPlaneamentoParcela l, String parc, String casta,
-                                                         Map<Long, BigDecimal> usadoColheita) {
+                                                         String vinho, SaldoColheitasService.Rastreio rastreio) {
         List<Map<String, Object>> out = new ArrayList<>();
         for (RegistoVindima v : l.getVindimas()) {
             BigDecimal colhido = v.getQuantidadeKg() == null ? BigDecimal.ZERO : v.getQuantidadeKg();
             if (colhido.signum() <= 0) continue;
-            BigDecimal moido = usadoColheita.getOrDefault(v.getId(), BigDecimal.ZERO);
+            BigDecimal moido = rastreio.moido(v.getId());
             BigDecimal disp = colhido.subtract(moido);
+            // Colheita ja toda moida: nao volta a aparecer como disponivel.
+            if (disp.signum() <= 0) continue;
+
             Map<String, Object> c = new LinkedHashMap<>();
             c.put("id", v.getId());
             c.put("linhaId", l.getId());
             c.put("adegaId", l.getAdegaEntrega() != null ? l.getAdegaEntrega().getId() : null);
             c.put("planoId", l.getPlaneamento() != null ? l.getPlaneamento().getId() : null);
+            c.put("vinho", vinho);
             c.put("parcela", parc);
             c.put("casta", casta);
             c.put("codigo", v.getCodigo() != null ? v.getCodigo() : ("Colheita " + v.getId()));
             c.put("data", v.getDataInicio() != null ? v.getDataInicio().toString() : null);
             c.put("colhido", colhido.toPlainString());
+            c.put("moido", moido.toPlainString());
             c.put("disponivel", disp.toPlainString());
             c.put("texto", textoSaldo(disp));
             out.add(c);
@@ -529,7 +549,9 @@ public class MoagemController {
         if (lista == null) return null;
         // Saldo já comprometido noutras moagens, por parcela e por colheita.
         Map<Long, BigDecimal> usado = kgUsadoPorVindima();
-        Map<Long, BigDecimal> usadoColheita = kgUsadoPorColheita();
+        // Mutavel: vai descontando a medida que percorre os enchimentos deste
+        // formulario, para o aviso contar tambem o que se esta a moer agora.
+        Map<Long, BigDecimal> usadoColheita = new HashMap<>(saldoColheitas.calcular().moidoPorColheita());
         List<String> avisos = new ArrayList<>();
         for (Enchimento e : lista) {
             if (e == null) continue;
@@ -587,16 +609,6 @@ public class MoagemController {
             usado.merge(o.getLinha().getId(), o.getQuantidadeKg(), BigDecimal::add);
         }
         return avisos;
-    }
-
-    /** Kg ja atribuidos a moagens, por colheita (inclui as moagens ainda abertas). */
-    private Map<Long, BigDecimal> kgUsadoPorColheita() {
-        Map<Long, BigDecimal> out = new HashMap<>();
-        for (Object[] linha : enchimentoVindimaRepo.totaisPorColheita()) {
-            if (linha[0] == null) continue;
-            out.put((Long) linha[0], linha[1] == null ? BigDecimal.ZERO : (BigDecimal) linha[1]);
-        }
-        return out;
     }
 
     /**
