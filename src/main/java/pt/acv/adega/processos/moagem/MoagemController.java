@@ -190,6 +190,24 @@ public class MoagemController {
         }
         model.addAttribute("vindimasPorMoagem", vindimasPorMoagem);
         model.addAttribute("colheitasPorMoagem", colheitasPorMoagem);
+
+        // Uva por moer na adega de cada moagem. E' isto que decide se vale a pena
+        // oferecer uma moagem nova — e conta a adega toda, nao so' as parcelas
+        // desta moagem, senao uma parcela deixada de fora ficava invisivel para
+        // sempre: cada moagem nova herdava a mesma lista incompleta.
+        Map<Long, BigDecimal> porMoerNaAdega = new HashMap<>();
+        for (LinhaPlaneamentoParcela l : comUvaPorMoer) {
+            if (l.getAdegaEntrega() == null) continue;
+            BigDecimal falta = l.getTotalVindimadoKg().subtract(usado.getOrDefault(l.getId(), BigDecimal.ZERO));
+            porMoerNaAdega.merge(l.getAdegaEntrega().getId(), falta, BigDecimal::add);
+        }
+        Map<Long, BigDecimal> sobraDaAdega = new HashMap<>();
+        for (ProcessoMoagem mo : moagens) {
+            if (mo.getAdega() == null) continue;
+            BigDecimal falta = porMoerNaAdega.get(mo.getAdega().getId());
+            if (falta != null && falta.signum() > 0) sobraDaAdega.put(mo.getId(), falta);
+        }
+        model.addAttribute("sobraDaAdega", sobraDaAdega);
         return "processos/moagem/folha";
     }
 
@@ -468,18 +486,37 @@ public class MoagemController {
         ProcessoMoagem orig = repo.findById(id).orElse(null);
         if (orig == null || !podeAceder(orig, auth)) { ra.addFlashAttribute("erro", "Sem acesso a esta moagem."); return "redirect:/processos/moagem"; }
 
-        BigDecimal sobra = resumoDaMoagem(orig, kgUsadoPorVindima()).porMoer();
-        if (sobra.signum() <= 0) {
-            ra.addFlashAttribute("erro", "Já não há uva por moer nestas vindimas — não é preciso outra moagem.");
+        if (orig.getAdega() == null) {
+            ra.addFlashAttribute("erro", "Esta moagem não tem adega, não dá para saber que colheitas oferecer.");
             return "redirect:/processos/moagem";
         }
-        // Se ja existe uma moagem aberta e vazia para estas mesmas vindimas, e'
-        // essa que deve ser usada. Evita a lista encher-se de moagens iguais.
-        ProcessoMoagem jaExiste = moagemVaziaParaAsMesmasVindimas(orig);
+        // Toda a uva que ainda ha' por moer nesta adega, e nao so' a das parcelas
+        // desta moagem. Copiar apenas as parcelas da moagem anterior era o que
+        // deixava de fora, moagem apos moagem, uma parcela esquecida na primeira.
+        Map<Long, BigDecimal> usado = kgUsadoPorVindima();
+        List<LinhaPlaneamentoParcela> daAdega = new ArrayList<>();
+        BigDecimal porMoer = BigDecimal.ZERO;
+        for (PlaneamentoVinho p : planeamentoRepo.findAllByOrderByNomeVinhoAsc()) {
+            for (LinhaPlaneamentoParcela l : p.getLinhas()) {
+                if (l.getAdegaEntrega() == null || !orig.getAdega().getId().equals(l.getAdegaEntrega().getId())) continue;
+                BigDecimal falta = l.getTotalVindimadoKg().subtract(usado.getOrDefault(l.getId(), BigDecimal.ZERO));
+                if (falta.signum() <= 0) continue;
+                daAdega.add(l);
+                porMoer = porMoer.add(falta);
+            }
+        }
+        if (daAdega.isEmpty()) {
+            ra.addFlashAttribute("erro", "Já não há colheitas por moer na adega "
+                    + orig.getAdega().getNome() + " — não é preciso outra moagem.");
+            return "redirect:/processos/moagem";
+        }
+        // Se ja existe uma moagem aberta e vazia para as mesmas colheitas, e' essa
+        // que deve ser usada. Evita a lista encher-se de moagens iguais.
+        ProcessoMoagem jaExiste = moagemVaziaComAsMesmasVindimas(orig, daAdega);
         if (jaExiste != null) {
             ra.addFlashAttribute("aviso", "Já tinha criado a moagem " + jaExiste.getCodigo()
-                    + " para estas vindimas e ainda está vazia. Use essa — sobram "
-                    + sobra.toPlainString() + " kg por moer.");
+                    + " para estas colheitas e ainda está vazia. Use essa — faltam moer "
+                    + porMoer.toPlainString() + " kg.");
             return "redirect:/processos/moagem";
         }
 
@@ -489,18 +526,19 @@ public class MoagemController {
         nova.setAdega(orig.getAdega());
         nova.setPlano(orig.getPlano());
         nova.setResponsavel(orig.getResponsavel());
-        nova.getVindimas().addAll(orig.getVindimas());
+        nova.getVindimas().addAll(daAdega);
         nova.setDataHoraInicio(LocalDateTime.now());
         repo.save(nova);
-        ra.addFlashAttribute("sucesso", "Nova moagem criada para o que falta moer ("
-                + sobra.toPlainString() + " kg): " + nova.getCodigo());
+        ra.addFlashAttribute("sucesso", "Moagem " + nova.getCodigo() + " criada com as "
+                + daAdega.size() + " parcelas que ainda têm uva por moer na adega "
+                + orig.getAdega().getNome() + " (" + porMoer.toPlainString() + " kg).");
         return "redirect:/processos/moagem";
     }
 
-    /** Moagem aberta, sem enchimentos, com exatamente as mesmas vindimas. */
-    private ProcessoMoagem moagemVaziaParaAsMesmasVindimas(ProcessoMoagem orig) {
+    /** Moagem aberta, sem enchimentos, com exatamente estas parcelas. */
+    private ProcessoMoagem moagemVaziaComAsMesmasVindimas(ProcessoMoagem orig, List<LinhaPlaneamentoParcela> alvos) {
         Set<Long> alvo = new HashSet<>();
-        orig.getVindimas().forEach(l -> alvo.add(l.getId()));
+        alvos.forEach(l -> alvo.add(l.getId()));
         if (alvo.isEmpty()) return null;
         for (ProcessoMoagem m : repo.findAllByOrderByDataCriacaoDesc()) {
             if (m.getId().equals(orig.getId()) || !m.isAberto()) continue;
