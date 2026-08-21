@@ -1,93 +1,142 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="pt-PT">
-<head th:replace="~{fragments/layout :: head('Limpar processos')}"></head>
+<head th:replace="~{fragments/layout :: head('Limpar dados')}"></head>
 <body>
 <nav th:replace="~{fragments/layout :: navbar}"></nav>
 <div th:replace="~{fragments/layout :: mensagens}"></div>
 
 <div class="container">
-    <h3 class="mb-1"><i class="bi bi-eraser"></i> Limpar processos</h3>
-    <p class="text-muted">Apaga todo o histórico de trabalho para poder voltar a testar a aplicação do zero.
-        <strong>As fichas ficam todas.</strong></p>
+    <h3 class="mb-1"><i class="bi bi-eraser"></i> Limpar dados</h3>
+    <p class="text-muted">Escolha o que quer apagar. <strong>As fichas ficam sempre todas</strong> —
+        adegas, talhas, depósitos, contentores, vinhas, parcelas, castas, trabalhadores,
+        consumíveis, utilizadores e auditoria não são tocados.</p>
 
-    <div class="row g-3">
-        <div class="col-md-6">
-            <div class="card shadow-sm h-100 border-danger">
-                <div class="card-header bg-white fw-bold text-danger">
-                    <i class="bi bi-trash"></i> Vai ser apagado
+    <form method="post" th:action="@{/admin/limpar-processos}" id="lp-form"
+          onsubmit="return confirmar();">
+
+        <div class="card shadow-sm border-danger">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <span class="fw-bold text-danger"><i class="bi bi-trash"></i> O que quer apagar</span>
+                <span class="small">
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0" onclick="marcarTudo(true)">Marcar tudo</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary py-0" onclick="marcarTudo(false)">Limpar seleção</button>
+                </span>
+            </div>
+            <div class="card-body py-2">
+                <p class="small text-muted">
+                    Os blocos estão pela ordem do processo. Cada um nasce do anterior, por isso
+                    <strong>marcar um marca também todos os que vêm a seguir</strong> — apagar as vindimas
+                    e deixar as moagens deixaria moagens a apontar para uva que já não existe.
+                </p>
+
+                <div th:each="g,s : ${grupos}"
+                     th:classappend="${!g.encadeado and (s.index == 0 or grupos[s.index-1].encadeado)} ? 'border-top pt-2 mt-2'">
+                    <div class="form-check py-1">
+                        <input class="form-check-input lp-grupo" type="checkbox" name="grupos"
+                               th:id="'g-' + ${g.id}" th:value="${g.id}"
+                               th:attr="data-ordem=${s.index},data-encadeado=${g.encadeado}"
+                               onchange="encadear(this)">
+                        <label class="form-check-label" th:for="'g-' + ${g.id}">
+                            <span class="fw-semibold" th:text="${g.nome}"></span>
+                            <span class="badge rounded-pill ms-1"
+                                  th:classappend="${contagens.get(g.id) > 0} ? 'bg-danger' : 'bg-light text-muted border'"
+                                  th:text="${contagens.get(g.id)} + ' registos'"></span>
+                            <span th:if="${!g.encadeado}" class="badge bg-light text-dark border ms-1"
+                                  title="Nada depende deste bloco, pode ser apagado sozinho">independente</span>
+                            <br>
+                            <span class="small text-muted" th:text="${g.descricao}"></span>
+                        </label>
+                    </div>
                 </div>
-                <div class="card-body py-2">
-                    <table class="table table-sm mb-0">
-                        <tbody>
-                        <tr th:each="e : ${contagens}">
-                            <td class="small" th:text="${e.key}"></td>
-                            <td class="text-end fw-bold" th:text="${e.value}"></td>
-                        </tr>
-                        </tbody>
-                    </table>
-                </div>
-                <div class="card-footer bg-white small text-muted">
-                    Talhas, depósitos, contentores e paletes ficam <strong>vazios</strong> (as fichas mantêm-se).
-                    A numeração dos códigos recomeça no 1.
-                </div>
+            </div>
+            <div class="card-footer bg-white small text-muted">
+                A numeração dos códigos recomeça no 1 <strong>só nos blocos apagados</strong>.
+                Talhas e depósitos só ficam vazios se apagar os mostos; contentores e paletes,
+                só se apagar os vinhos engarrafados.
             </div>
         </div>
 
-        <div class="col-md-6">
-            <div class="card shadow-sm h-100 border-success">
-                <div class="card-header bg-white fw-bold text-success">
-                    <i class="bi bi-shield-check"></i> Não é tocado
-                </div>
-                <div class="card-body py-2 small">
-                    <ul class="mb-0">
-                        <li>Adegas e armazéns</li>
-                        <li>Talhas e depósitos (as fichas)</li>
-                        <li>Contentores de garrafas e paletes de bag-in-box (as fichas)</li>
-                        <li>Vinhas, parcelas e castas</li>
-                        <li>Trabalhadores</li>
-                        <li>Consumíveis (garrafas, rolhas, rótulos…) e o seu stock</li>
-                        <li>Utilizadores e registo de auditoria</li>
-                    </ul>
+        <div class="card shadow-sm mt-3 border-danger">
+            <div class="card-body">
+                <p class="mb-2">
+                    Vai apagar <strong id="lp-total" class="text-danger">0</strong> registos, em
+                    <span id="lp-quantos">0</span> blocos, de um total de
+                    <strong th:text="${totalProcessos}">0</strong>.
+                    <span class="text-danger fw-bold">Isto não tem forma de voltar atrás.</span>
+                </p>
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">
+                            Escreva <code th:text="${confirmacao}">LIMPAR</code> para confirmar
+                        </label>
+                        <input type="text" class="form-control" name="confirmar" id="lp-confirmar"
+                               autocomplete="off" oninput="verificar()">
+                    </div>
+                    <div class="col-md-8">
+                        <button class="btn btn-danger" type="submit" id="lp-botao" disabled>
+                            <i class="bi bi-trash"></i> Apagar o que está marcado
+                        </button>
+                        <a th:href="@{/}" class="btn btn-outline-secondary">Cancelar</a>
+                    </div>
                 </div>
             </div>
         </div>
-    </div>
-
-    <div class="card shadow-sm mt-3 border-danger">
-        <div class="card-body">
-            <p class="mb-2">
-                Estão neste momento <strong th:text="${totalProcessos}">0</strong> registos de processos.
-                <span class="text-danger fw-bold">Isto não tem forma de voltar atrás.</span>
-            </p>
-            <form method="post" th:action="@{/admin/limpar-processos}" class="row g-2 align-items-end"
-                  onsubmit="return confirm('Apagar todos os processos? Não é possível recuperar.');">
-                <div class="col-md-4">
-                    <label class="form-label">
-                        Escreva <code th:text="${confirmacao}">LIMPAR</code> para confirmar
-                    </label>
-                    <input type="text" class="form-control" name="confirmar" id="lp-confirmar"
-                           autocomplete="off" oninput="verificar()">
-                </div>
-                <div class="col-md-4">
-                    <button class="btn btn-danger" type="submit" id="lp-botao" disabled>
-                        <i class="bi bi-trash"></i> Limpar processos
-                    </button>
-                    <a th:href="@{/}" class="btn btn-outline-secondary">Cancelar</a>
-                </div>
-            </form>
-        </div>
-    </div>
+    </form>
 </div>
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
 <script th:inline="javascript">
     const palavra = /*[[${confirmacao}]]*/ 'LIMPAR';
+    const contagens = /*[[${contagens}]]*/ {};
 
-    // O botão só liga quando a palavra estiver escrita — evita cliques por engano.
+    function caixas() { return [...document.querySelectorAll('.lp-grupo')]; }
+    function encadeadas() { return caixas().filter(c => c.dataset.encadeado === 'true'); }
+
+    /**
+     * Marcar um bloco da cadeia marca todos os que vem a seguir; desmarcar
+     * desmarca todos os anteriores. Assim a escolha e' sempre "daqui para a
+     * frente", que e' a unica que nao deixa registos orfaos.
+     */
+    function encadear(origem) {
+        if (origem.dataset.encadeado === 'true') {
+            const ordem = Number(origem.dataset.ordem);
+            encadeadas().forEach(function (c) {
+                const o = Number(c.dataset.ordem);
+                if (origem.checked && o > ordem) c.checked = true;
+                if (!origem.checked && o < ordem) c.checked = false;
+            });
+        }
+        resumir();
+    }
+
+    function marcarTudo(valor) {
+        caixas().forEach(c => c.checked = valor);
+        resumir();
+    }
+
+    function resumir() {
+        const marcadas = caixas().filter(c => c.checked);
+        const total = marcadas.reduce((s, c) => s + (contagens[c.value] || 0), 0);
+        document.getElementById('lp-total').textContent = total;
+        document.getElementById('lp-quantos').textContent = marcadas.length;
+        verificar();
+    }
+
+    // O botão só liga com a palavra escrita E pelo menos um bloco marcado.
     function verificar() {
         const escrito = document.getElementById('lp-confirmar').value.trim();
-        document.getElementById('lp-botao').disabled = (escrito !== palavra);
+        const algum = caixas().some(c => c.checked);
+        document.getElementById('lp-botao').disabled = (escrito !== palavra || !algum);
     }
+
+    function confirmar() {
+        const nomes = caixas().filter(c => c.checked)
+            .map(c => c.parentNode.querySelector('.fw-semibold').textContent.trim());
+        return confirm('Apagar definitivamente:\n\n· ' + nomes.join('\n· ')
+            + '\n\nNão é possível recuperar.');
+    }
+
+    document.addEventListener('DOMContentLoaded', resumir);
 </script>
 </body>
 </html>
