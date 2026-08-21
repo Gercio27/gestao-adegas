@@ -29,7 +29,12 @@ public class SecurityConfig {
                 .requestMatchers("/auditoria/**").hasRole("ADMIN")
                 // Planeamento: ver é para todos; criar/alterar/eliminar só admin.
                 .requestMatchers("/planeamento/nova", "/planeamento/*/editar").hasRole("ADMIN")
-                .requestMatchers(HttpMethod.POST, "/planeamento", "/planeamento/*/eliminar").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/planeamento", "/planeamento/*/eliminar",
+                        "/planeamento/linha/*/analise").hasRole("ADMIN")
+                // Castas: consultar a lista é para todos (os ecrãs usam-na nas
+                // caixas de escolha); criar, alterar e eliminar só o admin.
+                .requestMatchers("/fichas/castas/nova", "/fichas/castas/*/editar").hasRole("ADMIN")
+                .requestMatchers(HttpMethod.POST, "/fichas/castas", "/fichas/castas/*/eliminar").hasRole("ADMIN")
                 // Saldo inicial de produtos (adega a meio): ver é para todos; alterar só admin.
                 .requestMatchers("/produtos/mostos/saldo-inicial", "/produtos/mostos/*/editar",
                         "/produtos/engarrafados/saldo-inicial", "/produtos/engarrafados/*/editar").hasRole("ADMIN")

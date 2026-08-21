@@ -17,6 +17,7 @@ import pt.acv.adega.planeamento.RegistoVindima;
 import pt.acv.adega.planeamento.RegistoVindimaRepository;
 import pt.acv.adega.processos.EstadoProcesso;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -78,6 +79,7 @@ public class VindimaController {
 
         boolean temDados = form.getQuantidadeKg() != null || form.getDataInicio() != null
                 || form.getDataFim() != null || form.getResponsavel() != null
+                || form.getAlcoolProvavel() != null || form.getMassaVolumica() != null || form.getPh() != null
                 || naoVazio(form.getVasilame()) || naoVazio(form.getTransporte())
                 || naoVazio(form.getMeios()) || naoVazio(form.getMetodos()) || naoVazio(form.getObservacoes());
 
@@ -87,6 +89,9 @@ public class VindimaController {
             r.setDataInicio(form.getDataInicio());
             r.setDataFim(form.getDataFim());
             r.setQuantidadeKg(form.getQuantidadeKg());
+            r.setAlcoolProvavel(form.getAlcoolProvavel());
+            r.setMassaVolumica(form.getMassaVolumica());
+            r.setPh(form.getPh());
             r.setResponsavel(form.getResponsavel());
             r.setVasilame(form.getVasilame());
             r.setMeios(form.getMeios());
@@ -105,6 +110,36 @@ public class VindimaController {
     }
 
     private boolean naoVazio(String s) { return s != null && !s.isBlank(); }
+
+    /**
+     * Corrige a análise de uma colheita já registada: álcool provável, massa
+     * volúmica e pH. Só o administrador, porque estes valores acompanham a uva
+     * até à moagem e daí às fichas de mosto — as restantes casas ficam como
+     * foram registadas no campo.
+     */
+    @PostMapping("/vindima/{registoId}/analise")
+    @Transactional
+    public String analiseVindima(@PathVariable Long registoId,
+                                 @RequestParam(required = false) BigDecimal alcoolProvavel,
+                                 @RequestParam(required = false) BigDecimal massaVolumica,
+                                 @RequestParam(required = false) BigDecimal ph,
+                                 Authentication auth, RedirectAttributes ra) {
+        if (!isAdmin(auth)) {
+            ra.addFlashAttribute("erro", "Apenas o administrador pode corrigir a análise da colheita.");
+            return "redirect:/processos/vindima";
+        }
+        RegistoVindima r = registoVindimaRepo.findById(registoId).orElse(null);
+        if (r == null) {
+            ra.addFlashAttribute("erro", "Colheita não encontrada.");
+            return "redirect:/processos/vindima";
+        }
+        r.setAlcoolProvavel(alcoolProvavel);
+        r.setMassaVolumica(massaVolumica);
+        r.setPh(ph);
+        registoVindimaRepo.save(r);
+        ra.addFlashAttribute("sucesso", "Análise da colheita " + (r.getCodigo() != null ? r.getCodigo() : "") + " atualizada.");
+        return "redirect:/processos/vindima";
+    }
 
     /** Remove uma colheita específica de uma linha (para correções). */
     @PostMapping("/vindima/{registoId}/eliminar")

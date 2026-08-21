@@ -88,6 +88,27 @@ public class Mosto extends BaseEntity {
     public BigDecimal getAlcoolProvavel() { return alcoolProvavel; }
     public void setAlcoolProvavel(BigDecimal alcoolProvavel) { this.alcoolProvavel = alcoolProvavel; }
 
+    /** Massa volúmica (g/L) vinda da moagem (por enchimento). */
+    @Column(name = "massa_volumica", precision = 8, scale = 2)
+    private BigDecimal massaVolumica;
+
+    public BigDecimal getMassaVolumica() { return massaVolumica; }
+    public void setMassaVolumica(BigDecimal massaVolumica) { this.massaVolumica = massaVolumica; }
+
+    /** pH vindo da moagem (por enchimento). */
+    @Column(name = "ph", precision = 4, scale = 2)
+    private BigDecimal ph;
+
+    public BigDecimal getPh() { return ph; }
+    public void setPh(BigDecimal ph) { this.ph = ph; }
+
+    /** Enchimento da moagem que originou esta ficha (para corrigir os valores depois de fechar). */
+    @Column(name = "origem_enchimento_id")
+    private Long origemEnchimentoId;
+
+    public Long getOrigemEnchimentoId() { return origemEnchimentoId; }
+    public void setOrigemEnchimentoId(Long origemEnchimentoId) { this.origemEnchimentoId = origemEnchimentoId; }
+
     /** Certificacao (Fase 5.5) do vinho a granel. */
     @Column(nullable = false)
     private boolean certificado = false;

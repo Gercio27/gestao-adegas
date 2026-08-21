@@ -36,6 +36,20 @@ public class LinhaPlaneamentoParcela {
     @JoinColumn(name = "planeamento_id")
     private PlaneamentoVinho planeamento;
 
+    // ----- Analise desta parcela no planeamento -----
+    //
+    // Por omissao o mapa mostra a ultima analise a maturacao da vinha/casta da
+    // parcela. Estes dois campos permitem escrever o valor a mao para esta
+    // parcela deste vinho — quando estao preenchidos, e' o que manda.
+
+    /** Massa volumica (g/L) escrita a mao; sobrepoe-se a analise a maturacao. */
+    @Column(name = "massa_volumica", precision = 8, scale = 2)
+    private BigDecimal massaVolumica;
+
+    /** pH escrito a mao; sobrepoe-se a analise a maturacao. */
+    @Column(name = "ph", precision = 4, scale = 2)
+    private BigDecimal ph;
+
     // ----- Dados da vindima (Fase 2) -----
 
     /** Adega de entrega da uva desta parcela (usada para agrupar na moagem). */
@@ -66,6 +80,12 @@ public class LinhaPlaneamentoParcela {
 
     public PlaneamentoVinho getPlaneamento() { return planeamento; }
     public void setPlaneamento(PlaneamentoVinho planeamento) { this.planeamento = planeamento; }
+
+    public BigDecimal getMassaVolumica() { return massaVolumica; }
+    public void setMassaVolumica(BigDecimal massaVolumica) { this.massaVolumica = massaVolumica; }
+
+    public BigDecimal getPh() { return ph; }
+    public void setPh(BigDecimal ph) { this.ph = ph; }
 
     public BigDecimal getProducaoPrevistaKg() { return producaoPrevistaKg; }
     public void setProducaoPrevistaKg(BigDecimal producaoPrevistaKg) { this.producaoPrevistaKg = producaoPrevistaKg; }

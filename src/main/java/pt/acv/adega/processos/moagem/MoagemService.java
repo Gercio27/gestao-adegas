@@ -102,6 +102,11 @@ public class MoagemService {
             // o mostrem sem terem de o ir buscar ao planeamento da moagem.
             mosto.setVinhoNome(nomeVinho);
             mosto.setAlcoolProvavel(e.getAlcoolProvavel());
+            mosto.setMassaVolumica(e.getMassaVolumica());
+            mosto.setPh(e.getPh());
+            // Guarda de que enchimento veio, para o admin poder corrigir os
+            // valores da analise depois de a moagem estar fechada.
+            mosto.setOrigemEnchimentoId(e.getId());
             mosto.setDataProducao(LocalDateTime.now());
 
             if (e.getTalha() != null) {

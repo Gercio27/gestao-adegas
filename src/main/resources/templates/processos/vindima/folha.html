@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="pt-PT">
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security" lang="pt-PT">
 <head th:replace="~{fragments/layout :: head('Vindima')}"></head>
 <body>
 <nav th:replace="~{fragments/layout :: navbar}"></nav>
@@ -58,24 +59,68 @@
                         <table class="table table-sm mb-0 align-middle">
                             <thead><tr>
                                 <th>Código</th><th>Início</th><th>Fim</th><th class="text-end">Kg</th>
+                                <th class="text-end">Álcool prov.</th><th class="text-end">Massa vol.</th><th class="text-end">pH</th>
                                 <th>Responsável</th><th>Transporte</th><th>Vasilame</th><th></th>
                             </tr></thead>
                             <tbody>
-                            <tr th:each="v : ${l.vindimas}">
+                            <th:block th:each="v : ${l.vindimas}">
+                            <tr>
                                 <td class="codigo small" th:text="${v.codigo ?: '—'}"></td>
                                 <td th:text="${v.dataInicio != null ? #temporals.format(v.dataInicio,'dd-MM-yyyy') : '—'}"></td>
                                 <td th:text="${v.dataFim != null ? #temporals.format(v.dataFim,'dd-MM-yyyy') : '—'}"></td>
                                 <td class="text-end" th:text="${v.quantidadeKg != null ? v.quantidadeKg + ' kg' : '—'}"></td>
+                                <td class="text-end" th:text="${v.alcoolProvavel != null ? v.alcoolProvavel + ' %' : '—'}"></td>
+                                <td class="text-end" th:text="${v.massaVolumica != null ? v.massaVolumica + ' g/L' : '—'}"></td>
+                                <td class="text-end" th:text="${v.ph != null ? v.ph : '—'}"></td>
                                 <td th:text="${v.responsavel != null ? v.responsavel.nome : '—'}"></td>
                                 <td class="small" th:text="${v.transporte ?: '—'}"></td>
                                 <td class="small" th:text="${v.vasilame ?: '—'}"></td>
-                                <td class="text-end">
+                                <td class="text-end text-nowrap">
+                                    <!-- Corrigir a analise da colheita: so' o administrador. -->
+                                    <button sec:authorize="hasRole('ADMIN')" class="btn btn-sm btn-outline-secondary py-0" type="button"
+                                            th:attr="onclick='alternarLinha(\'analise-vdm-' + ${v.id} + '\')'"
+                                            title="Corrigir álcool provável, massa volúmica e pH">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
                                     <form th:action="@{/processos/vindima/vindima/{rid}/eliminar(rid=${v.id})}" method="post"
                                           class="d-inline" onsubmit="return confirm('Remover esta colheita?');">
                                         <button class="btn btn-sm btn-outline-danger py-0"><i class="bi bi-trash"></i></button>
                                     </form>
                                 </td>
                             </tr>
+                            <tr sec:authorize="hasRole('ADMIN')" class="d-none" th:id="'analise-vdm-' + ${v.id}">
+                                <td colspan="11" class="bg-light">
+                                    <form th:action="@{/processos/vindima/vindima/{rid}/analise(rid=${v.id})}" method="post"
+                                          class="row g-2 align-items-end">
+                                        <div class="col-auto small text-muted pb-1">
+                                            <i class="bi bi-pencil-square"></i>
+                                            Análise da colheita <strong th:text="${v.codigo ?: '—'}"></strong>
+                                        </div>
+                                        <div class="col-auto">
+                                            <label class="form-label small mb-0">Álcool prov. (%)</label>
+                                            <input type="number" step="0.01" min="0" max="30" name="alcoolProvavel"
+                                                   class="form-control form-control-sm text-end" style="max-width:120px;"
+                                                   th:value="${v.alcoolProvavel}">
+                                        </div>
+                                        <div class="col-auto">
+                                            <label class="form-label small mb-0">Massa volúmica (g/L)</label>
+                                            <input type="number" step="0.01" min="0" name="massaVolumica"
+                                                   class="form-control form-control-sm text-end" style="max-width:140px;"
+                                                   th:value="${v.massaVolumica}">
+                                        </div>
+                                        <div class="col-auto">
+                                            <label class="form-label small mb-0">pH</label>
+                                            <input type="number" step="0.01" min="0" max="14" name="ph"
+                                                   class="form-control form-control-sm text-end" style="max-width:100px;"
+                                                   th:value="${v.ph}">
+                                        </div>
+                                        <div class="col-auto">
+                                            <button class="btn btn-sm btn-success"><i class="bi bi-check-lg"></i> Guardar análise</button>
+                                        </div>
+                                    </form>
+                                </td>
+                            </tr>
+                            </th:block>
                             </tbody>
                         </table>
                     </div>
@@ -112,6 +157,18 @@
                                 <label class="form-label small mb-0">Quantidade (Kg)</label>
                                 <input type="number" step="0.01" min="0" class="form-control form-control-sm" name="quantidadeKg">
                             </div>
+                            <div class="col-md-2">
+                                <label class="form-label small mb-0">Álcool provável (%)</label>
+                                <input type="number" step="0.01" min="0" max="30" class="form-control form-control-sm" name="alcoolProvavel">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small mb-0">Massa volúmica (g/L)</label>
+                                <input type="number" step="0.01" min="0" class="form-control form-control-sm" name="massaVolumica">
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small mb-0">pH</label>
+                                <input type="number" step="0.01" min="0" max="14" class="form-control form-control-sm" name="ph">
+                            </div>
                             <div class="col-md-3">
                                 <label class="form-label small mb-0">Vasilame (baldes/caixas/reboque)</label>
                                 <input class="form-control form-control-sm" name="vasilame">
@@ -144,5 +201,12 @@
 </div>
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
+<script>
+    /** Abre/fecha a linha de correcao da analise de uma colheita (so' admin). */
+    function alternarLinha(id) {
+        const tr = document.getElementById(id);
+        if (tr) tr.classList.toggle('d-none');
+    }
+</script>
 </body>
 </html>

@@ -48,6 +48,14 @@ public class Enchimento {
     @Column(name = "alcool_provavel", precision = 5, scale = 2)
     private BigDecimal alcoolProvavel;
 
+    /** Massa volúmica do mosto (g/L). Passa para a ficha de mosto. */
+    @Column(name = "massa_volumica", precision = 8, scale = 2)
+    private BigDecimal massaVolumica;
+
+    /** pH do mosto. Passa para a ficha de mosto. */
+    @Column(name = "ph", precision = 4, scale = 2)
+    private BigDecimal ph;
+
     /**
      * Casta principal (a primeira do lote). Mantida por compatibilidade com os
      * ecrãs que mostram uma casta; para o conjunto completo usar {@link #castas}.
@@ -106,6 +114,12 @@ public class Enchimento {
 
     public BigDecimal getAlcoolProvavel() { return alcoolProvavel; }
     public void setAlcoolProvavel(BigDecimal alcoolProvavel) { this.alcoolProvavel = alcoolProvavel; }
+
+    public BigDecimal getMassaVolumica() { return massaVolumica; }
+    public void setMassaVolumica(BigDecimal massaVolumica) { this.massaVolumica = massaVolumica; }
+
+    public BigDecimal getPh() { return ph; }
+    public void setPh(BigDecimal ph) { this.ph = ph; }
 
     public Casta getCasta() { return casta; }
     public void setCasta(Casta casta) { this.casta = casta; }

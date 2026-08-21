@@ -33,15 +33,17 @@ public class PlaneamentoController {
     private final ProcessoAnaliseMaturacaoRepository maturacaoRepo;
     private final ParcelaRepository parcelaRepo;
     private final ProcessoMoagemRepository moagemRepo;
+    private final LinhaPlaneamentoParcelaRepository linhaRepo;
     private final CodigoService codigoService;
 
     public PlaneamentoController(PlaneamentoVinhoRepository repo, ProcessoAnaliseMaturacaoRepository maturacaoRepo,
                                  ParcelaRepository parcelaRepo, ProcessoMoagemRepository moagemRepo,
-                                 CodigoService codigoService) {
+                                 LinhaPlaneamentoParcelaRepository linhaRepo, CodigoService codigoService) {
         this.repo = repo;
         this.maturacaoRepo = maturacaoRepo;
         this.parcelaRepo = parcelaRepo;
         this.moagemRepo = moagemRepo;
+        this.linhaRepo = linhaRepo;
         this.codigoService = codigoService;
     }
 
@@ -113,20 +115,93 @@ public class PlaneamentoController {
             preencherOpcoes(model, plano.getId());
             return "planeamento/form";
         }
+        plano.getLinhas().forEach(this::escreverProducaoNaParcela);
+
         if (plano.getId() == null) {
             plano.setCodigo(codigoService.proximoCodigo(PlaneamentoVinho.PREFIXO));
+            plano.getLinhas().forEach(l -> l.setPlaneamento(plano));
+            repo.save(plano);
+            ra.addFlashAttribute("sucesso", "Planeamento guardado: " + plano.getNomeVinho());
+            return "redirect:/planeamento";
         }
-        for (LinhaPlaneamentoParcela l : plano.getLinhas()) {
-            l.setPlaneamento(plano);
-            // Escreve a producao prevista introduzida de volta na parcela (partilhada).
-            if (l.getParcela() != null && l.getProducaoPrevistaKg() != null) {
-                Parcela pc = l.getParcela();
-                pc.setProducaoPrevistaKg(l.getProducaoPrevistaKg());
-                parcelaRepo.save(pc);
+
+        PlaneamentoVinho existente = repo.findById(plano.getId()).orElse(null);
+        if (existente == null) {
+            ra.addFlashAttribute("erro", "Vinho não encontrado.");
+            return "redirect:/planeamento";
+        }
+        existente.setNomeVinho(plano.getNomeVinho());
+        existente.setTipoVinho(plano.getTipoVinho());
+        existente.setDataPlaneamento(plano.getDataPlaneamento());
+        existente.setDataPrevistaVindima(plano.getDataPrevistaVindima());
+        reconciliarLinhas(existente, plano.getLinhas());
+        repo.save(existente);
+        ra.addFlashAttribute("sucesso", "Planeamento guardado: " + existente.getNomeVinho());
+        return "redirect:/planeamento";
+    }
+
+    /**
+     * Aplica as linhas do formulario as que ja existem, em vez de as substituir.
+     * O formulario nao traz as colheitas de cada parcela; se as linhas fossem
+     * trocadas por objetos novos, o orphanRemoval apagava as vindimas ja
+     * registadas. Aqui so' desaparecem as parcelas que o utilizador retirou.
+     */
+    private void reconciliarLinhas(PlaneamentoVinho destino, List<LinhaPlaneamentoParcela> submetidas) {
+        Set<Long> mantidas = new HashSet<>();
+        for (LinhaPlaneamentoParcela s : submetidas) {
+            if (s.getId() != null) mantidas.add(s.getId());
+        }
+        destino.getLinhas().removeIf(l -> l.getId() != null && !mantidas.contains(l.getId()));
+
+        Map<Long, LinhaPlaneamentoParcela> porId = new HashMap<>();
+        for (LinhaPlaneamentoParcela l : destino.getLinhas()) {
+            if (l.getId() != null) porId.put(l.getId(), l);
+        }
+        for (LinhaPlaneamentoParcela s : submetidas) {
+            LinhaPlaneamentoParcela alvo = s.getId() != null ? porId.get(s.getId()) : null;
+            boolean nova = alvo == null;
+            if (nova) alvo = new LinhaPlaneamentoParcela();
+            alvo.setParcela(s.getParcela());
+            alvo.setKgAplicar(s.getKgAplicar());
+            alvo.setMassaVolumica(s.getMassaVolumica());
+            alvo.setPh(s.getPh());
+            if (nova) {
+                alvo.setPlaneamento(destino);
+                destino.getLinhas().add(alvo);
             }
         }
-        repo.save(plano);
-        ra.addFlashAttribute("sucesso", "Planeamento guardado: " + plano.getNomeVinho());
+    }
+
+    /** A producao prevista vive na parcela (partilhada entre vinhos), nao na linha. */
+    private void escreverProducaoNaParcela(LinhaPlaneamentoParcela l) {
+        if (l.getParcela() == null || l.getProducaoPrevistaKg() == null) return;
+        Parcela pc = l.getParcela();
+        pc.setProducaoPrevistaKg(l.getProducaoPrevistaKg());
+        parcelaRepo.save(pc);
+    }
+
+    /**
+     * Escreve a mao a massa volumica e o pH de uma parcela do planeamento. Sem
+     * valor, a coluna volta a mostrar o que vem da analise a maturacao — deixar
+     * os campos vazios e' a forma de "desfazer" a correcao.
+     */
+    @PostMapping("/linha/{id}/analise")
+    @Transactional
+    public String analiseLinha(@PathVariable Long id,
+                               @RequestParam(required = false) BigDecimal massaVolumica,
+                               @RequestParam(required = false) BigDecimal ph,
+                               RedirectAttributes ra) {
+        LinhaPlaneamentoParcela l = linhaRepo.findById(id).orElse(null);
+        if (l == null) {
+            ra.addFlashAttribute("erro", "Parcela do planeamento não encontrada.");
+            return "redirect:/planeamento";
+        }
+        l.setMassaVolumica(massaVolumica);
+        l.setPh(ph);
+        linhaRepo.save(l);
+        ra.addFlashAttribute("sucesso", massaVolumica == null && ph == null
+                ? "Valores apagados — a parcela volta a mostrar a análise à maturação."
+                : "Análise da parcela atualizada.");
         return "redirect:/planeamento";
     }
 

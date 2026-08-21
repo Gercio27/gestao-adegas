@@ -70,12 +70,14 @@
                     </button>
                 </div>
                 <div class="table-responsive">
-                    <table class="table table-sm mb-0" style="max-width:1000px;" id="tabelaNovo">
+                    <table class="table table-sm mb-0" style="max-width:1240px;" id="tabelaNovo">
                         <thead><tr><th style="width:32px;">#</th><th style="min-width:210px;">Talha / Depósito</th>
                             <th style="min-width:260px;">Kg por vindima</th><th>Casta</th>
                             <th class="text-end" style="width:100px;">Moído (Kg)</th>
                             <th class="text-end" style="width:110px;">Mosto (L)</th>
-                            <th class="text-end" style="width:110px;">Álcool prov. (%)</th><th style="width:40px;"></th></tr></thead>
+                            <th class="text-end" style="width:110px;">Álcool prov. (%)</th>
+                            <th class="text-end" style="width:120px;">Massa vol. (g/L)</th>
+                            <th class="text-end" style="width:90px;">pH</th><th style="width:40px;"></th></tr></thead>
                         <tbody id="corpoNovo"></tbody>
                     </table>
                 </div>
@@ -142,10 +144,12 @@
             </div>
 
             <!-- Enchimentos registados -->
-            <table class="table table-sm mb-2" th:if="${!mo.enchimentos.isEmpty()}" style="max-width:900px;">
-                <thead><tr><th style="width:36px;">#</th><th>Recipiente</th><th>De que vindimas</th><th>Casta</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th><th class="text-end">Álcool prov.</th><th></th></tr></thead>
+            <div class="table-responsive">
+            <table class="table table-sm mb-2" th:if="${!mo.enchimentos.isEmpty()}" style="max-width:1140px;">
+                <thead><tr><th style="width:36px;">#</th><th>Recipiente</th><th>De que vindimas</th><th>Casta</th><th class="text-end">Moído (Kg)</th><th class="text-end">Mosto (L)</th><th class="text-end">Álcool prov.</th><th class="text-end">Massa vol.</th><th class="text-end">pH</th><th></th></tr></thead>
                 <tbody>
-                <tr th:each="e,s : ${mo.enchimentos}">
+                <th:block th:each="e,s : ${mo.enchimentos}">
+                <tr>
                     <td class="text-muted" th:text="${s.count}"></td>
                     <td th:text="${e.recipienteDescricao}"></td>
                     <td class="small" th:text="${e.origensDescricao}"></td>
@@ -153,15 +157,62 @@
                     <td class="text-end" th:text="${e.quantidadeMoidaKg != null ? e.quantidadeMoidaKg + ' kg' : '—'}"></td>
                     <td class="text-end" th:text="${e.litros != null ? e.litros + ' L' : '—'}"></td>
                     <td class="text-end" th:text="${e.alcoolProvavel != null ? e.alcoolProvavel + ' %' : '—'}"></td>
-                    <td class="text-end">
+                    <td class="text-end" th:text="${e.massaVolumica != null ? e.massaVolumica + ' g/L' : '—'}"></td>
+                    <td class="text-end" th:text="${e.ph != null ? e.ph : '—'}"></td>
+                    <td class="text-end text-nowrap">
+                        <!-- Corrigir a analise: so' admin, mas sempre — aberta ou fechada. -->
+                        <button sec:authorize="hasRole('ADMIN')" class="btn btn-sm btn-outline-secondary py-0" type="button"
+                                th:attr="onclick='alternarLinha(\'analise-ench-' + ${e.id} + '\')'"
+                                title="Corrigir álcool provável, massa volúmica e pH">
+                            <i class="bi bi-pencil"></i>
+                        </button>
                         <form th:if="${mo.aberto}" th:action="@{/processos/moagem/enchimento/{eid}/eliminar(eid=${e.id})}" method="post"
                               class="d-inline" onsubmit="return confirm('Remover este enchimento?');">
                             <button class="btn btn-sm btn-outline-danger py-0"><i class="bi bi-trash"></i></button>
                         </form>
                     </td>
                 </tr>
+                <!-- Linha de correcao da analise (admin) -->
+                <tr sec:authorize="hasRole('ADMIN')" class="d-none" th:id="'analise-ench-' + ${e.id}">
+                    <td colspan="10" class="bg-light">
+                        <form th:action="@{/processos/moagem/enchimento/{eid}/analise(eid=${e.id})}" method="post"
+                              class="row g-2 align-items-end">
+                            <div class="col-auto small text-muted pb-1">
+                                <i class="bi bi-pencil-square"></i>
+                                Análise de <strong th:text="${e.recipienteDescricao}"></strong>
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label small mb-0">Álcool prov. (%)</label>
+                                <input type="number" step="0.01" min="0" max="30" name="alcoolProvavel"
+                                       class="form-control form-control-sm text-end" style="max-width:120px;"
+                                       th:value="${e.alcoolProvavel}">
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label small mb-0">Massa volúmica (g/L)</label>
+                                <input type="number" step="0.01" min="0" name="massaVolumica"
+                                       class="form-control form-control-sm text-end" style="max-width:140px;"
+                                       th:value="${e.massaVolumica}">
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label small mb-0">pH</label>
+                                <input type="number" step="0.01" min="0" max="14" name="ph"
+                                       class="form-control form-control-sm text-end" style="max-width:100px;"
+                                       th:value="${e.ph}">
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-sm btn-success"><i class="bi bi-check-lg"></i> Guardar análise</button>
+                            </div>
+                            <div class="col-12 form-text" th:unless="${mo.aberto}">
+                                A moagem está fechada — o valor é corrigido também na ficha de mosto gerada.
+                                Kg e litros não se alteram por aqui.
+                            </div>
+                        </form>
+                    </td>
+                </tr>
+                </th:block>
                 </tbody>
             </table>
+            </div>
 
             <!-- ABERTA: acrescentar enchimentos + fechar -->
             <div th:if="${mo.aberto}">
@@ -194,12 +245,14 @@
                         </button>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table-sm mb-0" style="max-width:1000px;" th:id="'tabela' + ${mo.id}">
+                        <table class="table table-sm mb-0" style="max-width:1240px;" th:id="'tabela' + ${mo.id}">
                             <thead><tr><th style="width:32px;">#</th><th style="min-width:210px;">Talha / Depósito</th>
                                 <th style="min-width:260px;">Kg por vindima</th><th>Casta</th>
                                 <th class="text-end" style="width:100px;">Moído (Kg)</th>
                                 <th class="text-end" style="width:110px;">Mosto (L)</th>
-                                <th class="text-end" style="width:110px;">Álcool prov. (%)</th><th style="width:40px;"></th></tr></thead>
+                                <th class="text-end" style="width:110px;">Álcool prov. (%)</th>
+                                <th class="text-end" style="width:120px;">Massa vol. (g/L)</th>
+                                <th class="text-end" style="width:90px;">pH</th><th style="width:40px;"></th></tr></thead>
                             <tbody th:id="'corpo' + ${mo.id}"></tbody>
                         </table>
                     </div>
@@ -218,8 +271,8 @@
             <!-- FECHADA: mostos gerados + reabrir -->
             <div th:unless="${mo.aberto}">
                 <div class="small fw-bold mb-1">Mostos gerados</div>
-                <table class="table table-sm mb-2" style="max-width:720px;">
-                    <thead><tr><th>Mosto</th><th>Vinho</th><th>Recipiente</th><th class="text-end">Litros</th><th>Casta</th><th class="text-end">Álcool prov.</th></tr></thead>
+                <table class="table table-sm mb-2" style="max-width:900px;">
+                    <thead><tr><th>Mosto</th><th>Vinho</th><th>Recipiente</th><th class="text-end">Litros</th><th>Casta</th><th class="text-end">Álcool prov.</th><th class="text-end">Massa vol.</th><th class="text-end">pH</th></tr></thead>
                     <tbody>
                     <tr th:each="mos : ${mostosPorMoagem.get(mo.id)}">
                         <td class="codigo small" th:text="${mos.codigo}"></td>
@@ -228,6 +281,8 @@
                         <td class="text-end" th:text="${mos.litros != null ? mos.litros + ' L' : '—'}"></td>
                         <td th:text="${mos.castasDescricao}"></td>
                         <td class="text-end" th:text="${mos.alcoolProvavel != null ? mos.alcoolProvavel + ' %' : '—'}"></td>
+                        <td class="text-end" th:text="${mos.massaVolumica != null ? mos.massaVolumica + ' g/L' : '—'}"></td>
+                        <td class="text-end" th:text="${mos.ph != null ? mos.ph : '—'}"></td>
                     </tr>
                     </tbody>
                 </table>
@@ -245,6 +300,12 @@
     const vindimasDisponiveis = /*[[${vindimasDisponiveis}]]*/ [];
     const vindimasPorMoagem = /*[[${vindimasPorMoagem}]]*/ {};
     const recipientesOpcoes = /*[[${recipientes}]]*/ [];
+
+    /** Abre/fecha uma linha extra da tabela (correcao da analise, so' admin). */
+    function alternarLinha(id) {
+        const tr = document.getElementById(id);
+        if (tr) tr.classList.toggle('d-none');
+    }
 
     /**
      * As vindimas que estão em jogo em cada bloco. 'novo' = formulário de nova
@@ -306,6 +367,10 @@
             + ' name="enchimentos[' + i + '].litros"></td>'
             + '<td class="align-top"><input type="number" step="0.01" min="0" max="30" class="form-control form-control-sm text-end"'
             + ' name="enchimentos[' + i + '].alcoolProvavel"></td>'
+            + '<td class="align-top"><input type="number" step="0.01" min="0" class="form-control form-control-sm text-end"'
+            + ' name="enchimentos[' + i + '].massaVolumica" placeholder="g/L"></td>'
+            + '<td class="align-top"><input type="number" step="0.01" min="0" max="14" class="form-control form-control-sm text-end"'
+            + ' name="enchimentos[' + i + '].ph"></td>'
             + '<td class="align-top text-end">'
             + '<button type="button" class="btn btn-sm btn-outline-danger py-0 btn-remover" title="Remover esta linha">'
             + '<i class="bi bi-trash"></i></button></td>';

@@ -1,6 +1,7 @@
 package pt.acv.adega.fichas;
 
 import jakarta.validation.Valid;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.validation.BindingResult;
@@ -45,13 +46,26 @@ public class CastaController {
         return "fichas/castas/form";
     }
 
+    /**
+     * Cria ou altera uma casta (so' o administrador — ver SecurityConfig). Nao
+     * deixa criar duas castas com o mesmo nome: a casta e' escolhida pelo nome
+     * em quase todos os ecras, e nomes repetidos tornam a escolha ambigua.
+     */
     @PostMapping
     public String guardar(@Valid @ModelAttribute("casta") Casta casta, BindingResult result,
                           Model model, RedirectAttributes ra) {
+        if (casta.getNome() != null && !casta.getNome().isBlank()) {
+            Casta comOMesmoNome = repo.findFirstByNomeIgnoreCase(casta.getNome().trim()).orElse(null);
+            if (comOMesmoNome != null && !comOMesmoNome.getId().equals(casta.getId())) {
+                result.rejectValue("nome", "duplicado",
+                        "Já existe uma casta com este nome (" + comOMesmoNome.getCodigo() + ").");
+            }
+        }
         if (result.hasErrors()) {
             model.addAttribute("cores", CorCasta.values());
             return "fichas/castas/form";
         }
+        if (casta.getNome() != null) casta.setNome(casta.getNome().trim());
         if (casta.getId() == null) {
             casta.setCodigo(codigoService.proximoCodigo(Casta.PREFIXO));
         }
@@ -60,10 +74,19 @@ public class CastaController {
         return "redirect:/fichas/castas";
     }
 
+    /**
+     * Elimina a casta. Se ja' estiver a ser usada (parcelas, mostos, moagens...),
+     * a base de dados recusa — devolve-se a mensagem em vez de rebentar o ecra.
+     */
     @PostMapping("/{id}/eliminar")
     public String eliminar(@PathVariable Long id, RedirectAttributes ra) {
-        repo.deleteById(id);
-        ra.addFlashAttribute("sucesso", "Casta eliminada.");
+        try {
+            repo.deleteById(id);
+            ra.addFlashAttribute("sucesso", "Casta eliminada.");
+        } catch (DataIntegrityViolationException ex) {
+            ra.addFlashAttribute("erro", "Esta casta já está a ser usada (vinhas, mostos ou moagens) "
+                    + "e por isso não pode ser eliminada.");
+        }
         return "redirect:/fichas/castas";
     }
 }

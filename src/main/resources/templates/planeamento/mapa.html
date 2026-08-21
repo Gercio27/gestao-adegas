@@ -14,8 +14,10 @@
         </a>
     </div>
     <p class="text-muted">
-        Cada vinho tem as suas parcelas. As colunas de análise (grau, massa volúmica, pH) são
-        <strong>automáticas</strong> — vêm da última análise à maturação da vinha/casta de cada parcela.
+        Cada vinho tem as suas parcelas. As colunas de análise vêm da última análise à maturação
+        da vinha/casta de cada parcela. A <strong>massa volúmica</strong> e o <strong>pH</strong>
+        podem ser escritos à mão no lápis de cada parcela — o valor escrito fica marcado a negrito
+        e manda sobre o automático. Apagar os campos devolve o valor da análise.
     </p>
 
     <div th:if="${vinhos.isEmpty()}" class="card shadow-sm"><div class="card-body text-center text-muted py-4">
@@ -51,10 +53,12 @@
                     <th class="text-end" style="background:#efe7e3;">Grau prov.</th>
                     <th class="text-end" style="background:#efe7e3;">Massa Volúmica</th>
                     <th class="text-end" style="background:#efe7e3;">pH</th>
+                    <th sec:authorize="hasRole('ADMIN')" style="background:#efe7e3;width:40px;"></th>
                 </tr>
                 </thead>
                 <tbody>
-                <tr th:each="lm : ${vm.linhas}">
+                <th:block th:each="lm : ${vm.linhas}">
+                <tr>
                     <td>
                         <span th:text="${lm.linha.parcela != null and lm.linha.parcela.vinha != null ? lm.linha.parcela.vinha.nome + ' — ' : ''}"></span>
                         <span th:text="${lm.linha.parcela != null ? (lm.linha.parcela.nome ?: lm.linha.parcela.identificacao ?: '—') : '—'}"></span>
@@ -67,10 +71,51 @@
                         th:text="${lm.saldo != null ? lm.saldo + ' kg' : '—'}"></td>
                     <td class="text-end" th:text="${lm.linha.litrosPrevistos != null ? lm.linha.litrosPrevistos + ' L' : '—'}"></td>
                     <td class="text-end" style="background:#faf6f4;" th:text="${lm.temAnalise() and lm.analise.grauProvavel != null ? lm.analise.grauProvavel + '%' : '—'}"></td>
-                    <td class="text-end" style="background:#faf6f4;" th:text="${lm.temAnalise() and lm.analise.acucar != null ? lm.analise.acucar : '—'}"></td>
-                    <td class="text-end" style="background:#faf6f4;" th:text="${lm.temAnalise() and lm.analise.ph != null ? lm.analise.ph : '—'}"></td>
+                    <td class="text-end" style="background:#faf6f4;" th:classappend="${lm.massaVolumicaManual} ? 'fw-bold'"
+                        th:title="${lm.massaVolumicaManual} ? 'Escrito à mão no planeamento' : 'Da última análise à maturação'"
+                        th:text="${lm.massaVolumica != null ? lm.massaVolumica : '—'}"></td>
+                    <td class="text-end" style="background:#faf6f4;" th:classappend="${lm.phManual} ? 'fw-bold'"
+                        th:title="${lm.phManual} ? 'Escrito à mão no planeamento' : 'Da última análise à maturação'"
+                        th:text="${lm.ph != null ? lm.ph : '—'}"></td>
+                    <td class="text-end" style="background:#faf6f4;" sec:authorize="hasRole('ADMIN')">
+                        <button class="btn btn-sm btn-outline-secondary py-0" type="button"
+                                th:attr="onclick='alternarLinha(\'analise-linha-' + ${lm.linha.id} + '\')'"
+                                title="Escrever à mão a massa volúmica e o pH desta parcela">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                    </td>
                 </tr>
-                <tr th:if="${vm.linhas.isEmpty()}"><td colspan="10" class="text-center text-muted py-3">Vinho sem parcelas.</td></tr>
+                <tr sec:authorize="hasRole('ADMIN')" class="d-none" th:id="'analise-linha-' + ${lm.linha.id}">
+                    <td colspan="11" class="bg-light">
+                        <form th:action="@{/planeamento/linha/{lid}/analise(lid=${lm.linha.id})}" method="post"
+                              class="row g-2 align-items-end">
+                            <div class="col-auto small text-muted pb-1">
+                                <i class="bi bi-pencil-square"></i>
+                                <span th:text="${lm.linha.parcela != null ? (lm.linha.parcela.nome ?: lm.linha.parcela.identificacao ?: 'Parcela') : 'Parcela'}"></span>
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label small mb-0">Massa volúmica (g/L)</label>
+                                <input type="number" step="0.01" min="0" name="massaVolumica"
+                                       class="form-control form-control-sm text-end" style="max-width:140px;"
+                                       th:value="${lm.linha.massaVolumica}">
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label small mb-0">pH</label>
+                                <input type="number" step="0.01" min="0" max="14" name="ph"
+                                       class="form-control form-control-sm text-end" style="max-width:100px;"
+                                       th:value="${lm.linha.ph}">
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-sm btn-success"><i class="bi bi-check-lg"></i> Guardar</button>
+                            </div>
+                            <div class="col-12 form-text">
+                                Deixe vazio para voltar a mostrar o valor da análise à maturação.
+                            </div>
+                        </form>
+                    </td>
+                </tr>
+                </th:block>
+                <tr th:if="${vm.linhas.isEmpty()}"><td colspan="11" class="text-center text-muted py-3">Vinho sem parcelas.</td></tr>
                 </tbody>
                 <tfoot th:if="${!vm.linhas.isEmpty()}">
                 <tr class="table-light fw-bold">
@@ -79,6 +124,7 @@
                     <td></td>
                     <td class="text-end"><span th:text="${vm.plano.totalLitrosPrevistos}"></span> L</td>
                     <td colspan="3"></td>
+                    <td sec:authorize="hasRole('ADMIN')"></td>
                 </tr>
                 </tfoot>
             </table>
@@ -92,5 +138,12 @@
 </div>
 
 <div th:replace="~{fragments/layout :: scripts}"></div>
+<script>
+    /** Abre/fecha a linha de edicao da massa volumica e do pH de uma parcela. */
+    function alternarLinha(id) {
+        const tr = document.getElementById(id);
+        if (tr) tr.classList.toggle('d-none');
+    }
+</script>
 </body>
 </html>

@@ -234,6 +234,75 @@ public class MoagemController {
         return "redirect:/processos/moagem";
     }
 
+    /**
+     * Corrige a análise de um enchimento: álcool provável, massa volúmica e pH.
+     * Só o administrador. Ao contrário do resto da moagem, funciona também com a
+     * moagem <b>fechada</b> — é a correção típica de quem recebe o boletim do
+     * laboratório depois de o mosto já estar na talha. Nesse caso o valor é
+     * escrito também na ficha de mosto gerada, para não ficarem os dois a
+     * discordar. Volumes e Kg não se tocam, por isso não é preciso reabrir.
+     */
+    @PostMapping("/enchimento/{id}/analise")
+    @Transactional
+    public String analiseEnchimento(@PathVariable Long id,
+                                    @RequestParam(required = false) BigDecimal alcoolProvavel,
+                                    @RequestParam(required = false) BigDecimal massaVolumica,
+                                    @RequestParam(required = false) BigDecimal ph,
+                                    Authentication auth, RedirectAttributes ra) {
+        if (!isAdmin(auth)) {
+            ra.addFlashAttribute("erro", "Apenas o administrador pode corrigir a análise do enchimento.");
+            return "redirect:/processos/moagem";
+        }
+        Enchimento e = enchimentoRepo.findById(id).orElse(null);
+        if (e == null) {
+            ra.addFlashAttribute("erro", "Enchimento não encontrado.");
+            return "redirect:/processos/moagem";
+        }
+        e.setAlcoolProvavel(alcoolProvavel);
+        e.setMassaVolumica(massaVolumica);
+        e.setPh(ph);
+        enchimentoRepo.save(e);
+
+        Mosto mosto = mostoGerado(e);
+        if (mosto != null) {
+            mosto.setAlcoolProvavel(alcoolProvavel);
+            mosto.setMassaVolumica(massaVolumica);
+            mosto.setPh(ph);
+            mostoRepo.save(mosto);
+            ra.addFlashAttribute("sucesso", "Análise atualizada, também na ficha de mosto " + mosto.getCodigo() + ".");
+        } else {
+            ra.addFlashAttribute("sucesso", "Análise do enchimento atualizada.");
+        }
+        return "redirect:/processos/moagem";
+    }
+
+    /**
+     * Ficha de mosto que saiu deste enchimento, se a moagem já fechou. As fichas
+     * novas guardam o id do enchimento; para as antigas (geradas antes de esse
+     * id existir) tenta-se o recipiente + litros, e só se a correspondência for
+     * única — na dúvida não se mexe em ficha nenhuma.
+     */
+    private Mosto mostoGerado(Enchimento e) {
+        if (e.getMoagem() == null || e.getMoagem().isAberto()) return null;
+        List<Mosto> gerados = mostoRepo.findByOrigemMoagemId(e.getMoagem().getId());
+        for (Mosto m : gerados) {
+            if (e.getId().equals(m.getOrigemEnchimentoId())) return m;
+        }
+        Long talhaId = e.getTalha() != null ? e.getTalha().getId() : null;
+        Long depositoId = e.getDeposito() != null ? e.getDeposito().getId() : null;
+        List<Mosto> iguais = new ArrayList<>();
+        for (Mosto m : gerados) {
+            if (m.getOrigemEnchimentoId() != null) continue;
+            Long mTalha = m.getTalha() != null ? m.getTalha().getId() : null;
+            Long mDeposito = m.getDeposito() != null ? m.getDeposito().getId() : null;
+            if (!Objects.equals(talhaId, mTalha) || !Objects.equals(depositoId, mDeposito)) continue;
+            if (e.getLitros() == null || m.getLitros() == null
+                    || e.getLitros().compareTo(m.getLitros()) != 0) continue;
+            iguais.add(m);
+        }
+        return iguais.size() == 1 ? iguais.get(0) : null;
+    }
+
     @PostMapping("/enchimento/{id}/eliminar")
     @Transactional
     public String eliminarEnchimento(@PathVariable Long id, RedirectAttributes ra) {
