@@ -86,6 +86,9 @@ public class MoagemController {
 
         List<Map<String, Object>> vindimas = new ArrayList<>();
         List<Map<String, Object>> colheitas = new ArrayList<>();
+        // As parcelas que ainda tem uva por moer, para tambem as oferecer as
+        // moagens ja abertas — nao so' ao formulario de moagem nova.
+        List<LinhaPlaneamentoParcela> comUvaPorMoer = new ArrayList<>();
         // Parcelas que ficaram de fora e porque. Sem isto, uma parcela que nao
         // aparece nao tem explicacao nenhuma no ecra — e a meio da vindima e'
         // exatamente quando nao ha' tempo para andar a adivinhar.
@@ -126,6 +129,7 @@ public class MoagemController {
                 m.put("disponivel", disponivel.toPlainString());
                 m.put("texto", textoSaldo(disponivel));
                 vindimas.add(m);
+                comUvaPorMoer.add(l);
                 colheitas.addAll(colheitasDaParcela(l, parc, casta, p.getNomeVinho(), rastreio));
             }
         }
@@ -158,20 +162,28 @@ public class MoagemController {
             if (!mo.isAberto()) continue;
             List<Map<String, Object>> linhas = new ArrayList<>();
             List<Map<String, Object>> cols = new ArrayList<>();
+            Set<Long> jaNaMoagem = new HashSet<>();
+            mo.getVindimas().forEach(l -> jaNaMoagem.add(l.getId()));
+
+            // 1) As parcelas que a moagem ja tem. Aparecem sempre, mesmo sem uva
+            //    por moer, para se ver o estado do que ja se moeu aqui.
             for (LinhaPlaneamentoParcela l : mo.getVindimas()) {
-                BigDecimal moido = usado.getOrDefault(l.getId(), BigDecimal.ZERO);
-                String casta = l.getParcela() != null && l.getParcela().getCasta() != null
-                        ? l.getParcela().getCasta().getNome() : "—";
-                Map<String, Object> v = new LinkedHashMap<>();
-                v.put("id", l.getId());
-                v.put("label", l.getEtiqueta());
-                v.put("casta", casta);
-                BigDecimal disp = l.getTotalVindimadoKg().subtract(moido);
-                v.put("disponivel", disp.toPlainString());
-                v.put("texto", textoSaldo(disp));
-                linhas.add(v);
-                cols.addAll(colheitasDaParcela(l, nomeParcela(l), casta,
+                linhas.add(parcelaDaMoagem(l, usado, true));
+                cols.addAll(colheitasDaParcela(l, nomeParcela(l), castaDe(l),
                         l.getPlaneamento() != null ? l.getPlaneamento().getNomeVinho() : null, rastreio));
+            }
+            // 2) E o resto da uva por moer entregue na mesma adega. Sem isto, uma
+            //    moagem aberta so' conseguia moer as parcelas escolhidas quando
+            //    foi criada — uva colhida ou corrigida depois nunca la chegava.
+            Long adegaMo = mo.getAdega() != null ? mo.getAdega().getId() : null;
+            if (adegaMo != null) {
+                for (LinhaPlaneamentoParcela l : comUvaPorMoer) {
+                    if (jaNaMoagem.contains(l.getId())) continue;
+                    if (l.getAdegaEntrega() == null || !adegaMo.equals(l.getAdegaEntrega().getId())) continue;
+                    linhas.add(parcelaDaMoagem(l, usado, false));
+                    cols.addAll(colheitasDaParcela(l, nomeParcela(l), castaDe(l),
+                            l.getPlaneamento() != null ? l.getPlaneamento().getNomeVinho() : null, rastreio));
+                }
             }
             vindimasPorMoagem.put(mo.getId(), linhas);
             colheitasPorMoagem.put(mo.getId(), cols);
@@ -214,6 +226,31 @@ public class MoagemController {
             out.add(c);
         }
         return out;
+    }
+
+    /**
+     * Uma parcela na tabela de uma moagem aberta. {@code naMoagem} distingue as
+     * que a moagem ja tinha das que sao oferecidas por estarem na mesma adega —
+     * estas ultimas so' se juntam a moagem se o utilizador moer alguma coisa delas.
+     */
+    private Map<String, Object> parcelaDaMoagem(LinhaPlaneamentoParcela l, Map<Long, BigDecimal> usado,
+                                                boolean naMoagem) {
+        BigDecimal moido = usado.getOrDefault(l.getId(), BigDecimal.ZERO);
+        BigDecimal disp = l.getTotalVindimadoKg().subtract(moido);
+        Map<String, Object> v = new LinkedHashMap<>();
+        v.put("id", l.getId());
+        v.put("label", l.getEtiqueta());
+        v.put("casta", castaDe(l));
+        v.put("vinho", l.getPlaneamento() != null ? l.getPlaneamento().getNomeVinho() : null);
+        v.put("naMoagem", naMoagem);
+        v.put("disponivel", disp.toPlainString());
+        v.put("texto", textoSaldo(disp));
+        return v;
+    }
+
+    private String castaDe(LinhaPlaneamentoParcela l) {
+        return l.getParcela() != null && l.getParcela().getCasta() != null
+                ? l.getParcela().getCasta().getNome() : "—";
     }
 
     /** Uma parcela que nao aparece na moagem, com a razao em linguagem corrente. */
@@ -599,6 +636,15 @@ public class MoagemController {
             avisos.addAll(excessos(e, usado, usadoColheita));
             e.setMoagem(m);
             m.getEnchimentos().add(e);
+            // Juntar a moagem as parcelas de onde a uva saiu. Sem isto, moer de
+            // uma parcela que nao foi escolhida quando a moagem foi criada
+            // gravava o enchimento mas deixava-a de fora dos totais da moagem.
+            for (EnchimentoVindima o : e.getOrigens()) {
+                if (o.getLinha() == null) continue;
+                boolean ja = m.getVindimas().stream()
+                        .anyMatch(x -> x.getId() != null && x.getId().equals(o.getLinha().getId()));
+                if (!ja) m.getVindimas().add(o.getLinha());
+            }
         }
         return avisos.isEmpty() ? null : String.join(" ", avisos);
     }

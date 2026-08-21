@@ -31,4 +31,13 @@ public class ContadorCodigo {
     public long proximo() {
         return ++this.ultimoValor;
     }
+
+    /**
+     * Puxa o contador para a frente ate ao valor indicado. Serve para o por a
+     * par dos codigos que ja existem, quando por alguma razao ficou atras —
+     * nunca anda para tras, senao voltaria a gerar codigos repetidos.
+     */
+    public void naoFicarAtrasDe(long valor) {
+        if (valor > this.ultimoValor) this.ultimoValor = valor;
+    }
 }
