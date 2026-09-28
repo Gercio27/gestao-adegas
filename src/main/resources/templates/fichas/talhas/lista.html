@@ -18,6 +18,7 @@
             <table class="table table-hover mb-0 align-middle">
                 <thead>
                 <tr><th>Código</th><th>Identificação</th><th>Adega</th><th class="text-end">Capac. (L)</th>
+                    <th class="text-end">Altura (cm)</th><th class="text-end">Boca (cm)</th>
                     <th class="text-end">Volume (L)</th><th class="text-end">Disponível (L)</th><th>Conteúdo — vinho que lá está</th><th>Estado</th><th>Propriedade</th><th class="text-end">Ações</th></tr>
                 </thead>
                 <tbody>
@@ -26,6 +27,8 @@
                     <td><a th:href="@{/fichas/talhas/{id}(id=${t.id})}" th:text="${t.identificacao}"></a></td>
                     <td th:text="${t.adega != null ? t.adega.nome : '—'}"></td>
                     <td class="text-end" th:text="${t.capacidadeLitros}"></td>
+                    <td class="text-end" th:text="${t.alturaCm != null ? t.alturaCm : '—'}"></td>
+                    <td class="text-end" th:text="${t.diametroBocaCm != null ? t.diametroBocaCm : '—'}"></td>
                     <td class="text-end" th:text="${t.volumeAtualLitros}"></td>
                     <td class="text-end" th:text="${t.disponivelLitros != null ? t.disponivelLitros : '—'}"></td>
                     <td class="small" style="max-width:320px;">
@@ -59,7 +62,7 @@
                         </form>
                     </td>
                 </tr>
-                <tr th:if="${talhas.isEmpty()}"><td colspan="10" class="text-center text-muted py-4">Sem talhas registadas.</td></tr>
+                <tr th:if="${talhas.isEmpty()}"><td colspan="12" class="text-center text-muted py-4">Sem talhas registadas.</td></tr>
                 </tbody>
             </table>
         </div>

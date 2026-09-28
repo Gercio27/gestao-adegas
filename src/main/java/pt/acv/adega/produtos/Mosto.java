@@ -102,6 +102,13 @@ public class Mosto extends BaseEntity {
     public BigDecimal getPh() { return ph; }
     public void setPh(BigDecimal ph) { this.ph = ph; }
 
+    /** Temperatura (ºC) a que o pH foi lido, vinda da moagem (por enchimento). */
+    @Column(name = "temperatura", precision = 5, scale = 2)
+    private BigDecimal temperatura;
+
+    public BigDecimal getTemperatura() { return temperatura; }
+    public void setTemperatura(BigDecimal temperatura) { this.temperatura = temperatura; }
+
     /** Enchimento da moagem que originou esta ficha (para corrigir os valores depois de fechar). */
     @Column(name = "origem_enchimento_id")
     private Long origemEnchimentoId;

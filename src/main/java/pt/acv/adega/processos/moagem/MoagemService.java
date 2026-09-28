@@ -104,6 +104,7 @@ public class MoagemService {
             mosto.setAlcoolProvavel(e.getAlcoolProvavel());
             mosto.setMassaVolumica(e.getMassaVolumica());
             mosto.setPh(e.getPh());
+            mosto.setTemperatura(e.getTemperatura());
             // Guarda de que enchimento veio, para o admin poder corrigir os
             // valores da analise depois de a moagem estar fechada.
             mosto.setOrigemEnchimentoId(e.getId());

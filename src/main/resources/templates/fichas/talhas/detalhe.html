@@ -20,6 +20,10 @@
                 <span th:if="${talha.vazia}" class="badge bg-secondary">Vazia</span>
                 <span th:unless="${talha.vazia}" class="badge bg-success">Ocupada</span>
             </p>
+            <p class="text-muted small mb-0"
+               th:if="${talha.alturaCm != null or talha.diametroBocaCm != null}">
+                <i class="bi bi-rulers"></i> <span th:text="${talha.medidasDescricao}"></span>
+            </p>
         </div>
         <div class="d-flex gap-2">
             <a th:href="@{/fichas/talhas/{id}/editar(id=${talha.id})}" class="btn btn-outline-secondary btn-sm">

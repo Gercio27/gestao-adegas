@@ -44,6 +44,8 @@
     <table>
         <tr><td class="l">Adega</td><td class="v" th:text="${adega ?: '—'}">—</td></tr>
         <tr><td class="l">Capacidade</td><td class="v"><span th:text="${capacidade ?: '—'}"></span> L</td></tr>
+        <tr th:if="${altura != null}"><td class="l">Altura</td><td class="v"><span th:text="${altura}"></span> cm</td></tr>
+        <tr th:if="${diametroBoca != null}"><td class="l">Diâmetro da boca</td><td class="v"><span th:text="${diametroBoca}"></span> cm</td></tr>
         <tr><td class="l">Volume atual</td><td class="v"><span th:text="${volume}"></span> L</td></tr>
         <tr><td class="l">Propriedade</td><td class="v" th:text="${propriedade}">Próprio</td></tr>
     </table>

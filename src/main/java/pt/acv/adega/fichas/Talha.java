@@ -29,6 +29,14 @@ public class Talha extends BaseEntity {
     @Column(precision = 12, scale = 2)
     private BigDecimal capacidadeLitros;
 
+    /** Altura da talha (cm). Medida fisica, para a caracterizar na ficha. */
+    @Column(name = "altura_cm", precision = 8, scale = 2)
+    private BigDecimal alturaCm;
+
+    /** Diametro da boca da talha (cm). */
+    @Column(name = "diametro_boca_cm", precision = 8, scale = 2)
+    private BigDecimal diametroBocaCm;
+
     @Column(precision = 12, scale = 2, nullable = false)
     private BigDecimal volumeAtualLitros = BigDecimal.ZERO;
 
@@ -48,6 +56,12 @@ public class Talha extends BaseEntity {
     public BigDecimal getCapacidadeLitros() { return capacidadeLitros; }
     public void setCapacidadeLitros(BigDecimal capacidadeLitros) { this.capacidadeLitros = capacidadeLitros; }
 
+    public BigDecimal getAlturaCm() { return alturaCm; }
+    public void setAlturaCm(BigDecimal alturaCm) { this.alturaCm = alturaCm; }
+
+    public BigDecimal getDiametroBocaCm() { return diametroBocaCm; }
+    public void setDiametroBocaCm(BigDecimal diametroBocaCm) { this.diametroBocaCm = diametroBocaCm; }
+
     public BigDecimal getVolumeAtualLitros() { return volumeAtualLitros; }
     public void setVolumeAtualLitros(BigDecimal volumeAtualLitros) { this.volumeAtualLitros = volumeAtualLitros; }
 
@@ -61,6 +75,18 @@ public class Talha extends BaseEntity {
     @Transient
     public boolean isVazia() {
         return volumeAtualLitros == null || volumeAtualLitros.signum() == 0;
+    }
+
+    /** Medidas juntas para mostrar de relance: "Alt. 180 cm · boca 70 cm". */
+    @Transient
+    public String getMedidasDescricao() {
+        StringBuilder sb = new StringBuilder();
+        if (alturaCm != null) sb.append("Alt. ").append(alturaCm.toPlainString()).append(" cm");
+        if (diametroBocaCm != null) {
+            if (sb.length() > 0) sb.append(" · ");
+            sb.append("boca ").append(diametroBocaCm.toPlainString()).append(" cm");
+        }
+        return sb.length() == 0 ? "—" : sb.toString();
     }
 
     /** Litros que ainda cabem (capacidade - volume atual). Vazio se nao houver capacidade definida. */

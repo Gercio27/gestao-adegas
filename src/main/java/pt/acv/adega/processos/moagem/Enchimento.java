@@ -57,6 +57,13 @@ public class Enchimento {
     private BigDecimal ph;
 
     /**
+     * Temperatura (ºC) a que o pH foi medido — o pH lê-se sempre a uma dada
+     * temperatura, por isso anda a par dele. Passa para a ficha de mosto.
+     */
+    @Column(name = "temperatura", precision = 5, scale = 2)
+    private BigDecimal temperatura;
+
+    /**
      * Casta principal (a primeira do lote). Mantida por compatibilidade com os
      * ecrãs que mostram uma casta; para o conjunto completo usar {@link #castas}.
      */
@@ -120,6 +127,9 @@ public class Enchimento {
 
     public BigDecimal getPh() { return ph; }
     public void setPh(BigDecimal ph) { this.ph = ph; }
+
+    public BigDecimal getTemperatura() { return temperatura; }
+    public void setTemperatura(BigDecimal temperatura) { this.temperatura = temperatura; }
 
     public Casta getCasta() { return casta; }
     public void setCasta(Casta casta) { this.casta = casta; }

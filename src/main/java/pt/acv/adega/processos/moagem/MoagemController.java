@@ -392,7 +392,8 @@ public class MoagemController {
     }
 
     /**
-     * Corrige a análise de um enchimento: álcool provável, massa volúmica e pH.
+     * Corrige a análise de um enchimento: álcool provável, massa volúmica, pH e
+     * a temperatura a que o pH foi lido.
      * Só o administrador. Ao contrário do resto da moagem, funciona também com a
      * moagem <b>fechada</b> — é a correção típica de quem recebe o boletim do
      * laboratório depois de o mosto já estar na talha. Nesse caso o valor é
@@ -405,6 +406,7 @@ public class MoagemController {
                                     @RequestParam(required = false) BigDecimal alcoolProvavel,
                                     @RequestParam(required = false) BigDecimal massaVolumica,
                                     @RequestParam(required = false) BigDecimal ph,
+                                    @RequestParam(required = false) BigDecimal temperatura,
                                     Authentication auth, RedirectAttributes ra) {
         if (!isAdmin(auth)) {
             ra.addFlashAttribute("erro", "Apenas o administrador pode corrigir a análise do enchimento.");
@@ -418,6 +420,7 @@ public class MoagemController {
         e.setAlcoolProvavel(alcoolProvavel);
         e.setMassaVolumica(massaVolumica);
         e.setPh(ph);
+        e.setTemperatura(temperatura);
         enchimentoRepo.save(e);
 
         Mosto mosto = mostoGerado(e);
@@ -425,6 +428,7 @@ public class MoagemController {
             mosto.setAlcoolProvavel(alcoolProvavel);
             mosto.setMassaVolumica(massaVolumica);
             mosto.setPh(ph);
+            mosto.setTemperatura(temperatura);
             mostoRepo.save(mosto);
             ra.addFlashAttribute("sucesso", "Análise atualizada, também na ficha de mosto " + mosto.getCodigo() + ".");
         } else {

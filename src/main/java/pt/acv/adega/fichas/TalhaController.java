@@ -45,6 +45,8 @@ public class TalhaController {
         model.addAttribute("identificacao", t.getIdentificacao());
         model.addAttribute("adega", t.getAdega() != null ? t.getAdega().getNome() : null);
         model.addAttribute("capacidade", t.getCapacidadeLitros());
+        model.addAttribute("altura", t.getAlturaCm());
+        model.addAttribute("diametroBoca", t.getDiametroBocaCm());
         model.addAttribute("volume", t.getVolumeAtualLitros());
         model.addAttribute("propriedade", t.getPropriedade().getDescricao());
         model.addAttribute("conteudos", mostoRepo.findByTalhaId(id));
