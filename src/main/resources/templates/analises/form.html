@@ -36,7 +36,7 @@
             <div class="col-12"><span id="sel-hint" class="text-danger small"></span></div>
 
             <div class="col-12">
-                <label class="form-label">Onde está (talhas/depósitos e quantidades)</label>
+                <label class="form-label">Talha / depósito a analisar *</label>
                 <div class="border rounded p-2" id="recip-box"><span class="text-muted small">Escolha o local e o vinho.</span></div>
             </div>
 
@@ -112,18 +112,50 @@
             document.getElementById('recipientesDescricao').value = '';
             return;
         }
-        box.innerHTML = '<ul class="mb-0">' + recs.map(function (r) {
-            return '<li>' + esc(r.local) + ' — ' + esc(r.litros) + ' L <span class="text-muted small">(' + esc(r.codigo) + ')</span></li>';
-        }).join('') + '</ul>';
-        document.getElementById('recipientesDescricao').value = recs.map(function (r) {
-            return r.local + ': ' + r.litros + ' L (' + r.codigo + ')';
-        }).join('; ');
+        if (recs.length === 1) {
+            box.innerHTML = '<div class="py-1"><strong>' + esc(recs[0].local) + '</strong> — '
+                + esc(recs[0].litros) + ' L <span class="text-muted small">(' + esc(recs[0].codigo) + ')</span></div>';
+            document.getElementById('recipientesDescricao').value =
+                recs[0].local + ': ' + recs[0].litros + ' L (' + recs[0].codigo + ')';
+            return;
+        }
+        box.innerHTML = recs.map(function (r, i) {
+            var id = 'rec-' + i;
+            return '<div class="form-check py-1">'
+                + '<input class="form-check-input" type="radio" name="recip-radio" id="' + id + '" value="' + i + '" onchange="selecionarRecipiente()">'
+                + '<label class="form-check-label" for="' + id + '">'
+                + '<strong>' + esc(r.local) + '</strong> — ' + esc(r.litros) + ' L '
+                + '<span class="text-muted small">(' + esc(r.codigo) + ')</span>'
+                + '</label></div>';
+        }).join('');
+        document.getElementById('recipientesDescricao').value = '';
+    }
+    function selecionarRecipiente() {
+        const d = dadosAtuais();
+        const adega = document.getElementById('sel-adega').value;
+        const vinho = document.getElementById('sel-vinho').value;
+        const recs = d.recipientes[adega + '|' + vinho] || [];
+        const sel = document.querySelector('input[name="recip-radio"]:checked');
+        if (!sel) { document.getElementById('recipientesDescricao').value = ''; return; }
+        const r = recs[parseInt(sel.value)];
+        document.getElementById('recipientesDescricao').value = r.local + ': ' + r.litros + ' L (' + r.codigo + ')';
     }
 
     document.addEventListener('DOMContentLoaded', function () {
         const cat = document.getElementById('cat');
         cat.value = categoriaComDados(cat.value);
         popularAdegas();
+        document.querySelector('form').addEventListener('submit', function (ev) {
+            if (!document.getElementById('recipientesDescricao').value) {
+                ev.preventDefault();
+                var radios = document.querySelectorAll('input[name="recip-radio"]');
+                if (radios.length) {
+                    alert('Escolha a talha / depósito a analisar.');
+                } else {
+                    alert('Escolha primeiro o local e o vinho.');
+                }
+            }
+        });
     });
 </script>
 </body>
